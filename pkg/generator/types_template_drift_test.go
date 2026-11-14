@@ -361,3 +361,42 @@ func TestGenerator_TargetNamespaceMethod_IsDocumentedAtEverySite(t *testing.T) {
 				"func (t "+name+") TargetNamespace() string {\n\treturn \"http://example.com/x\"\n}", name)
 	}
 }
+
+func TestGenerator_ExtensionSequenceElement_InlineComplexTypeWinsOverTypeAttribute(t *testing.T) {
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Base"><xsd:sequence><xsd:element name="baseId" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:complexType name="Plain">
+                <xsd:sequence>
+                    <xsd:element name="both" type="xsd:string">
+                        <xsd:complexType><xsd:sequence><xsd:element name="z" type="xsd:int"/></xsd:sequence></xsd:complexType>
+                    </xsd:element>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:complexType name="Derived">
+                <xsd:complexContent>
+                    <xsd:extension base="tns:Base">
+                        <xsd:sequence>
+                            <xsd:element name="both" type="xsd:string">
+                                <xsd:complexType><xsd:sequence><xsd:element name="z" type="xsd:int"/></xsd:sequence></xsd:complexType>
+                            </xsd:element>
+                        </xsd:sequence>
+                    </xsd:extension>
+                </xsd:complexContent>
+            </xsd:complexType>
+        </xsd:schema>
+    </types>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+	types := string(formatted)
+
+	assert.Regexp(t, `\sBoth PlainBothType .xml:"both,omitempty" json:"both,`, structBody(t, types, "Plain"))
+	assert.Regexp(t, `\sBoth DerivedBothType .xml:"both,omitempty" json:"both,`, structBody(t, types, "Derived"),
+		"an extension sequence must resolve an element the same way a plain sequence does")
+}

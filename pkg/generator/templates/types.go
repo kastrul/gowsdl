@@ -176,7 +176,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{$complexType := .}}
 	{{with $complexType.ComplexContent}}
 		{{template "ExtensionBase" .}}
-		{{template "Elements" .Extension.Sequence}}
+		{{template "ElementFields" .Extension.Sequence}}
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 
@@ -220,7 +220,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 		{{end}}
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
-			{{template "Elements" .Extension.Sequence}}
+			{{template "ElementFields" .Extension.Sequence}}
 			{{template "AttributeFields" .Extension.Attributes}}
 		{{end}}
 		{{with .SimpleContent}}
@@ -475,26 +475,6 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 						{{end}}
 					}
 				{{end}}
-			{{end}}
-		{{end}}
-	{{end}}
-{{end}}
-
-{{define "Elements"}}
-	{{range .}}
-		{{if ne .Ref ""}}
-			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-		{{else}}
-			{{if not .Type}}
-				{{if .ComplexType}}
-					{{template "InlineComplexField" .}}
-				{{else if .SimpleType}}
-					{{template "InlineSimpleField" .}}
-				{{else}}
-					{{template "UntypedField" .}}
-				{{end}}
-			{{else}}
-				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
