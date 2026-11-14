@@ -76,7 +76,7 @@ Usage: gowsdl [options] myservice.wsdl
   -tls-min-version string
     	Minimum TLS version (1.0, 1.1, 1.2, 1.3) (default "1.2")
   -use-generics
-    	Generate code using Go generics (requires Go 1.18+)
+    	Generate code using Go generics (requires Go 1.27+)
   -v	Shows gowsdl version
 ```
 
@@ -106,9 +106,9 @@ g, err := gowsdl.NewGoWSDL("myservice.wsdl",
 
 ### Go Generics Support
 
-Starting with Go 1.18, gowsdl can generate code that uses generics for type-safe SOAP operations. This feature provides:
+gowsdl can generate code that uses generics for type-safe SOAP operations. The generated code calls generic methods, so it needs Go 1.27 or newer. This feature provides:
 
-* An extra `<Operation>Generic` method per operation, backed by `soap.GenericClient[TReq, TResp]`
+* An extra `<Operation>Generic` method per operation, backed by `soap.Client.CallResult`
 * A `soap.Result[T]` return value that separates successful responses from SOAP faults and transport errors
 * Backward compatibility: the standard methods are generated unchanged, and nothing generic is generated without the flag
 

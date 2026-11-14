@@ -44,7 +44,7 @@ func TestGenericCodeGeneration(t *testing.T) {
 			checkNotContent: []string{
 				"Generic",
 				"soap.Result[",
-				"CallAsResult",
+				"CallResult",
 			},
 		},
 		{
@@ -55,10 +55,11 @@ func TestGenericCodeGeneration(t *testing.T) {
 				"type UserServicePortType interface",
 				"GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)",
 				"GetUserGeneric(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)",
-				"getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]",
-				`soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`,
-				"service.getUserClient.CallAsResult(ctx, *request)",
+				`service.client.CallResult[GetUserResponse](ctx, "GetUser", request)`,
 				"soap.ErrNilRequest",
+			},
+			checkNotContent: []string{
+				"GenericClient",
 			},
 		},
 		{
@@ -68,13 +69,12 @@ func TestGenericCodeGeneration(t *testing.T) {
 			checkContent: []string{
 				"type UserServicePortType interface",
 				"GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)",
-				"getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]",
-				`soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`,
-				"service.getUserClient.CallAsResult(ctx, *request)",
+				`service.client.CallResult[GetUserResponse](ctx, "GetUser", request)`,
 			},
 			checkNotContent: []string{
 				"GetUserGeneric",
 				"(*GetUserResponse, error)",
+				"GenericClient",
 			},
 		},
 	}
@@ -136,8 +136,7 @@ func TestGenericClientUsage(t *testing.T) {
 	require.NoError(t, err)
 
 	operationsCode := string(code["operations"])
-	assert.Contains(t, operationsCode, "soap.GenericClient")
 	assert.Contains(t, operationsCode, "soap.Result[")
-	assert.Contains(t, operationsCode, "CallAsResult")
-	assert.Contains(t, operationsCode, "soap.NewGenericClientFromClient")
+	assert.Contains(t, operationsCode, "service.client.CallResult[GetUserResponse]")
+	assert.NotContains(t, operationsCode, "GenericClient")
 }

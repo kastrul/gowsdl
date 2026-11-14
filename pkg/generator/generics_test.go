@@ -106,11 +106,9 @@ func generateOperations(t *testing.T, wsdl string, opts ...Option) string {
 func TestGenerator_Generics_WSDL11(t *testing.T) {
 	genericSnippets := []string{
 		"GetUserGeneric(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)",
-		"getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]",
-		`getUserClient: soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`,
 		"func (service *userServicePortType) GetUserGeneric(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)",
 		"return soap.Result[GetUserResponse]{}, soap.ErrNilRequest",
-		"return service.getUserClient.CallAsResult(ctx, *request), nil",
+		"return service.client.CallResult[GetUserResponse](ctx, \"GetUser\", request), nil",
 	}
 	standardSnippet := "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)"
 
@@ -120,6 +118,7 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 		for _, s := range genericSnippets {
 			assert.Contains(t, code, s)
 		}
+		assert.NotContains(t, code, "GenericClient")
 	})
 
 	t.Run("disabled", func(t *testing.T) {
@@ -135,7 +134,7 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 
 		code := generateOperations(t, rpcWSDL, WithGenerics())
 		assert.Contains(t, code, standardSnippet)
-		assert.NotContains(t, code, "GenericClient")
+		assert.NotContains(t, code, "CallResult")
 		assert.NotContains(t, code, "GetUserGeneric")
 	})
 
@@ -143,8 +142,8 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 		code := generateOperations(t, genericTestWSDL, WithGenericsOnly())
 		assert.Contains(t, code, "GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
 		assert.Contains(t, code, "func (service *userServicePortType) GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
-		assert.Contains(t, code, "getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]")
-		assert.Contains(t, code, "return service.getUserClient.CallAsResult(ctx, *request), nil")
+		assert.Contains(t, code, `return service.client.CallResult[GetUserResponse](ctx, "GetUser", request), nil`)
+		assert.NotContains(t, code, "GenericClient")
 		assert.NotContains(t, code, "GetUserGeneric")
 		assert.NotContains(t, code, "(*GetUserResponse, error)")
 	})
@@ -154,7 +153,7 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 
 		code := generateOperations(t, rpcWSDL, WithGenericsOnly())
 		assert.Contains(t, code, standardSnippet)
-		assert.NotContains(t, code, "GenericClient")
+		assert.NotContains(t, code, "CallResult")
 		assert.NotContains(t, code, "soap.Result[")
 	})
 }
@@ -177,6 +176,75 @@ func TestGenerator_Generics_DocCommentStaysAttached(t *testing.T) {
 			formatted, err := format.Source([]byte("package test\n" + code))
 			require.NoError(t, err)
 			assert.Contains(t, string(formatted), "// Fetches a user.\n\tGetUser(ctx context.Context")
+		})
+	}
+}
+
+const genericClientRoundTripTest = `package usergen
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/kastrul/gowsdl/soap"
+)
+
+func TestGenericOperationRoundTrip(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if !strings.Contains(r.Header.Get("SOAPAction"), "GetUser") {
+			t.Errorf("SOAPAction = %q, want GetUser", r.Header.Get("SOAPAction"))
+		}
+		if !strings.Contains(string(body), "<userId>7</userId>") {
+			t.Errorf("request body does not contain userId: %s", body)
+		}
+		w.Header().Set("Content-Type", "text/xml")
+		_, _ = w.Write([]byte(` + "`" + `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><GetUserResponse xmlns="http://example.com/test"><user><id>7</id><name>Jane</name></user></GetUserResponse></soap:Body></soap:Envelope>` + "`" + `))
+	}))
+	defer server.Close()
+
+	service := NewUserServicePortType(soap.NewClient(server.URL))
+
+	result, err := service.GENERIC_METHOD(context.Background(), &GetUserRequest{UserId: 7})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsSuccess() {
+		t.Fatalf("unexpected fault: %+v", result.Fault)
+	}
+	if result.Value.User.Id != 7 || result.Value.User.Name != "Jane" {
+		t.Fatalf("unexpected response: %+v", result.Value)
+	}
+
+	if _, err := service.GENERIC_METHOD(context.Background(), nil); err != soap.ErrNilRequest {
+		t.Fatalf("nil request error = %v, want soap.ErrNilRequest", err)
+	}
+}
+`
+
+func TestGenerator_Generics_ClientRoundTrip(t *testing.T) {
+	for name, tc := range map[string]struct {
+		opt    Option
+		method string
+	}{
+		"use-generics":  {WithGenerics(), "GetUserGeneric"},
+		"generics-only": {WithGenericsOnly(), "GetUser"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			wsdlPath := filepath.Join(t.TempDir(), "service.wsdl")
+			require.NoError(t, os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0o600))
+
+			g, err := New(wsdlPath, WithPackage("usergen"), WithExportAllTypes(true), tc.opt)
+			require.NoError(t, err)
+			out, err := g.Generate(context.Background())
+			require.NoError(t, err)
+
+			test := strings.ReplaceAll(genericClientRoundTripTest, "GENERIC_METHOD", tc.method)
+			runGeneratedModuleTests(t, "example.com/usergen", out, map[string]string{"client_test.go": test})
 		})
 	}
 }
