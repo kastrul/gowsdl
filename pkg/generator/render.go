@@ -189,17 +189,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 	funcMap["elementNamespace"] = declNamespaces.element
 	funcMap["complexTypeNamespace"] = declNamespaces.complexType
 
-	// Add function to check if elements should be qualified
-	funcMap["isElementFormQualified"] = func() bool {
-		// Check if any schema has elementFormDefault="qualified"
-		for _, schema := range schemas {
-			if schema.ElementFormDefault == "qualified" {
-				return true
-			}
-		}
-		// Default is unqualified
-		return false
-	}
+	funcMap["isQualified"] = declNamespaces.isQualified
 
 	// Add function to check if an element is a response element
 	funcMap["isResponseElement"] = func(elementName string) bool {

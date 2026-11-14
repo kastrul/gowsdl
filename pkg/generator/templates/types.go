@@ -110,7 +110,7 @@ const TypesTemplate = `
 		{{end}}
 		{{template "Elements" (dict "ParentTypeName" $parentTypeName "Elements" .Extension.Sequence)}}
 		{{range .Extension.Attributes}}
-			{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 		{{end}}
 	{{end}}
 
@@ -192,7 +192,7 @@ const TypesTemplate = `
 		{{if eq .Name "id"}}
 			{{$name = "idAttr"}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 
 	{{if ne (len $complexType.Any) 0}}
@@ -313,7 +313,7 @@ const TypesTemplate = `
 		{{if eq .Name "id"}}
 			{{$name = "idAttr"}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 
 	{{if ne (len .Any) 0}}
@@ -329,7 +329,7 @@ const TypesTemplate = `
 	{{end}}
 	type {{$type}} struct {
 		{{if isMessageElement .Name}}
-			{{if isElementFormQualified}}
+			{{if isQualified .}}
 			XMLName xml.Name ` + "`" + `xml:"{{complexTypeNamespace .}} {{.Name}}"` + "`" + `
 			{{else if isResponseElement .Name}}
 			{{/* Response elements use local name only to handle any namespace prefix */}}
@@ -342,7 +342,7 @@ const TypesTemplate = `
 		{{with .ComplexContent}}
 			{{template "Elements" (dict "ParentTypeName" $.Name "Elements" .Extension.Sequence)}}
 			{{range .Extension.Attributes}}
-				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
+				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 		{{with .SimpleContent}}
@@ -351,13 +351,13 @@ const TypesTemplate = `
 			{{end}}
 			{{range .Extension.Attributes}}
 				
-				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
+				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	}
 	
 	{{if isMessageElement .Name}}
-		{{if not isElementFormQualified}}
+		{{if not (isQualified .)}}
 		// TargetNamespace returns the target namespace for SOAP envelope configuration
 		func (t {{$type}}) TargetNamespace() string {
 			return "{{complexTypeNamespace .}}"
@@ -383,7 +383,7 @@ const TypesTemplate = `
 			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
 			{{range $inline.ComplexType.SimpleContent.Extension.Attributes}}
 				{{$attrName := .Name | replaceReservedWords | makeFieldPublic}}
-				{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{else}}
 			{{/* Pass the parent type name to handle nested inline types */}}
@@ -408,7 +408,7 @@ const TypesTemplate = `
 			{{/* For complex types, use the public version of the type name */}}
 			{{if isComplexType .Type}}
 				type {{$type}} struct {
-					{{if isElementFormQualified}}
+					{{if isQualified .}}
 					XMLName xml.Name ` + "`" + `xml:"{{elementNamespace .}} {{.Name}}"` + "`" + `
 					{{else if isResponseElement .Name}}
 					{{/* Response elements use local name only to handle any namespace prefix */}}
@@ -419,7 +419,7 @@ const TypesTemplate = `
 					{{$goPublicType}}
 				}
 				
-				{{if not isElementFormQualified}}
+				{{if not (isQualified .)}}
 				func (t {{$type}}) TargetNamespace() string {
 					return "{{elementNamespace .}}"
 				}
@@ -465,7 +465,7 @@ const TypesTemplate = `
 				{{template "ComplexType" .ComplexType}}
 			{{else}}
 				type {{$outerType}} struct {
-					{{if isElementFormQualified}}
+					{{if isQualified .}}
 					XMLName xml.Name ` + "`" + `xml:"{{elementNamespace .}} {{.Name}}"` + "`" + `
 					{{else if isResponseElement .Name}}
 					{{/* Response elements use local name only to handle any namespace prefix */}}
@@ -479,12 +479,12 @@ const TypesTemplate = `
 							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
 						{{end}}
 						{{range .Extension.Attributes}}
-							{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 						{{end}}
 					{{end}}
 				}
 
-				{{if not isElementFormQualified}}
+				{{if not (isQualified .)}}
 				func (t {{$outerType}}) TargetNamespace() string {
 					return "{{elementNamespace .}}"
 				}
@@ -530,6 +530,29 @@ const TypesTemplate = `
 
 		// MarshalXML implements xml.Marshaler and writes nothing.
 		func ({{$type}}) MarshalXML(*xml.Encoder, xml.StartElement) error { return nil }
+	{{else if and (isRPCStyleMessage .) (isHeaderMessage .)}}
+		{{$type := replaceReservedWords .Name | makePublic}}
+		// {{$type}} holds the parts of the {{.Name}} SOAP header message. Pass it to
+		// soap.Client.AddHeader: every part set to a non-zero value is sent as its
+		// own header element, and parts left zero are omitted.
+		type {{$type}} struct {
+			{{range .Parts}}
+				{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
+				{{if ne .Type ""}}
+					{{$partType := .Type | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $partType false}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{else if ne .Element ""}}
+					{{$elementType := .Element | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $elementType false}} ` + "`" + `xml:"{{partXMLName .}},omitempty" json:"{{.Name}},omitzero"` + "`" + `
+				{{end}}
+			{{end}}
+		}
+
+		// MarshalXML implements xml.Marshaler. It writes each non-zero part as a
+		// sibling element, with no element for the message itself.
+		func (h {{$type}}) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+			return soap.MarshalParts(e, h)
+		}
 	{{else if isRPCStyleMessage .}}
 		{{$type := replaceReservedWords .Name | makePublic}}
 		type {{$type}} struct {
