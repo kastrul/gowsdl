@@ -67,7 +67,7 @@ An element with an inline simple type always gets the base of its restriction.
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .SimpleType}}
-			{{template "InlineSimpleField" (dict "Element" . "JSON" true)}}
+			{{template "InlineSimpleField" .}}
 		{{else if eq $untyped "string"}}
 			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 		{{else if eq $untyped "name"}}
@@ -84,12 +84,10 @@ An element with an inline simple type always gets the base of its restriction.
 
 {{/*
 InlineSimpleField emits the field of an element with an inline simple type: the
-base of its restriction, or string when it has none (a list or a union). It is
-called with a dict: Element is the element, JSON says whether to emit a json tag.
+base of its restriction, or string when it has none (a list or a union).
 */}}
 {{define "InlineSimpleField"}}
-	{{$el := .Element}}
-	{{$json := .JSON}}
+	{{$el := .}}
 	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
 	{{$memberType := "string"}}
 	{{if $el.SimpleType.Restriction.Base}}
@@ -98,7 +96,7 @@ called with a dict: Element is the element, JSON says whether to emit a json tag
 			{{$memberType = printf "[]%s" $memberType}}
 		{{end}}
 	{{end}}
-	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}},omitempty"{{if $json}} json:"{{$el.Name}},omitempty"{{end}}` + "`" + `
+	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 {{end}}
 
 {{define "InlineComplexField"}}
@@ -483,17 +481,16 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 {{define "Elements"}}
 	{{range .}}
 		{{if ne .Ref ""}}
-			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty"` + "`" + `
+			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 		{{else}}
 			{{if not .Type}}
 				{{if .ComplexType}}
-					{{$inlineTypeName := inlineTypeName .}}
-					{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+					{{template "InlineComplexField" .}}
 				{{else if .SimpleType}}
-					{{template "InlineSimpleField" (dict "Element" . "JSON" false)}}
+					{{template "InlineSimpleField" .}}
 				{{end}}
 			{{else}}
-				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
