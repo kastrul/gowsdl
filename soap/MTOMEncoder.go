@@ -107,7 +107,7 @@ func (e *mtomEncoder) ContentType() string {
 	return fmt.Sprintf(mtomContentType, e.Boundary())
 }
 
-func (e *mtomEncoder) Encode(v interface{}) error {
+func (e *mtomEncoder) Encode(v any) error {
 	binaryFields := make([]reflect.Value, 0)
 	getBinaryFields(v, &binaryFields)
 	enableMTOMMode(binaryFields)
@@ -147,18 +147,17 @@ func (e *mtomEncoder) Encode(v interface{}) error {
 	return nil
 }
 
-func getBinaryFields(data interface{}, fields *[]reflect.Value) {
+func getBinaryFields(data any, fields *[]reflect.Value) {
 	v := reflect.Indirect(reflect.ValueOf(data))
 
 	switch v.Kind() {
 	case reflect.Pointer:
 		getBinaryFields(v.Elem(), fields)
 	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			if !v.Field(i).CanInterface() {
+		for _, f := range v.Fields() {
+			if !f.CanInterface() {
 				continue
 			}
-			f := v.Field(i)
 			if b, ok := f.Interface().(*Binary); ok {
 				if b != nil {
 					*fields = append(*fields, f)
@@ -218,7 +217,7 @@ func newMtomDecoder(r io.Reader, boundary string) *mtomDecoder {
 	return &mtomDecoder{newMultipartDecoder(r, boundary)}
 }
 
-func (d *mtomDecoder) Decode(v interface{}) error {
+func (d *mtomDecoder) Decode(v any) error {
 	packages := make(map[string]*Binary, 0)
 	isRoot := func(contentType string) bool {
 		return strings.HasPrefix(contentType, "application/xop+xml")

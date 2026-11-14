@@ -137,11 +137,11 @@ func TestSOAPCaptureThreadSafety(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	// Launch multiple goroutines making requests concurrently
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		go func(goroutineID int) {
 			defer wg.Done()
 
-			for j := 0; j < requestsPerGoroutine; j++ {
+			for j := range requestsPerGoroutine {
 				soapBody := `<?xml version="1.0"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -212,7 +212,7 @@ func TestSOAPCaptureReset(t *testing.T) {
 	capture := NewSOAPCapture()
 
 	// Add some requests
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		req := &http.Request{
 			Method: "POST",
 			URL:    &url.URL{Scheme: "http", Host: "example.com", Path: "/service"},

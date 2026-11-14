@@ -400,7 +400,7 @@ func TestCodeGenerationConcurrency(t *testing.T) {
 	const goroutines = 5
 	results := make(chan error, goroutines)
 
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
 		go func() {
 			g, err := New(tempFile.Name(), WithPackage("test"))
 			if err != nil {
@@ -424,7 +424,7 @@ func TestCodeGenerationConcurrency(t *testing.T) {
 	}
 
 	// Check all results
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
 		err := <-results
 		assert.NoError(t, err)
 	}

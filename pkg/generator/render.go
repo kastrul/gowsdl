@@ -154,11 +154,11 @@ func (g *Generator) genTypes() ([]byte, error) {
 	}
 
 	// Add dict function for creating template data structures
-	funcMap["dict"] = func(values ...interface{}) (map[string]interface{}, error) {
+	funcMap["dict"] = func(values ...any) (map[string]any, error) {
 		if len(values)%2 != 0 {
 			return nil, fmt.Errorf("dict must have even number of arguments")
 		}
-		dict := make(map[string]interface{})
+		dict := make(map[string]any)
 		for i := 0; i < len(values); i += 2 {
 			key, ok := values[i].(string)
 			if !ok {
@@ -242,7 +242,7 @@ func filterSlice[T any](items []T, keep func(T) bool) []T {
 func (g *Generator) genOperations() ([]byte, error) {
 	// Choose template based on WSDL version
 	var tmplText string
-	var data interface{}
+	var data any
 
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
 		tmplText = templates.OperationsWSDL2Template

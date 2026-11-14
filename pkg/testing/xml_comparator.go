@@ -123,13 +123,13 @@ type XMLNode struct {
 }
 
 // parseToMap converts XML to a structured tree for comparison
-func (xc *XMLComparator) parseToMap(xmlStr string) (map[string]interface{}, error) {
+func (xc *XMLComparator) parseToMap(xmlStr string) (map[string]any, error) {
 	node, err := xc.parseToXMLNode(xmlStr)
 	if err != nil {
 		return nil, err
 	}
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"root": node,
 	}
 
@@ -193,7 +193,7 @@ func (xc *XMLComparator) parseNode(decoder *xml.Decoder, parent *XMLNode) (*XMLN
 }
 
 // compareElements compares two element maps using semantic XML comparison
-func (xc *XMLComparator) compareElements(expected, actual map[string]interface{}, path string) []Difference {
+func (xc *XMLComparator) compareElements(expected, actual map[string]any, path string) []Difference {
 	var diffs []Difference
 
 	// Get root nodes
@@ -404,12 +404,9 @@ func (xc *XMLComparator) compareChildren(expected, actual []*XMLNode, path strin
 func (xc *XMLComparator) compareChildrenOrdered(expected, actual []*XMLNode, path string) []Difference {
 	var diffs []Difference
 
-	maxLen := len(expected)
-	if len(actual) > maxLen {
-		maxLen = len(actual)
-	}
+	maxLen := max(len(actual), len(expected))
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		var childPath string
 
 		if i < len(expected) {
