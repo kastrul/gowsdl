@@ -53,7 +53,7 @@ This directory contains GitHub workflows that implement comprehensive SOAP reque
 
 #### 6. `release.yml` - Release Automation  
 - **Purpose**: Automated releases
-- **Status**: Existing workflow (unchanged)
+- **Triggers**: Pushing a `v*` tag, or running it manually from the Actions tab on `main` with a `version` input (the workflow creates the tag)
 
 ## 🎯 SOAP Validation Integration
 
