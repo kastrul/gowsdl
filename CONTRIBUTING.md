@@ -20,7 +20,7 @@ The open source community covers people from a wide variety of countries, backgr
 * If you want to tackle any open issue, make sure you let people know you are working on it.
 
 ## Development workflow
-Go is unlike any other language in that it forces a specific development workflow and project structure. Trying to fight it is useless, frustrating and time consuming. So, you better be prepare to adapt your workflow when contributing to Go projects.
+The project is a Go module (`go.mod`); clone it anywhere, no `GOPATH` layout is needed.
 
 ### Prerequisites
 * **Go**: To install Go please follow its installation guide at https://golang.org/doc/install
@@ -36,11 +36,10 @@ Go is unlike any other language in that it forces a specific development workflo
 
 ### Workflow for third-party code contributions
 * In Github, fork `https://github.com/kastrul/gowsdl` to your own account
-* Get the package using "go get": `go get github.com/kastrul/gowsdl`
-* Move to where the package was cloned: `cd $GOPATH/src/github.com/kastrul/gowsdl/`
-* Add a git remote pointing to your own fork: `git remote add downstream git@github.com:<your_account>/gowsdl.git`
+* Clone your fork: `git clone git@github.com:<your_account>/gowsdl.git && cd gowsdl`
+* Add a git remote pointing to the upstream repository: `git remote add upstream https://github.com/kastrul/gowsdl.git`
 * Create a branch for making your changes, then commit them.
-* Push changes to downstream repository, this is your own fork: `git push <mybranch> downstream`
+* Push changes to your fork: `git push origin <mybranch>`
 * In Github, from your fork, create the Pull Request and send it upstream.
 * You are done.
 
@@ -48,11 +47,11 @@ Go is unlike any other language in that it forces a specific development workflo
 ### Workflow for core developers
 Since core developers usually have access to the upstream repository, there is no need for having a workflow like the one for thid-party contributors.
 
-* Get the package using "go get": `go get github.com/kastrul/gowsdl`
+* Clone the repository: `git clone https://github.com/kastrul/gowsdl.git`
 * Create a branch for making your changes, then commit them.
 * Push changes to the repository: `git push origin <mybranch>`
-* In Github, create the Pull Request from your branch to master.
-* Before merging into master, wait for at least two developers to code review your contribution.
+* In Github, create the Pull Request from your branch to main.
+* Before merging into main, wait for at least two developers to code review your contribution.
 
 
 ## Resources

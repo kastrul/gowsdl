@@ -9,7 +9,7 @@ import (
 )
 
 func TestGenerator_UntypedElement_IsStringAtEverySite(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -50,7 +50,7 @@ func TestGenerator_UntypedElement_IsStringAtEverySite(t *testing.T) {
             </xsd:complexType>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 	types := string(formatted)
@@ -81,7 +81,7 @@ func TestGenerator_UntypedElement_IsStringAtEverySite(t *testing.T) {
 }
 
 func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreNameIsExported(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -100,7 +100,7 @@ func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreNameIsExported(
             </xsd:element>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 
@@ -113,7 +113,7 @@ func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreNameIsExported(
 
 func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T) {
 	const simple = `<xsd:simpleType><xsd:restriction base="xsd:int"/></xsd:simpleType>`
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -161,7 +161,7 @@ func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T)
             </xsd:complexType>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 	types := string(formatted)
@@ -186,7 +186,7 @@ func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T)
 }
 
 func TestGenerator_ExtensionAttributesOfNamedTypes_HaveJSONTags(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -210,7 +210,7 @@ func TestGenerator_ExtensionAttributesOfNamedTypes_HaveJSONTags(t *testing.T) {
             </xsd:complexType>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 	types := string(formatted)
@@ -220,7 +220,7 @@ func TestGenerator_ExtensionAttributesOfNamedTypes_HaveJSONTags(t *testing.T) {
 }
 
 func TestGenerator_ExtensionSequenceElements_HaveJSONTags(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -248,7 +248,7 @@ func TestGenerator_ExtensionSequenceElements_HaveJSONTags(t *testing.T) {
             </xsd:complexType>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 
@@ -262,7 +262,7 @@ func TestGenerator_ExtensionSequenceElements_HaveJSONTags(t *testing.T) {
 
 func TestGenerator_IDAttribute_IsRenamedAtEverySite(t *testing.T) {
 	const idAttrs = `<xsd:attribute name="Id" type="xsd:string"/><xsd:attribute name="lang" type="xsd:string"/>`
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -292,7 +292,7 @@ func TestGenerator_IDAttribute_IsRenamedAtEverySite(t *testing.T) {
             </xsd:element>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 	types := string(formatted)
@@ -307,7 +307,7 @@ func TestGenerator_IDAttribute_IsRenamedAtEverySite(t *testing.T) {
 
 func TestGenerator_SimpleContentValueField_HasJSONTagAtEverySite(t *testing.T) {
 	const simpleContent = `<xsd:simpleContent><xsd:extension base="xsd:decimal"><xsd:attribute name="currency" type="xsd:string"/></xsd:extension></xsd:simpleContent>`
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -321,7 +321,7 @@ func TestGenerator_SimpleContentValueField_HasJSONTagAtEverySite(t *testing.T) {
             <xsd:element name="Price"><xsd:complexType>`+simpleContent+`</xsd:complexType></xsd:element>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 	types := string(formatted)
@@ -332,7 +332,7 @@ func TestGenerator_SimpleContentValueField_HasJSONTagAtEverySite(t *testing.T) {
 }
 
 func TestGenerator_TargetNamespaceMethod_IsDocumentedAtEverySite(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -350,7 +350,7 @@ func TestGenerator_TargetNamespaceMethod_IsDocumentedAtEverySite(t *testing.T) {
     <message name="PayloadIn"><part name="parameters" element="tns:Payload"/></message>
     <message name="AliasedIn"><part name="parameters" element="tns:Aliased"/></message>
     <message name="AnonymousIn"><part name="parameters" element="tns:Anonymous"/></message>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 	types := string(formatted)
@@ -363,7 +363,7 @@ func TestGenerator_TargetNamespaceMethod_IsDocumentedAtEverySite(t *testing.T) {
 }
 
 func TestGenerator_ExtensionSequenceElement_InlineComplexTypeWinsOverTypeAttribute(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -391,7 +391,7 @@ func TestGenerator_ExtensionSequenceElement_InlineComplexTypeWinsOverTypeAttribu
             </xsd:complexType>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
 	require.NoError(t, err)
 	types := string(formatted)

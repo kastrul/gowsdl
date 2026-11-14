@@ -86,7 +86,7 @@ func (b *Binary) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	}{}
 
 	if err := d.DecodeElement(&ref, &start); err != nil {
-		return err
+		return fmt.Errorf("decoding binary element: %w", err)
 	}
 
 	b.content = &ref.Content
@@ -120,11 +120,11 @@ func (e *mtomEncoder) Encode(v any) error {
 	h.Set("Content-Transfer-Encoding", "8bit")
 
 	if partWriter, err = e.writer.CreatePart(h); err != nil {
-		return err
+		return fmt.Errorf("creating MTOM part for the envelope: %w", err)
 	}
 	xmlEncoder := xml.NewEncoder(partWriter)
 	if err := xmlEncoder.Encode(v); err != nil {
-		return err
+		return fmt.Errorf("encoding the envelope: %w", err)
 	}
 
 	for _, fld := range binaryFields {
@@ -137,10 +137,10 @@ func (e *mtomEncoder) Encode(v any) error {
 		h.Set("Content-ID", fmt.Sprintf("<%s>", pkg.packageID))
 		h.Set("Content-Transfer-Encoding", "binary")
 		if partWriter, err = e.writer.CreatePart(h); err != nil {
-			return err
+			return fmt.Errorf("creating MTOM part %q: %w", pkg.packageID, err)
 		}
 		if _, err := partWriter.Write(*pkg.content); err != nil {
-			return err
+			return fmt.Errorf("writing MTOM part %q: %w", pkg.packageID, err)
 		}
 	}
 
@@ -229,7 +229,7 @@ func (d *mtomDecoder) Decode(v any) error {
 		}
 	}
 	if err := d.decodeParts(v, isRoot, attach); err != nil {
-		return err
+		return fmt.Errorf("decoding MTOM response: %w", err)
 	}
 
 	// Get binary fields after reading the structure, so I have all fields mapped

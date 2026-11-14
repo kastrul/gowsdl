@@ -5,15 +5,10 @@
 package generator
 
 import (
-	"context"
-	"go/format"
-	"os"
-	"path/filepath"
 	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const extensionInlineComplexWSDL = `<?xml version="1.0" encoding="UTF-8"?>
@@ -87,22 +82,10 @@ const extensionInlineComplexWSDL = `<?xml version="1.0" encoding="UTF-8"?>
 </definitions>`
 
 func TestGenerator_ComplexContentExtension_InlineComplexType(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "order.wsdl")
-	require.NoError(t, os.WriteFile(path, []byte(extensionInlineComplexWSDL), 0o600))
+	out := generate(t, writeWSDL(t, extensionInlineComplexWSDL), WithPackage("order"))
+	typesStr := out.client(t)
 
-	g, err := New(path, WithPackage("order"))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	code := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	formatted, err := format.Source([]byte(code))
-	require.NoError(t, err, "generated code should be valid Go:\n%s", code)
-	typesStr := string(formatted)
-
-	orderStruct := regexp.MustCompile(`(?s)type Order struct \{.*?\n\}`).FindString(typesStr)
-	require.NotEmpty(t, orderStruct)
+	orderStruct := out.decl(t, "Order")
 	assert.Len(t, regexp.MustCompile(`(?m)^\s*BaseEntity$`).FindAllString(orderStruct, -1), 1, "base type should be embedded exactly once")
 
 	assert.Contains(t, typesStr, "type OrderShippingType struct")

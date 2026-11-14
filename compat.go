@@ -6,7 +6,7 @@ package gowsdl
 
 import (
 	"github.com/kastrul/gowsdl/pkg/core"
-	"github.com/kastrul/gowsdl/pkg/http"
+	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/kastrul/gowsdl/pkg/types"
 )
@@ -43,15 +43,15 @@ type (
 	XSDImport = parser.XSDImport
 	// NamespaceManager is an alias of core.NamespaceManager.
 	NamespaceManager = core.NamespaceManager
-	// Location is an alias of http.Location.
-	Location = http.Location
-	// HTTPClientConfig is an alias of http.HTTPClientConfig.
-	HTTPClientConfig = http.HTTPClientConfig
+	// Location is an alias of gowsdlhttp.Location.
+	Location = gowsdlhttp.Location
+	// HTTPClientConfig is an alias of gowsdlhttp.HTTPClientConfig.
+	HTTPClientConfig = gowsdlhttp.HTTPClientConfig
 )
 
 // Functions re-exported from the pkg/ subpackages for backward compatibility.
 var (
 	NewNamespaceManager     = core.NewNamespaceManager
-	ParseLocation           = http.ParseLocation
-	DefaultHTTPClientConfig = http.DefaultHTTPClientConfig
+	ParseLocation           = gowsdlhttp.ParseLocation
+	DefaultHTTPClientConfig = gowsdlhttp.DefaultHTTPClientConfig
 )

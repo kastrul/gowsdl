@@ -1,10 +1,7 @@
 package generator
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
@@ -82,16 +79,7 @@ func TestWSDL2Integration(t *testing.T) {
 
 </description>`
 
-	// Create temporary WSDL 2.0 file
-	tempFile, err := os.CreateTemp("", "wsdl2-test-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	_, err = tempFile.WriteString(wsdl2Content)
-	require.NoError(t, err)
-	_ = tempFile.Close()
+	wsdlPath := writeWSDL(t, wsdl2Content)
 
 	t.Run("WSDL2VersionDetection", func(t *testing.T) {
 		version, err := parser.DetectWSDLVersion([]byte(wsdl2Content))
@@ -101,12 +89,7 @@ func TestWSDL2Integration(t *testing.T) {
 
 	t.Run("WSDL2Parsing", func(t *testing.T) {
 		// Parse WSDL 2.0
-		g, err := New(tempFile.Name(), WithPackage("stockquote"))
-		require.NoError(t, err)
-
-		// Generate will call unmarshal internally
-		_, err = g.Generate(context.Background())
-		require.NoError(t, err)
+		generate(t, wsdlPath, WithPackage("stockquote"))
 
 		// Skip verification of internal fields - this would require exporting them
 		// The test is mainly checking that parsing doesn't fail
@@ -118,11 +101,7 @@ func TestWSDL2Integration(t *testing.T) {
 
 	t.Run("WSDL2CodeGeneration", func(t *testing.T) {
 		// Test full code generation with WSDL 2.0
-		g, err := New(tempFile.Name(), WithPackage("stockquote"), WithServerGeneration(true))
-		require.NoError(t, err)
-
-		gocode, err := g.Generate(context.Background())
-		require.NoError(t, err)
+		gocode := generate(t, wsdlPath, WithPackage("stockquote"), WithServerGeneration(true))
 
 		// Verify that all code sections were generated
 		assert.NotEmpty(t, gocode)
@@ -132,13 +111,13 @@ func TestWSDL2Integration(t *testing.T) {
 		assert.Contains(t, gocode, "server")
 
 		// Check that types were generated correctly
-		typesStr := string(gocode["types"])
+		typesStr := gocode.types()
 		assert.Contains(t, typesStr, "GetQuoteRequest")
 		assert.Contains(t, typesStr, "GetQuoteResponse")
 		assert.Contains(t, typesStr, "QuoteFault")
 
 		// Check that operations were generated with WSDL 2.0 template
-		opsStr := string(gocode["operations"])
+		opsStr := gocode.operations()
 		assert.Contains(t, opsStr, "StockQuoteInterface")
 		assert.Contains(t, opsStr, "GetQuote")
 		assert.Contains(t, opsStr, "GetQuoteContext")
@@ -150,7 +129,7 @@ func TestWSDL2Integration(t *testing.T) {
 		_ = string(gocode["server"]) // serverStr - TODO: Server generation is not yet implemented
 		// For now, just check that types were generated correctly
 		if testing.Verbose() {
-			t.Logf("Generated types:\n%s", string(gocode["types"]))
+			t.Logf("Generated types:\n%s", gocode.types())
 		}
 		// These assertions are temporarily skipped since server generation is not implemented
 		// assert.Contains(t, serverStr, "SOAPEnvelopeRequest")
@@ -237,20 +216,13 @@ func TestWSDL2Integration_SpecNamespace(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "2.0", version)
 
-			path := filepath.Join(t.TempDir(), "stockquote.wsdl")
-			require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+			gocode := generate(t, writeWSDL(t, content), WithPackage("stockquote"), WithServerGeneration(true))
 
-			g, err := New(path, WithPackage("stockquote"), WithServerGeneration(true))
-			require.NoError(t, err)
-
-			gocode, err := g.Generate(context.Background())
-			require.NoError(t, err)
-
-			typesStr := string(gocode["types"])
+			typesStr := gocode.types()
 			assert.Contains(t, typesStr, "GetQuoteRequest")
 			assert.Contains(t, typesStr, "GetQuoteResponse")
 
-			opsStr := string(gocode["operations"])
+			opsStr := gocode.operations()
 			assert.Contains(t, opsStr, "StockQuoteInterface")
 			assert.Contains(t, opsStr, "GetQuoteContext")
 		})

@@ -1,8 +1,6 @@
 package generator
 
 import (
-	"context"
-	"os"
 	"testing"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
@@ -62,25 +60,7 @@ func TestSOAPActionInGeneratedCode(t *testing.T) {
 	</wsdl:service>
 </wsdl:definitions>`
 
-	// Write to temp file
-	tmpFile, err := os.CreateTemp("", "test-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tmpFile.Name())
-	}()
-
-	_, err = tmpFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	// Create generator
-	gen, err := New(tmpFile.Name(), WithPackage("testpkg"))
-	require.NoError(t, err)
-
-	// Generate code
-	result, err := gen.Generate(context.Background())
-	require.NoError(t, err)
+	result := generate(t, writeWSDL(t, wsdlContent), WithPackage("testpkg"))
 
 	// Check that operations file contains SOAP action
 	operationsCode, ok := result["operations"]

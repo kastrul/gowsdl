@@ -18,10 +18,11 @@ type WSDLError struct {
 }
 ```
 
-Common operations (`Op` values):
-- `"fetch"` - Failed to download or read WSDL file
-- `"parse"` - Failed to parse WSDL XML
-- `"resolve_schemas"` - Failed to resolve external schemas
+`gowsdl.WSDLError` is an alias of `types.WSDLError`. Operations (`Op` values) the code uses:
+- `"fetch"` - Failed to download or read the WSDL file
+- `"detect_version"` - Failed to detect the WSDL version
+- `"parse"` - Failed to parse the WSDL XML
+- `"download"` - Failed to download a file over HTTP (`pkg/http`)
 
 ### SchemaError
 
@@ -35,11 +36,9 @@ type SchemaError struct {
 }
 ```
 
-Common operations (`Op` values):
-- `"parse_reference"` - Failed to parse schema reference
-- `"fetch"` - Failed to download schema file
-- `"parse"` - Failed to parse schema XML
-- `"resolve_nested"` - Failed to resolve nested schemas
+`gowsdl.SchemaError` is an alias of `types.SchemaError`. The type is defined and the CLI checks for it, but nothing in the library currently returns one: the generator logs schema import failures (`[WARN] failed to fetch schema ...`) and carries on instead of returning them.
+
+`core.ContextualError` (package `pkg/core`) is likewise defined but not constructed anywhere.
 
 ### ValidationError (CLI only)
 
@@ -53,11 +52,11 @@ type ValidationError struct {
 }
 ```
 
-Common validation errors:
-- Directory traversal attempts
-- Empty required fields
-- Unsafe characters in file names
-- Absolute paths where relative paths are required
+`ValidationError` is defined in `cmd/gowsdl/main.go`, not in the library. The validations it reports:
+- Empty output path (`"path cannot be empty"`)
+- Empty package or file names (`"cannot be empty"`)
+- Unsafe characters in package or file names (`"contains unsafe characters"`)
+- Path traversal sequences (`..` or `./`) in package or file names (`"contains path traversal sequences"`)
 
 ## Error Handling Patterns
 
@@ -68,7 +67,7 @@ Use `errors.As` to check for specific error types:
 ```go
 import "github.com/kastrul/gowsdl"
 
-g, err := gowsdl.NewGoWSDL(wsdlPath, "myservice", false, true)
+g, err := gowsdl.NewGoWSDL(wsdlPath, gowsdl.WithPackage("myservice"))
 if err != nil {
     var wsdlErr *gowsdl.WSDLError
     if errors.As(err, &wsdlErr) {
@@ -84,7 +83,7 @@ if err != nil {
 Use `errors.Is` to check for specific underlying errors:
 
 ```go
-gocode, err := g.Start()
+gocode, err := g.StartWithContext(ctx)
 if err != nil {
     if errors.Is(err, io.EOF) {
         // Handle unexpected EOF
@@ -98,9 +97,9 @@ if err != nil {
 All errors include context about what operation failed and what resource was being processed:
 
 ```
-wsdl parse "http://example.com/service.wsdl": failed to unmarshal WSDL: XML syntax error on line 42
-schema fetch "http://example.com/types.xsd": connection timeout
-validation failed for path "../../../etc/passwd": contains directory traversal sequence '..'
+wsdl parse "http://example.com/service.wsdl": XML syntax error on line 42
+wsdl fetch "http://example.com/service.wsdl": connection timeout
+validation failed for package "../pkg": contains path traversal sequences
 ```
 
 ## Best Practices
@@ -147,9 +146,4 @@ If you're upgrading from an older version of gowsdl:
 
 ## Goroutine Error Handling
 
-The `StartWithContext` method properly aggregates errors from concurrent goroutines. If any code generation step fails, the entire operation fails with a descriptive error:
-
-- Single error: The exact error is returned
-- Multiple errors: A combined error message listing all failures
-
-This ensures that partial code generation failures are detected and reported properly.
+The generator renders the types, operations and (optionally) server parts concurrently. If any part fails, `Generate` / `StartWithContext` returns no code and the error of the first failing part, in part order (types, operations, then the server parts). Errors from the other parts are not combined into it.

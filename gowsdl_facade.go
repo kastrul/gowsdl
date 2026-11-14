@@ -7,6 +7,7 @@ package gowsdl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/kastrul/gowsdl/pkg/generator"
@@ -99,7 +100,7 @@ func NewGoWSDL(file string, opts ...Option) (*GoWSDL, error) {
 	// Create generator
 	gen, err := generator.New(file, genOpts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating generator: %w", err)
 	}
 
 	g := &GoWSDL{
@@ -154,7 +155,8 @@ func (g *GoWSDL) Start() (map[string][]byte, error) {
 	return g.StartWithContext(context.Background())
 }
 
-// Utility functions exported for backward compatibility
+// MakePublic is exported for backward compatibility. It converts the first
+// letter of a string to uppercase.
 var (
 	MakePublic = utils.MakePublic
 )

@@ -127,9 +127,9 @@ func (c *GenericClient[TReq, TResp]) CallAsResult(ctx context.Context, request T
 // error, such as a network failure or a cancelled context, is reported as a
 // fault with code "Client.Transport" and Result.TransportError set. In both
 // cases Result.Err holds the original error.
-func (s *Client) CallResult[Resp, Req any](ctx context.Context, soapAction string, request Req) Result[Resp] {
+func (c *Client) CallResult[Resp, Req any](ctx context.Context, soapAction string, request Req) Result[Resp] {
 	var response Resp
-	err := s.CallContext(ctx, soapAction, request, &response)
+	err := c.CallContext(ctx, soapAction, request, &response)
 	if err == nil {
 		return Result[Resp]{Value: response}
 	}
@@ -258,7 +258,7 @@ func NewTypedSOAPDecoder[T any](r io.Reader) *TypedSOAPDecoder[T] {
 func (d *TypedSOAPDecoder[T]) Decode() (*T, error) {
 	var envelope GenericEnvelope[T]
 	if err := d.decoder.Decode(&envelope); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decoding SOAP response: %w", err)
 	}
 
 	if envelope.Body.Fault != nil {

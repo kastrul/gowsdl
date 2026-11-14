@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	pkghttp "github.com/kastrul/gowsdl/pkg/http"
+	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 )
 
 func TestDefaultHTTPClientConfig_DelegatesToPkgHTTP(t *testing.T) {
-	assert.Equal(t, pkghttp.DefaultHTTPClientConfig(), DefaultHTTPClientConfig())
+	assert.Equal(t, gowsdlhttp.DefaultHTTPClientConfig(), DefaultHTTPClientConfig())
 }

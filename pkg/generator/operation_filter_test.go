@@ -1,10 +1,6 @@
 package generator
 
 import (
-	"context"
-	"go/format"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -85,25 +81,8 @@ const operationFilterWSDL20 = `<?xml version="1.0" encoding="UTF-8"?>
 	</interface>
 </description>`
 
-func generateWithOperations(t *testing.T, wsdl string, opts ...Option) (map[string][]byte, error) {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "service.wsdl")
-	require.NoError(t, os.WriteFile(path, []byte(wsdl), 0o644))
-
-	g, err := New(path, append([]Option{WithPackage("svc"), WithExportAllTypes(true)}, opts...)...)
-	require.NoError(t, err)
-	return g.Generate(context.Background())
-}
-
-func assertCompilableSource(t *testing.T, code map[string][]byte) {
-	t.Helper()
-	src := append(append(append([]byte{}, code["header"]...), code["types"]...), code["operations"]...)
-	_, err := format.Source(src)
-	require.NoError(t, err, "generated code must be valid Go")
-}
-
 func TestGenerator_OperationFilter_WSDL11(t *testing.T) {
-	code, err := generateWithOperations(t, operationFilterWSDL11, WithOperations("GetUser"))
+	code, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetUser"))
 	require.NoError(t, err)
 	ops := string(code["operations"])
 
@@ -115,11 +94,11 @@ func TestGenerator_OperationFilter_WSDL11(t *testing.T) {
 	types := string(code["types"])
 	assert.NotContains(t, types, "DeleteUser", "types of excluded operations are pruned by default")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_OperationFilter_WSDL11_AcrossPortTypes(t *testing.T) {
-	code, err := generateWithOperations(t, operationFilterWSDL11, WithOperations("DeleteUser", "Ping"))
+	code, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("DeleteUser", "Ping"))
 	require.NoError(t, err)
 	ops := string(code["operations"])
 
@@ -129,22 +108,22 @@ func TestGenerator_OperationFilter_WSDL11_AcrossPortTypes(t *testing.T) {
 	assert.Contains(t, ops, "Ping(ctx context.Context")
 	assert.NotContains(t, ops, "GetUser(ctx context.Context")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_OperationFilter_WSDL20(t *testing.T) {
-	code, err := generateWithOperations(t, operationFilterWSDL20, WithOperations("DeleteUser"))
+	code, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL20), WithPackage("svc"), WithExportAllTypes(true), WithOperations("DeleteUser"))
 	require.NoError(t, err)
 	ops := string(code["operations"])
 
 	assert.Contains(t, ops, "DeleteUser(ctx context.Context")
 	assert.NotContains(t, ops, "GetUser(ctx context.Context")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_OperationFilter_NoFilterGeneratesAll(t *testing.T) {
-	code, err := generateWithOperations(t, operationFilterWSDL11, WithOperations())
+	code, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations())
 	require.NoError(t, err)
 	ops := string(code["operations"])
 
@@ -154,13 +133,13 @@ func TestGenerator_OperationFilter_NoFilterGeneratesAll(t *testing.T) {
 }
 
 func TestGenerator_OperationFilter_DoesNotAffectServer(t *testing.T) {
-	code, err := generateWithOperations(t, operationFilterWSDL11, WithOperations("GetUser"), WithServerGeneration(true))
+	code, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetUser"), WithServerGeneration(true))
 	require.NoError(t, err)
 	assert.Contains(t, string(code["server"]), "DeleteUser")
 }
 
 func TestGenerator_OperationFilter_UnknownOperation(t *testing.T) {
-	_, err := generateWithOperations(t, operationFilterWSDL11, WithOperations("GetUser", "Nope", "getuser"))
+	_, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetUser", "Nope", "getuser"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown operation(s) Nope, getuser")
 	assert.Contains(t, err.Error(), "available operations: DeleteUser, GetUser, Ping")

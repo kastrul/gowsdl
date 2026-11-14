@@ -44,7 +44,8 @@ func TestGenerator_ComplexContentExtensionOfAnyType(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "any.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(anyTypeExtensionWSDL), 0o600))
 
-	code, out := generateCode(t, path, WithPackage("anyext"))
+	out := generate(t, path, WithPackage("anyext"))
+	code := out.client(t)
 
 	attr := structBody(t, code, "Attribute")
 	assert.Regexp(t, `InnerXML string `+"`"+`xml:",innerxml"`+"`", attr)
@@ -163,7 +164,8 @@ func TestGenerator_AnyTypeFieldsUseSoapAnyType(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "anyfield.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(anyTypeFieldWSDL), 0o600))
 
-	code, out := generateCode(t, path, WithPackage("anyfield"))
+	out := generate(t, path, WithPackage("anyfield"))
+	code := out.client(t)
 
 	payload := structBody(t, code, "Payload")
 	assert.Regexp(t, `Value\s+soap\.AnyType\s`, payload)

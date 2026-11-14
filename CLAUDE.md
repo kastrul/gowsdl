@@ -18,11 +18,13 @@ The project follows the standard Go project layout:
   - `generator/`: Code generation logic and templates
   - `http/`: HTTP client with security features
   - `parser/`: WSDL and XSD parsers
-  - `soap/`: SOAP protocol implementation
+  - `testing/`: Fixture runner, SOAP request capture, validation rules and XML comparator for testing generated clients
   - `types/`: Type mapping and conversion
   - `utils/`: General utility functions
-- **`soap/`**: Legacy SOAP package (maintained for backward compatibility)
+- **`soap/`**: SOAP runtime imported by every generated file (client, envelope, fault and XSD types, MTOM/MMA attachments, generic helpers)
+- **`gowsdl_facade.go`, `compat.go`, `doc.go`**: Root `gowsdl` package: a facade over `pkg/generator` plus aliases of types and functions from the `pkg/` subpackages, kept for callers written against older versions
 - **`fixtures/`**: Test WSDL/XSD files
+- **`test_fixtures/`**: WSDL, expected-request and test-data triples (`document_literal/`, `rpc_literal/`) used by the generator and `pkg/testing`
 - **`example/`**: Usage examples
 - **`docs/`**: Documentation
 
@@ -46,10 +48,10 @@ The project follows the standard Go project layout:
    - Proxy support
    - Rate limiting
 
-4. **SOAP Implementation** (`pkg/soap/`)
+4. **SOAP Implementation** (`soap/`)
    - Client implementation
-   - Authentication mechanisms
-   - Encoding/decoding utilities
+   - Authentication mechanisms (basic auth, WS-Security)
+   - Encoding/decoding utilities (MTOM, MIME multipart)
    - Type definitions
 
 ## Development Practices
@@ -90,13 +92,16 @@ go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 go tool cover -html=coverage.out -o coverage.html
 go tool cover -func=coverage.out | grep total
 
-# Run integration tests
-go test -tags=integration -v ./...
+# Run only the fast tests (skips those that build and run generated code with the go toolchain)
+go test -short ./...
+
+# Also run the tests that download from the public internet
+GOWSDL_NETWORK_TESTS=1 go test -v ./...
 
 # Run benchmarks
 go test -bench=. -benchmem ./...
 
-# Run linter (install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+# Run linter (install the version pinned in .github/workflows/go.yml: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0)
 golangci-lint run
 
 # Update dependencies
@@ -131,18 +136,19 @@ Templates are located in `pkg/generator/templates/`. When modifying:
 
 The codebase supports both WSDL 1.1 and 2.0:
 
-- Version detection: `pkg/parser/version.go`
-- WSDL 1.1 parser: `pkg/parser/wsdl11.go`
-- WSDL 2.0 parser: `pkg/parser/wsdl20.go`
+- Version detection: `pkg/parser/version_detect.go`
+- WSDL 1.1 parser: `pkg/parser/wsdl.go`
+- WSDL 2.0 parser: `pkg/parser/wsdl2.go`
 
 ### Error Handling Pattern
 
 ```go
 // Use custom error types for specific errors
-return &core.ValidationError{
+// (ValidationError is defined in cmd/gowsdl/main.go)
+return &ValidationError{
     Field: "packageName",
     Value: pkg,
-    Message: "invalid package name",
+    Err:   errors.New("invalid package name"),
 }
 
 // Wrap errors with context
@@ -155,8 +161,10 @@ if err != nil {
 
 - `cmd/gowsdl/main.go`: CLI entry point and flag handling
 - `pkg/generator/generator.go`: Main code generation logic
-- `pkg/parser/parser.go`: WSDL parsing interface
-- `pkg/http/client.go`: HTTP client configuration
+- `gowsdl_facade.go`: Public `gowsdl` facade (`NewGoWSDL` and options)
+- `pkg/parser/wsdl.go`, `pkg/parser/wsdl2.go`: WSDL 1.1 and 2.0 data model and parsing
+- `pkg/http/http_config.go`, `pkg/http/downloader.go`: HTTP client configuration and document download
+- `soap/soap.go`: SOAP client used by generated code
 - `.github/workflows/`: CI/CD configuration
 
 ## Dependencies
@@ -192,7 +200,7 @@ Always maintain backward compatibility:
 
 1. Don't change existing public APIs
 2. Deprecate features instead of removing
-3. Keep legacy `soap/` package functional
+3. Keep `soap/` package functional
 4. Test with existing user code
 
 ## Release Process

@@ -1,6 +1,7 @@
 package example
 
 import (
+	"context"
 	"crypto/tls"
 	"log"
 	"time"
@@ -13,7 +14,7 @@ import (
 func ExampleBasicUsage() {
 	client := soap.NewClient("http://svc.asmx")
 	service := gen.NewStockQuotePortType(client)
-	reply, err := service.GetLastTradePrice(&gen.TradePriceRequest{})
+	reply, err := service.GetLastTradePrice(context.Background(), &gen.TradePriceRequest{})
 	if err != nil {
 		log.Fatalf("could't get trade prices: %v", err)
 	}
@@ -30,7 +31,7 @@ func ExampleWithOptions() {
 		soap.WithTLS(&tls.Config{MinVersion: tls.VersionTLS12}),
 	)
 	service := gen.NewStockQuotePortType(client)
-	reply, err := service.GetLastTradePrice(&gen.TradePriceRequest{})
+	reply, err := service.GetLastTradePrice(context.Background(), &gen.TradePriceRequest{})
 	if err != nil {
 		log.Fatalf("could't get trade prices: %v", err)
 	}

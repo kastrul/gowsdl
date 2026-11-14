@@ -5,6 +5,7 @@
 package testing
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -400,6 +401,207 @@ func TestRuleEngineIntegration(t *testing.T) {
 			strings.Contains(rpcViolation.Message, "namespace"),
 		"Should mention either tns: prefix or namespace issue")
 	assert.Equal(t, "error", rpcViolation.Severity)
+}
+
+// TestRuleEngineWithKnownIssues tests the rule engine with known problematic XML
+func TestRuleEngineWithKnownIssues(t *testing.T) {
+	ruleEngine := NewRuleEngine()
+
+	testCases := []struct {
+		name           string
+		soapXML        string
+		style          string
+		expectErrors   int
+		expectWarnings int
+	}{
+		{
+			name: "RPC with tns prefix (should fail)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <tns:information xmlns:tns="http://example.com/rpc">
+      <userId>123</userId>
+    </tns:information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectErrors:   2, // Should catch both missing namespace declaration and tns: prefix issue
+			expectWarnings: 0,
+		},
+		{
+			name: "RPC with correct namespace (should pass)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <information xmlns="http://example.com/rpc">
+      <userId>123</userId>
+    </information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectErrors:   0,
+			expectWarnings: 0,
+		},
+		{
+			name: "Missing SOAP namespace (should fail)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<Envelope>
+  <Body>
+    <GetUser>
+      <userId>123</userId>
+    </GetUser>
+  </Body>
+</Envelope>`,
+			style:          "document",
+			expectErrors:   1, // Missing SOAP namespace
+			expectWarnings: 0,
+		},
+		{
+			name: "Empty SOAP body (should fail)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "document",
+			expectErrors:   1, // Empty body
+			expectWarnings: 0,
+		},
+		{
+			name: "RPC with tns prefix and several parts (should fail)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <tns:information xmlns:tns="https://xbeserve.bedirect.de/soap/2">
+      <KID>10320</KID>
+      <IDSTRING>meweew3xaj9A</IDSTRING>
+      <BIPID>asdasd</BIPID>
+    </tns:information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectErrors:   2,
+			expectWarnings: 0,
+		},
+		{
+			name: "RPC with default namespace and several parts (should pass)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <information xmlns="https://xbeserve.bedirect.de/soap/2">
+      <KID>10320</KID>
+      <IDSTRING>meweew3xaj9A</IDSTRING>
+      <BIPID>asdasd</BIPID>
+    </information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectErrors:   0,
+			expectWarnings: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			violations := ruleEngine.ValidateSOAPRequest(tc.soapXML, tc.style)
+
+			errorCount := 0
+			warningCount := 0
+
+			for _, violation := range violations {
+				switch violation.Severity {
+				case "error":
+					errorCount++
+					t.Logf("Error [%s]: %s", violation.RuleName, violation.Message)
+				case "warning":
+					warningCount++
+					t.Logf("Warning [%s]: %s", violation.RuleName, violation.Message)
+				}
+			}
+
+			assert.Equal(t, tc.expectErrors, errorCount,
+				"Expected %d errors, got %d", tc.expectErrors, errorCount)
+			assert.Equal(t, tc.expectWarnings, warningCount,
+				"Expected %d warnings, got %d", tc.expectWarnings, warningCount)
+		})
+	}
+}
+
+func TestRegressionPreventionFixtures(t *testing.T) {
+	// Test that our fixtures would catch the RPC namespace issue
+	runner := NewFixtureRunner()
+	engine := NewRuleEngine()
+
+	// Test the namespace edge case fixture specifically
+	fixturesDir := filepath.Join("..", "..", "test_fixtures")
+	err := runner.LoadFixtures(fixturesDir)
+	require.NoError(t, err)
+
+	fixtures := runner.GetFixtures()
+	var namespaceFixture *FixtureTestCase
+
+	for i, fixture := range fixtures {
+		if fixture.Name == "namespace_edge_case" {
+			namespaceFixture = &fixtures[i]
+			break
+		}
+	}
+
+	require.NotNil(t, namespaceFixture, "Should have namespace edge case fixture")
+	assert.Equal(t, "rpc", namespaceFixture.Style, "Namespace fixture should be RPC style")
+
+	// Validate that the expected XML is correct (uses xmlns, not tns:)
+	expectedXML := namespaceFixture.ExpectedRequest
+	assert.Contains(t, expectedXML, `<information xmlns="http://example.com/namespace-test">`,
+		"Expected XML should use xmlns format, not tns: prefix")
+	assert.NotContains(t, expectedXML, `<tns:information`,
+		"Expected XML should NOT use tns: prefix")
+
+	// Test validation rules against both correct and incorrect formats
+	correctXML := expectedXML
+	incorrectXML := `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <tns:information xmlns:tns="http://example.com/namespace-test">
+      <dataId>test123</dataId>
+      <includeDetails>true</includeDetails>
+    </tns:information>
+  </soap:Body>
+</soap:Envelope>`
+
+	// Validate correct format passes
+	correctViolations := engine.ValidateSOAPRequest(correctXML, "rpc")
+	t.Logf("Correct XML violations: %d", len(correctViolations))
+	for _, v := range correctViolations {
+		t.Logf("  - %s: %s", v.RuleName, v.Message)
+	}
+
+	// Validate incorrect format fails
+	incorrectViolations := engine.ValidateSOAPRequest(incorrectXML, "rpc")
+	t.Logf("Incorrect XML violations: %d", len(incorrectViolations))
+	for _, v := range incorrectViolations {
+		t.Logf("  - %s: %s", v.RuleName, v.Message)
+	}
+
+	// The incorrect format should have more violations
+	assert.Greater(t, len(incorrectViolations), len(correctViolations),
+		"Incorrect namespace format should trigger more violations")
+
+	// Check for specific RPC operation wrapper violations
+	var rpcViolation *RuleViolation
+	for _, v := range incorrectViolations {
+		if v.RuleName == "RPC Operation Wrapper" {
+			rpcViolation = &v
+			break
+		}
+	}
+
+	require.NotNil(t, rpcViolation, "Should detect RPC operation wrapper violation")
+	// The violation could be either about missing xmlns or tns: prefix usage
+	assert.True(t,
+		strings.Contains(rpcViolation.Message, "tns:") ||
+			strings.Contains(rpcViolation.Message, "namespace"),
+		"Should mention either tns: prefix or namespace issue in violation message: %s", rpcViolation.Message)
 }
 
 func TestRuleEngineAddRule(t *testing.T) {

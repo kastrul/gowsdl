@@ -5,11 +5,8 @@
 package generator
 
 import (
-	"context"
 	"encoding/json"
-	"go/format"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,20 +18,6 @@ import (
 )
 
 var multiSchemaFixture = filepath.Join("..", "..", "fixtures", "multi_schema_namespaces.wsdl")
-
-func generateFormatted(t *testing.T, wsdlPath, pkg string) (map[string][]byte, string) {
-	t.Helper()
-
-	g, err := New(wsdlPath, WithPackage(pkg))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
-	require.NoError(t, err)
-	return out, string(formatted)
-}
 
 func TestResolveDeclarationNamespaces(t *testing.T) {
 	headerEl := &parser.XSDElement{Name: "client", Type: "hdr:ClientType"}
@@ -73,7 +56,7 @@ func TestResolveDeclarationNamespaces(t *testing.T) {
 }
 
 func TestGenerator_MultiSchema_XMLNameUsesDeclaringSchemaNamespace(t *testing.T) {
-	_, code := generateFormatted(t, multiSchemaFixture, "ms")
+	code := generate(t, multiSchemaFixture, WithPackage("ms")).client(t)
 
 	tests := []struct {
 		structName string
@@ -109,10 +92,7 @@ func TestGenerator_ElementRefs_SchemaOrderDoesNotChangeXMLName(t *testing.T) {
 	require.GreaterOrEqual(t, mainStart, 0)
 	text = text[:mainStart] + otherSchema + "\n" + text[mainStart:]
 
-	reordered := filepath.Join(t.TempDir(), "element_refs_reordered.wsdl")
-	require.NoError(t, os.WriteFile(reordered, []byte(text), 0o600))
-
-	_, code := generateFormatted(t, reordered, "refs")
+	code := generate(t, writeWSDL(t, text), WithPackage("refs")).client(t)
 
 	assert.Contains(t, structBody(t, code, "GetParty"), "XMLName xml.Name `xml:\"urn:refs:main GetParty\"`")
 	assert.Contains(t, structBody(t, code, "GetPartyResponse"), "XMLName xml.Name `xml:\"urn:refs:main GetPartyResponse\"`")
@@ -180,10 +160,7 @@ const unqualifiedMultiSchemaWSDL = `<?xml version="1.0" encoding="UTF-8"?>
 </definitions>`
 
 func TestGenerator_MultiSchema_UnqualifiedTargetNamespaceMethod(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "unqualified.wsdl")
-	require.NoError(t, os.WriteFile(path, []byte(unqualifiedMultiSchemaWSDL), 0o600))
-
-	_, code := generateFormatted(t, path, "uq")
+	code := generate(t, writeWSDL(t, unqualifiedMultiSchemaWSDL), WithPackage("uq")).client(t)
 
 	t.Run("XMLName keeps the unqualified tns prefix form", func(t *testing.T) {
 		assert.Contains(t, structBody(t, code, "Client"), "XMLName xml.Name `xml:\"tns:client\"`")
@@ -310,27 +287,13 @@ func TestGenerator_MultiSchema_RoundTrip(t *testing.T) {
 		t.Skip("skipping go run of generated code in short mode")
 	}
 
-	out, _ := generateFormatted(t, multiSchemaFixture, "ms")
+	out := generate(t, multiSchemaFixture, WithPackage("ms"))
 
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	goMod := "module ms\n\ngo 1.21\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
-	client := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "ms.go"), []byte(client), 0o600))
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "roundtrip"), 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "roundtrip", "main.go"), []byte(multiSchemaRoundTripProgram), 0o600))
-
-	cmd := exec.Command("go", "run", "-mod=mod", "./cmd/roundtrip")
-	cmd.Dir = dir
-	cmd.Stderr = &strings.Builder{}
-	stdout, err := cmd.Output()
-	require.NoError(t, err, "running generated code failed:\n%s", cmd.Stderr)
+	dir := goModule(t, "ms", map[string]string{
+		"ms.go":                 out.client(t),
+		"cmd/roundtrip/main.go": multiSchemaRoundTripProgram,
+	})
+	stdout := []byte(runGo(t, dir, "run", "./cmd/roundtrip"))
 
 	var result map[string]any
 	require.NoError(t, json.Unmarshal(stdout, &result), "output: %s", stdout)
@@ -363,7 +326,7 @@ func TestGenerator_MultiSchema_RoundTrip(t *testing.T) {
 }
 
 func TestGenerator_GlobalElementInlineSimpleContent(t *testing.T) {
-	_, code := generateFormatted(t, multiSchemaFixture, "ms")
+	code := generate(t, multiSchemaFixture, WithPackage("ms")).client(t)
 
 	body := structBody(t, code, "RequestHash")
 	assert.Contains(t, body, "Value string `xml:\",chardata\" json:\"value\"`")

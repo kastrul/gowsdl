@@ -1,10 +1,7 @@
 package generator
 
 import (
-	"context"
-	"go/format"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -12,65 +9,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// generateCode runs the generator on wsdlPath and returns the gofmt'ed client code
-// together with the raw generator output.
-func generateCode(t *testing.T, wsdlPath string, opts ...Option) (string, map[string][]byte) {
-	t.Helper()
-
-	g, err := New(wsdlPath, opts...)
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	code := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	formatted, err := format.Source([]byte(code))
-	require.NoError(t, err)
-	return string(formatted), out
-}
-
-// assertGeneratedCodeBuilds writes the generator output into a temporary module that
-// depends on this repository and checks that it compiles with go build.
-func assertGeneratedCodeBuilds(t *testing.T, module string, out map[string][]byte) {
-	t.Helper()
-	if testing.Short() {
-		t.Skip("skipping go build of generated code in short mode")
-	}
-
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	client := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "client.go"), []byte(client), 0o600))
-	if len(out["server"]) > 0 {
-		server := string(out["server_header"]) + string(out["server_wsdl"]) + string(out["server"])
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "server.go"), []byte(server), 0o600))
-	}
-
-	goMod := "module " + module + "\n\ngo 1.21\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
-	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
-
-	cmd := exec.Command("go", "build", "-mod=mod", "./...")
-	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
-	assert.NoError(t, err, "generated code should compile:\n%s", output)
-}
-
 func chromeDataWSDL() string {
 	return filepath.Join("..", "..", "fixtures", "chromedata.wsdl")
 }
 
 func TestGenerator_ChromeData_GeneratedCodeCompiles(t *testing.T) {
-	_, out := generateCode(t, chromeDataWSDL(), WithPackage("chromedata"), WithServerGeneration(true))
+	out := generate(t, chromeDataWSDL(), WithPackage("chromedata"), WithServerGeneration(true))
 	assertGeneratedCodeBuilds(t, "chromedata", out)
 }
 
 func TestGenerator_ChromeData_InlineComplexFieldTypes(t *testing.T) {
-	code, _ := generateCode(t, chromeDataWSDL(), WithPackage("chromedata"))
+	code := generate(t, chromeDataWSDL(), WithPackage("chromedata")).client(t)
 
 	assert.Regexp(t, `BodyType\s+\[\]StyleBodyTypeType\s`, structBody(t, code, "Style"))
 	assert.Regexp(t, `Item\s+\[\]ConsumerInformationItemType\s`, structBody(t, code, "ConsumerInformation"))
@@ -165,7 +114,8 @@ func TestGenerator_InlineComplexTypes_AnonymousElement_Compiles(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "inline.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(anonymousElementInlineWSDL), 0o600))
 
-	code, out := generateCode(t, path, WithPackage("inline"), WithServerGeneration(true))
+	out := generate(t, path, WithPackage("inline"), WithServerGeneration(true))
+	code := out.client(t)
 
 	for _, name := range []string{"GetThing", "GetThingType"} {
 		body := structBody(t, code, name)
@@ -188,7 +138,7 @@ const soapImport = `"github.com/kastrul/gowsdl/soap"`
 
 func TestGenerator_NoOperations_GeneratedCodeCompiles(t *testing.T) {
 	path := filepath.Join("..", "..", "fixtures", "nested_complex_type_test.wsdl")
-	_, out := generateCode(t, path, WithPackage("nested"))
+	out := generate(t, path, WithPackage("nested"))
 
 	header := string(out["header"])
 	assert.NotContains(t, header, `"context"`)
@@ -216,7 +166,8 @@ func TestGenerator_NoOperations_SOAPTypesKeepSOAPImport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "typesonly.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(typesOnlyDateTimeWSDL), 0o600))
 
-	code, out := generateCode(t, path, WithPackage("typesonly"))
+	out := generate(t, path, WithPackage("typesonly"))
+	code := out.client(t)
 	require.Contains(t, code, "soap.XSDDateTime")
 
 	header := string(out["header"])
@@ -227,7 +178,7 @@ func TestGenerator_NoOperations_SOAPTypesKeepSOAPImport(t *testing.T) {
 }
 
 func TestGenerator_WithOperations_ImportsContextAndSOAP(t *testing.T) {
-	_, out := generateCode(t, chromeDataWSDL(), WithPackage("chromedata"))
+	out := generate(t, chromeDataWSDL(), WithPackage("chromedata"))
 
 	header := string(out["header"])
 	assert.Contains(t, header, `"context"`)

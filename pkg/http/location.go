@@ -34,7 +34,7 @@ func ParseLocation(rawloc string) (*Location, error) {
 
 	absURI, err := filepath.Abs(rawloc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolving path %q: %w", rawloc, err)
 	}
 
 	return &Location{f: absURI}, nil
@@ -46,7 +46,7 @@ func (r *Location) Parse(ref string) (*Location, error) {
 	if r.u != nil {
 		u, err := r.u.Parse(ref)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parsing reference %q: %w", ref, err)
 		}
 		return &Location{u: u}, nil
 	}

@@ -21,19 +21,25 @@ When a WSDL defines complex types with `minOccurs="0"`, gowsdl generates pointer
 ### Generated Go Code
 ```go
 type OrderType struct {
-    // Optional field (minOccurs="0") - uses pointer
-    ShippingAddress *struct {
-        Street string `xml:"street,omitempty"`
-        City   string `xml:"city,omitempty"`
-    } `xml:"shippingAddress,omitempty"`
-    
+    // Optional field (minOccurs="0") - uses pointer to a named type
+    ShippingAddress *OrderTypeShippingAddressType `xml:"shippingAddress,omitempty" json:"shippingAddress,omitempty"`
+
     // Required field (minOccurs="1" or default) - uses value
-    BillingAddress struct {
-        Street string `xml:"street,omitempty"`
-        City   string `xml:"city,omitempty"`
-    } `xml:"billingAddress,omitempty"`
+    BillingAddress OrderTypeBillingAddressType `xml:"billingAddress,omitempty" json:"billingAddress,omitzero"`
+}
+
+type OrderTypeShippingAddressType struct {
+    Street string `xml:"street,omitempty" json:"street,omitempty"`
+    City   string `xml:"city,omitempty" json:"city,omitempty"`
+}
+
+type OrderTypeBillingAddressType struct {
+    Street string `xml:"street,omitempty" json:"street,omitempty"`
+    City   string `xml:"city,omitempty" json:"city,omitempty"`
 }
 ```
+
+Inline complex types get named types; see `inline-complex-types-solution.md`.
 
 ## XML Marshaling Behavior
 
@@ -49,10 +55,7 @@ order := OrderType{
 ### With non-nil pointer (field included)
 ```go
 order := OrderType{
-    ShippingAddress: &struct{
-        Street string `xml:"street,omitempty"`
-        City   string `xml:"city,omitempty"`
-    }{
+    ShippingAddress: &OrderTypeShippingAddressType{
         Street: "123 Main St",
         City:   "New York",
     },

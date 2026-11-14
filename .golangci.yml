@@ -1,3 +1,7 @@
+# The golangci-lint version is pinned in .github/workflows/go.yml; update both
+# together. Build the linter with the Go version in go.mod (go install, or the
+# action's install-mode: goinstall): a prebuilt binary built with an older Go
+# refuses to load this module.
 version: "2"
 
 run:
@@ -15,6 +19,7 @@ linters:
     - gosec
     - misspell
     - nilerr
+    - noctx
     - revive
     - unconvert
     - whitespace

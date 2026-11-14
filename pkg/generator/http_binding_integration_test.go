@@ -2,9 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build integration
-// +build integration
-
 package generator
 
 import (
@@ -41,6 +38,10 @@ func TestEmptyMessageMarshalsToEmptyBody(t *testing.T) {
 `
 
 func TestHTTPBindingAndEmptyMessages_GeneratedCodeBuilds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping go run of the gowsdl command in short mode")
+	}
+
 	tmpDir, err := os.MkdirTemp(".", "tmp-httpbinding-")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
@@ -75,7 +76,7 @@ func TestHTTPBindingAndEmptyMessages_GeneratedCodeBuilds(t *testing.T) {
 			args = append(args, tt.extraArgs...)
 			args = append(args, tt.wsdl)
 
-			output, err := exec.Command("go", args...).CombinedOutput()
+			output, err := exec.CommandContext(t.Context(), "go", args...).CombinedOutput()
 			require.NoError(t, err, "failed to generate code: %s", output)
 
 			pkgDir := filepath.Join(tmpDir, pkgName)
@@ -85,14 +86,14 @@ func TestHTTPBindingAndEmptyMessages_GeneratedCodeBuilds(t *testing.T) {
 			}
 
 			for _, step := range [][]string{{"build", "."}, {"vet", "."}} {
-				cmd := exec.Command("go", step...)
+				cmd := exec.CommandContext(t.Context(), "go", step...)
 				cmd.Dir = pkgDir
 				output, err := cmd.CombinedOutput()
 				require.NoError(t, err, "go %s failed: %s", step[0], output)
 			}
 
 			if tt.runTests {
-				cmd := exec.Command("go", "test", ".")
+				cmd := exec.CommandContext(t.Context(), "go", "test", ".")
 				cmd.Dir = pkgDir
 				output, err := cmd.CombinedOutput()
 				require.NoError(t, err, "generated package tests failed: %s", output)

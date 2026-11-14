@@ -66,7 +66,8 @@ func TestGenerator_InlineSimpleTypeWithoutBaseIsString(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "ist.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(inlineSimpleTypeFallbackWSDL), 0o600))
 
-	code, out := generateCode(t, path, WithPackage("ist"))
+	out := generate(t, path, WithPackage("ist"))
+	code := out.client(t)
 
 	assert.Regexp(t, `(?m)^type Note string$`, code)
 	assert.Regexp(t, `(?m)^type Tags string$`, code)

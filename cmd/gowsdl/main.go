@@ -9,6 +9,27 @@ This project is originally intended to generate Go clients for WS-* services.
 
 Usage: gowsdl [options] myservice.wsdl
 
+	-d string
+	      Directory under which package directory will be created (default "./")
+	-generate-server
+	      Generate server implementation code
+	-generics-only
+	      Generate only generic methods (returning soap.Result) for WSDL 1.1 document-style operations; implies -use-generics
+	-http-proxy string
+	      HTTP proxy URL
+	-http-rate-limit int
+	      Rate limit for HTTP requests per second (0 = no limit)
+	-http-retries int
+	      Number of retries for failed requests
+	-http-retry-delay duration
+	      Delay between retries (default 1s)
+	-http-timeout duration
+	      Timeout for HTTP requests (default 30s)
+	-http-user-agent string
+	      User-Agent header for requests (default "gowsdl/1.0")
+	-i    Skips TLS Verification
+	-make-public
+	      Make the generated types public/exported (default true)
 	-o string
 	      File where the generated code will be saved (default "myservice.go")
 	-operations string
@@ -17,13 +38,23 @@ Usage: gowsdl [options] myservice.wsdl
 	      Package under which code will be generated (default "myservice")
 	-prune-types
 	      With -operations, generate only the types used by the selected operations (default true)
+	-tls-ca-cert string
+	      Path to CA certificate file
+	-tls-client-cert string
+	      Path to client certificate file (requires -tls-client-key)
+	-tls-client-key string
+	      Path to client key file (requires -tls-client-cert)
+	-tls-min-version string
+	      Minimum TLS version (1.0, 1.1, 1.2, 1.3) (default "1.2")
+	-use-generics
+	      Generate code using Go generics (requires Go 1.27+)
 	-v    Shows gowsdl version
 
 # Features
 
   - Supports only Document/Literal wrapped services, which are WS-I (http://ws-i.org/) compliant.
   - Attempts to generate idiomatic Go code as much as possible.
-  - Supports WSDL 1.1, XML Schema 1.0, SOAP 1.1.
+  - Supports WSDL 1.1 and 2.0, XML Schema 1.0, SOAP 1.1.
   - Resolves external XML Schemas.
   - Supports providing WSDL HTTP URL as well as a local WSDL file.
 
@@ -34,9 +65,6 @@ Usage: gowsdl [options] myservice.wsdl
 # TODO
 
   - Add support for filters to allow the user to change the generated code.
-  - If WSDL file is local, resolve external XML schemas locally too instead of failing due to not having a URL to download them from.
-  - Resolve XSD element references.
-  - Support for generating namespaces.
   - Make code generation agnostic so generating code to other programming languages is feasible through plugins.
 */
 package main
@@ -94,10 +122,12 @@ type ValidationError struct {
 	Err   error  // underlying error
 }
 
+// Error implements the error interface.
 func (e *ValidationError) Error() string {
 	return fmt.Sprintf("validation failed for %s %q: %v", e.Field, e.Value, e.Err)
 }
 
+// Unwrap returns the underlying error.
 func (e *ValidationError) Unwrap() error {
 	return e.Err
 }

@@ -13,6 +13,7 @@ type ContextualError struct {
 	Err       error  // Underlying error
 }
 
+// Error implements the error interface.
 func (e *ContextualError) Error() string {
 	var parts []string
 
@@ -36,6 +37,7 @@ func (e *ContextualError) Error() string {
 	return fmt.Sprintf("WSDL error%s: %v", contextStr, e.Err)
 }
 
+// Unwrap returns the underlying error.
 func (e *ContextualError) Unwrap() error {
 	return e.Err
 }

@@ -7,18 +7,16 @@ This directory contains GitHub workflows that implement comprehensive SOAP reque
 ### Core Workflows
 
 #### 1. `go.yml` - Main CI Pipeline
-- **Purpose**: Primary CI workflow with integrated SOAP validation
+- **Purpose**: Primary CI workflow: lint and test
 - **Triggers**: Push to main/master, PRs
 - **Key Features**:
-  - Standard Go testing with coverage
-  - **NEW**: SOAP request testing framework validation
-  - **NEW**: Fixture-based SOAP tests
-  - **NEW**: Compliance rule validation
+  - `Go Lint` job: golangci-lint (version pinned in the workflow)
+  - `Go Test` job: `go test -race` with coverage over all packages (this includes the SOAP fixture tests)
   - Code coverage and reporting
 
 #### 2. `soap-validation.yml` - Dedicated SOAP Validation
 - **Purpose**: Comprehensive SOAP request validation with detailed reporting
-- **Triggers**: Push/PR with paths: `pkg/generator/**`, `soap/**`, `test_fixtures/**`
+- **Triggers**: Push to main/master; PRs touching `pkg/generator/**`, `pkg/testing/**`, `soap/**`, `test_fixtures/**` (or this workflow file)
 - **Key Features**:
   - Fixture structure validation
   - SOAP request framework testing
@@ -28,7 +26,7 @@ This directory contains GitHub workflows that implement comprehensive SOAP reque
 
 #### 3. `required-checks.yml` - Merge Gate
 - **Purpose**: Required status checks that must pass before merge
-- **Triggers**: All pushes and PRs
+- **Triggers**: Push to main/master, and PRs
 - **Key Features**:
   - Critical SOAP validation tests (merge blocking)
   - Known issue regression prevention
@@ -37,7 +35,7 @@ This directory contains GitHub workflows that implement comprehensive SOAP reque
 
 #### 4. `soap-regression-prevention.yml` - Smart Regression Prevention
 - **Purpose**: Targeted validation when SOAP-sensitive code changes
-- **Triggers**: Changes to templates, SOAP package, generator core
+- **Triggers**: Changes to `pkg/generator/templates/**`, `pkg/generator/generator.go`, `soap/**`, `pkg/testing/**`, `test_fixtures/**`
 - **Key Features**:
   - Path-based change detection
   - Targeted validation based on what changed
@@ -98,13 +96,14 @@ This CI pipeline prevents:
 graph TD
     A[Code Push/PR] --> B{Path Filter}
     B -->|Any Change| C[Main CI - go.yml]
+    B -->|Any Change| S[Required Checks]
     B -->|SOAP Paths| D[SOAP Validation]
     B -->|Templates/Core| E[Regression Prevention]
     
-    C --> F[Unit Tests]
-    C --> G[SOAP Framework Tests]
-    C --> H[Fixture Validation]
-    C --> I[Compliance Rules]
+    C --> F[Lint]
+    C --> G[Unit Tests + Coverage]
+    S --> H[SOAP Request Validation]
+    S --> I[Integration Smoke Test]
     
     D --> J[Detailed SOAP Testing]
     D --> K[Compatibility Matrix]
@@ -136,7 +135,7 @@ graph TD
 
 To fully leverage the SOAP validation, configure these required status checks:
 
-1. **SOAP Request Validation** - From `required-checks.yml`
+1. **SOAP Request Validation (Required)** - From `required-checks.yml`
 2. **Go Test** - From `go.yml`
 3. **Go Lint** - From `go.yml`
 
@@ -162,10 +161,10 @@ paths:
 ### Artifacts
 - `soap-validation-report` - Comprehensive validation results
 - `soap-regression-report` - Regression prevention analysis
-- `master.breakdown` - Coverage comparison data
+- `main.breakdown` - Coverage comparison data (from `go.yml`, uploaded on `main`)
 
 ### Status Checks
-- **SOAP Request Validation** - Required for merge
+- **SOAP Request Validation (Required)** - Required for merge
 - **Integration Smoke Test** - Quick validation
 - Individual workflow status checks
 
@@ -182,16 +181,16 @@ paths:
 Run the same validations locally:
 
 ```bash
-# Basic SOAP validation
-go test -v ./pkg/testing
+# SOAP testing framework
+go test -race -v ./pkg/testing
 
-# Integration tests
-go test -v -tags=integration ./pkg/testing
+# Generated clients against test_fixtures/
+go test -race -v -run TestGenerator_TestFixtures_RequestsMatchExpectedXML ./pkg/generator
 
 # Specific validation rules
-go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
+go test -v ./pkg/testing -run TestRuleEngineWithKnownIssues
 
-# Fixture validation
+# Fixture loading
 go test -v ./pkg/testing -run TestSOAPRequestFixtures
 ```
 
@@ -235,7 +234,7 @@ go test -v ./pkg/testing -run TestSOAPRequestFixtures
 Enable verbose output in workflows:
 ```yaml
 - name: Debug SOAP Validation
-  run: go test -v -tags=integration ./pkg/testing -run TestComprehensiveSOAPValidation
+  run: go test -v ./pkg/testing -run TestSOAPRequestFixtures
 ```
 
 This CI pipeline ensures that the RPC namespace issue and similar SOAP protocol violations are caught immediately, preventing them from reaching production.

@@ -73,29 +73,29 @@ type SOAPBody struct {
 }
 
 // MarshalXML implements custom XML marshaling for SOAPBody to avoid wrapper elements
-func (s SOAPBody) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+func (b SOAPBody) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	// Start the soap:Body element
 	if err := e.EncodeToken(start); err != nil {
-		return err
+		return fmt.Errorf("encoding soap:Body start: %w", err)
 	}
 
 	// Encode the body content directly without wrapper
-	if s.Body != nil {
-		if err := e.Encode(s.Body); err != nil {
-			return err
+	if b.Body != nil {
+		if err := e.Encode(b.Body); err != nil {
+			return fmt.Errorf("encoding soap:Body content: %w", err)
 		}
 	}
 
 	// Encode fault if present
-	if s.Fault != nil {
-		if err := e.Encode(s.Fault); err != nil {
-			return err
+	if b.Fault != nil {
+		if err := e.Encode(b.Fault); err != nil {
+			return fmt.Errorf("encoding soap:Fault: %w", err)
 		}
 	}
 
 	// End the soap:Body element
 	if err := e.EncodeToken(xml.EndElement{Name: start.Name}); err != nil {
-		return err
+		return fmt.Errorf("encoding soap:Body end: %w", err)
 	}
 
 	return nil
@@ -121,7 +121,8 @@ type MIMEMultipartAttachment struct {
 	Data []byte
 }
 
-// UnmarshalXML unmarshals SOAPBody xml
+// UnmarshalXML implements xml.Unmarshaler on SOAPBodyResponse. It decodes a
+// soap:Fault into Fault and any other content into Body.
 func (b *SOAPBodyResponse) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 	if b.Body == nil {
 		return xml.UnmarshalError("Body must be a pointer to a struct")
@@ -136,7 +137,7 @@ func (b *SOAPBodyResponse) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) erro
 Loop:
 	for {
 		if token, err = d.Token(); err != nil {
-			return err
+			return fmt.Errorf("reading soap:Body: %w", err)
 		}
 
 		if token == nil {
@@ -153,13 +154,13 @@ Loop:
 				b.faultOccurred = true
 				err = d.DecodeElement(b.Fault, &se)
 				if err != nil {
-					return err
+					return fmt.Errorf("decoding soap:Fault: %w", err)
 				}
 
 				consumed = true
 			} else {
 				if err = d.DecodeElement(b.Body, &se); err != nil {
-					return err
+					return fmt.Errorf("decoding soap:Body content: %w", err)
 				}
 
 				consumed = true
@@ -173,11 +174,11 @@ Loop:
 }
 
 // ErrorFromFault returns Fault if the body is marked as containing a fault, and nil otherwise.
-func (s *SOAPBody) ErrorFromFault() error {
-	if s.faultOccurred {
-		return s.Fault
+func (b *SOAPBody) ErrorFromFault() error {
+	if b.faultOccurred {
+		return b.Fault
 	}
-	s.Fault = nil
+	b.Fault = nil
 	return nil
 }
 
@@ -334,7 +335,7 @@ var defaultOptions = options{
 	tlshshaketimeout: 15 * time.Second,
 }
 
-// A Option sets options such as credentials, tls, etc.
+// Option sets options such as credentials, tls, etc.
 type Option func(*options)
 
 // WithHTTPClient is an Option to set the HTTP client to use
@@ -407,7 +408,7 @@ func WithMIMEMultipartAttachments() Option {
 	}
 }
 
-// Client is soap client
+// Client is a SOAP client.
 type Client struct {
 	url         string
 	opts        *options
@@ -435,73 +436,81 @@ func NewClient(url string, opt ...Option) *Client {
 
 // AddHeader adds envelope header
 // For correct behavior, every header must contain a `XMLName` field.  Refer to #121 for details
-func (s *Client) AddHeader(header any) {
-	s.headers = append(s.headers, header)
+func (c *Client) AddHeader(header any) {
+	c.headers = append(c.headers, header)
 }
 
 // AddMIMEMultipartAttachment adds an attachment to the client that will be sent only if the
 // WithMIMEMultipartAttachments option is used
-func (s *Client) AddMIMEMultipartAttachment(attachment MIMEMultipartAttachment) {
-	s.attachments = append(s.attachments, attachment)
+func (c *Client) AddMIMEMultipartAttachment(attachment MIMEMultipartAttachment) {
+	c.attachments = append(c.attachments, attachment)
 }
 
 // SetHeaders sets envelope headers, overwriting any existing headers.
 // For correct behavior, every header must contain a `XMLName` field.  Refer to #121 for details
-func (s *Client) SetHeaders(headers ...any) {
-	s.headers = headers
+func (c *Client) SetHeaders(headers ...any) {
+	c.headers = headers
 }
 
 // GetHttpClientHeaders returns the extra HTTP headers the client sends with
 // every request, for example an authentication header.
-func (s *Client) GetHttpClientHeaders() map[string]string {
-	return s.opts.httpHeaders
+func (c *Client) GetHttpClientHeaders() map[string]string {
+	return c.opts.httpHeaders
 }
 
 // SetHttpClientHeaders replaces the extra HTTP headers the client sends with
 // every request.
-func (s *Client) SetHttpClientHeaders(headers map[string]string) {
-	s.opts.httpHeaders = headers
+func (c *Client) SetHttpClientHeaders(headers map[string]string) {
+	c.opts.httpHeaders = headers
 }
 
 // URL returns the SOAP service URL
-func (s *Client) URL() string {
-	return s.url
+func (c *Client) URL() string {
+	return c.url
 }
 
-// CallContext performs HTTP POST request with a context
-func (s *Client) CallContext(ctx context.Context, soapAction string, request, response any) error {
-	return s.call(ctx, soapAction, request, response, nil, nil)
+// CallContext performs HTTP POST request with a context.
+// A nil response makes it a one-way call: an empty reply, such as HTTP 202
+// Accepted, succeeds, and any reply content other than a fault is ignored.
+func (c *Client) CallContext(ctx context.Context, soapAction string, request, response any) error {
+	return c.call(ctx, soapAction, request, response, nil, nil)
 }
 
 // Call performs HTTP POST request.
 // Note that if the server returns a status code >= 400, a HTTPError will be returned
-func (s *Client) Call(soapAction string, request, response any) error {
-	return s.call(context.Background(), soapAction, request, response, nil, nil)
+func (c *Client) Call(soapAction string, request, response any) error {
+	return c.call(context.Background(), soapAction, request, response, nil, nil)
 }
 
 // CallContextWithAttachmentsAndFaultDetail performs HTTP POST request.
 // Note that if SOAP fault is returned, it will be stored in the error.
 // On top the attachments array will be filled with attachments returned from the SOAP request.
-func (s *Client) CallContextWithAttachmentsAndFaultDetail(ctx context.Context, soapAction string, request,
+func (c *Client) CallContextWithAttachmentsAndFaultDetail(ctx context.Context, soapAction string, request,
 	response any, faultDetail FaultError, attachments *[]MIMEMultipartAttachment) error {
-	return s.call(ctx, soapAction, request, response, faultDetail, attachments)
+	return c.call(ctx, soapAction, request, response, faultDetail, attachments)
 }
 
 // CallContextWithFaultDetail performs HTTP POST request.
 // Note that if SOAP fault is returned, it will be stored in the error.
-func (s *Client) CallContextWithFaultDetail(ctx context.Context, soapAction string, request, response any, faultDetail FaultError) error {
-	return s.call(ctx, soapAction, request, response, faultDetail, nil)
+func (c *Client) CallContextWithFaultDetail(ctx context.Context, soapAction string, request, response any, faultDetail FaultError) error {
+	return c.call(ctx, soapAction, request, response, faultDetail, nil)
 }
 
 // CallWithFaultDetail performs HTTP POST request.
 // Note that if SOAP fault is returned, it will be stored in the error.
 // the passed in fault detail is expected to implement FaultError interface,
 // which allows to condense the detail into a short error message.
-func (s *Client) CallWithFaultDetail(soapAction string, request, response any, faultDetail FaultError) error {
-	return s.call(context.Background(), soapAction, request, response, faultDetail, nil)
+func (c *Client) CallWithFaultDetail(soapAction string, request, response any, faultDetail FaultError) error {
+	return c.call(context.Background(), soapAction, request, response, faultDetail, nil)
 }
 
-func (s *Client) call(ctx context.Context, soapAction string, request, response any, faultDetail FaultError,
+// oneWayResponse accepts and discards whatever element the SOAP body of a
+// reply to a one-way call holds.
+type oneWayResponse struct {
+	Content []byte `xml:",innerxml"`
+}
+
+func (c *Client) call(ctx context.Context, soapAction string, request, response any, faultDetail FaultError,
 	retAttachments *[]MIMEMultipartAttachment) error {
 	var envelope any
 
@@ -514,70 +523,69 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	if targetNamespace != "" {
 		// Use enhanced envelope with namespace declarations
 		enhancedEnv := NewEnhancedSOAPEnvelope(targetNamespace)
-		if len(s.headers) > 0 {
-			enhancedEnv.Header = &SOAPHeader{Headers: s.headers}
+		if len(c.headers) > 0 {
+			enhancedEnv.Header = &SOAPHeader{Headers: c.headers}
 		}
 		enhancedEnv.Body.Body = request
 		envelope = enhancedEnv
 	} else {
 		// Use standard envelope (backward compatibility)
 		standardEnv := &SOAPEnvelope{XmlNS: XmlNsSoapEnv}
-		if len(s.headers) > 0 {
-			standardEnv.Header = &SOAPHeader{Headers: s.headers}
+		if len(c.headers) > 0 {
+			standardEnv.Header = &SOAPHeader{Headers: c.headers}
 		}
 		standardEnv.Body.Body = request
 		envelope = standardEnv
 	}
 
 	buffer := new(bytes.Buffer)
-	encoder, err := s.newRequestEncoder(buffer)
+	encoder, err := c.newRequestEncoder(buffer)
 	if err != nil {
-		return err
+		return fmt.Errorf("soap: creating request encoder: %w", err)
 	}
 
 	if err := encoder.Encode(envelope); err != nil {
-		return err
+		return fmt.Errorf("soap: encoding request: %w", err)
 	}
 
 	if err := encoder.Flush(); err != nil {
-		return err
+		return fmt.Errorf("soap: encoding request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", s.url, buffer)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url, buffer)
 	if err != nil {
-		return err
+		return fmt.Errorf("soap: building request: %w", err)
 	}
-	if s.opts.auth != nil {
-		req.SetBasicAuth(s.opts.auth.Login, s.opts.auth.Password)
+	if c.opts.auth != nil {
+		req.SetBasicAuth(c.opts.auth.Login, c.opts.auth.Password)
 	}
-
-	req = req.WithContext(ctx)
 
 	req.Header.Add("Content-Type", encoder.ContentType())
 	req.Header.Add("SOAPAction", soapAction)
 	req.Header.Set("User-Agent", "gowsdl/0.1")
-	if s.opts.httpHeaders != nil {
-		for k, v := range s.opts.httpHeaders {
+	if c.opts.httpHeaders != nil {
+		for k, v := range c.opts.httpHeaders {
 			req.Header.Set(k, v)
 		}
 	}
 	req.Close = true
 
-	client := s.opts.client
+	client := c.opts.client
 	if client == nil {
 		tr := &http.Transport{
-			TLSClientConfig: s.opts.tlsCfg,
+			TLSClientConfig: c.opts.tlsCfg,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				d := net.Dialer{Timeout: s.opts.timeout}
+				d := net.Dialer{Timeout: c.opts.timeout}
 				return d.DialContext(ctx, network, addr)
 			},
-			TLSHandshakeTimeout: s.opts.tlshshaketimeout,
+			TLSHandshakeTimeout: c.opts.tlshshaketimeout,
 		}
-		client = &http.Client{Timeout: s.opts.contimeout, Transport: tr}
+		client = &http.Client{Timeout: c.opts.contimeout, Transport: tr}
 	}
 
 	res, err := client.Do(req)
 	if err != nil {
+		// Returned as is: callers may type-assert on the transport error.
 		return err
 	}
 	defer func() {
@@ -592,6 +600,24 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		}
 	}
 
+	// A nil response is a one-way call: the reply carries nothing to decode,
+	// but a fault in it must still be reported. An empty reply, often without
+	// a Content-Type, succeeds unless its status says otherwise.
+	if response == nil {
+		data, err := io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		if len(bytes.TrimSpace(data)) == 0 {
+			if res.StatusCode >= 300 {
+				return &HTTPError{StatusCode: res.StatusCode, ResponseBody: data}
+			}
+			return nil
+		}
+		res.Body = io.NopCloser(bytes.NewReader(data))
+		response = new(oneWayResponse)
+	}
+
 	// xml Decoder (used with and without MTOM) cannot handle namespace prefixes (yet),
 	// so we have to use a namespace-less response envelope
 	respEnvelope := new(SOAPEnvelopeResponse)
@@ -602,9 +628,9 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		},
 	}
 
-	newDecoder, err := s.newResponseDecoder(res.Header.Get("Content-Type"))
+	newDecoder, err := c.newResponseDecoder(res.Header.Get("Content-Type"))
 	if err != nil {
-		return err
+		return fmt.Errorf("soap: decoding response: %w", err)
 	}
 
 	// we need to store the body in case of an error
@@ -629,7 +655,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 				ResponseBody: cachedErrorBody,
 			}
 		}
-		return err
+		return fmt.Errorf("soap: decoding response: %w", err)
 	}
 
 	if respEnvelope.Attachments != nil && retAttachments != nil {

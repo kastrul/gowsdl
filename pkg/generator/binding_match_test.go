@@ -1,9 +1,6 @@
 package generator
 
 import (
-	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -81,21 +78,8 @@ func TestIsRPCPortType_UsesTheSameMatchAsFindSOAPAction(t *testing.T) {
 	assert.Equal(t, "", g.findSOAPAction("Get", "OrderPort"))
 }
 
-func generateFromWSDLText(t *testing.T, wsdl string) map[string][]byte {
-	t.Helper()
-
-	file := filepath.Join(t.TempDir(), "test.wsdl")
-	require.NoError(t, os.WriteFile(file, []byte(wsdl), 0o600))
-
-	g, err := New(file, WithPackage("test"))
-	require.NoError(t, err)
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-	return out
-}
-
 func TestGenerator_RPCPortType_LowercaseName_UsesRPCCalls(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
              xmlns:tns="http://example.com/rpc"
@@ -122,7 +106,7 @@ func TestGenerator_RPCPortType_LowercaseName_UsesRPCCalls(t *testing.T) {
             <output><soap:body use="literal"/></output>
         </operation>
     </binding>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 
 	types := string(out["types"])
 	operations := string(out["operations"])
@@ -134,7 +118,7 @@ func TestGenerator_RPCPortType_LowercaseName_UsesRPCCalls(t *testing.T) {
 }
 
 func TestGenerator_PortTypesDifferingBySuffix_GetTheirOwnSOAPAction(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
              xmlns:tns="http://example.com/order"
@@ -180,7 +164,7 @@ func TestGenerator_PortTypesDifferingBySuffix_GetTheirOwnSOAPAction(t *testing.T
             <output><soap:body use="literal"/></output>
         </operation>
     </binding>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 
 	operations := string(out["operations"])
 

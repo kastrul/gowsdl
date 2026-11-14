@@ -88,7 +88,8 @@ func TestGenerator_RecursiveComplexTypes_Compile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "rec.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(recursiveTypesWSDL), 0o600))
 
-	code, out := generateCode(t, path, WithPackage("rec"))
+	out := generate(t, path, WithPackage("rec"))
+	code := out.client(t)
 
 	assert.Regexp(t, `Cause \*DiagnosticException `, structBody(t, code, "DiagnosticException"))
 	owner := structBody(t, code, "Folder")

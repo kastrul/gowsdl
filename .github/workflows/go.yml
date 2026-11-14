@@ -48,7 +48,8 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           only-new-issues: false
-          version: latest
+          version: v2.15.0
+          install-mode: goinstall
           skip-cache: false  # Disable built-in cache to use our custom cache
           problem-matchers: true
 
@@ -91,49 +92,17 @@ jobs:
             ${{ runner.os }}-go-test-binaries-
 
       - name: Test (Unit Tests)
-        run: go test -coverprofile=cover.out ./...
+        run: go test -race -coverprofile=cover.out ./...
 
-      - name: Test (SOAP Request Testing Framework)
-        run: go test -v -tags=integration ./pkg/testing
-
-      - name: SOAP Request Validation (Fixture Tests)
-        run: |
-          echo "Running SOAP request validation tests..."
-          go test -v ./pkg/testing -run TestSOAPRequestFixtures
-          echo "✅ SOAP fixture tests completed"
-
-      - name: SOAP Compliance Rule Validation
-        run: |
-          echo "Running SOAP compliance rule validation..."
-          go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
-          echo "✅ SOAP compliance validation completed"
-
-      - name: Check SOAP Validation Status
-        run: |
-          echo "🔍 SOAP Request Testing Framework integrated into CI pipeline"
-          echo "✅ Unit tests: PASSED"
-          echo "✅ Integration tests: PASSED" 
-          echo "✅ Fixture validation: PASSED"
-          echo "✅ Compliance rules: PASSED"
-          echo ""
-          echo "This CI pipeline now validates:"
-          echo "  - SOAP XML generation from WSDL files"
-          echo "  - RPC vs Document style compliance"
-          echo "  - Namespace handling (prevents tns:operation issues)"
-          echo "  - SOAP envelope structure"
-          echo "  - Regression prevention for known issues"
-          echo ""
-          echo "🛡️ Protection against SOAP protocol violations is now active!"
-
-      # Download master branch breakdown for coverage comparison
-      - name: download artifact (master.breakdown)
-        id: download-master-breakdown
+      # Download main branch breakdown for coverage comparison
+      - name: download artifact (main.breakdown)
+        id: download-main-breakdown
         uses: dawidd6/action-download-artifact@v11
         if: github.event_name == 'pull_request'
         with:
-          branch: master
+          branch: main
           workflow_conclusion: success
-          name: master.breakdown
+          name: main.breakdown
           if_no_artifact_found: warn
 
       - name: check test coverage
@@ -141,10 +110,10 @@ jobs:
         uses: vladopajic/go-test-coverage@v2
         with:
           profile: cover.out
-          git-token: ${{ github.ref_name == 'master' && secrets.GITHUB_TOKEN || '' }}
+          git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
           git-branch: badges
-          breakdown-file-name: ${{ github.ref_name == 'master' && 'master.breakdown' || '' }}
-          diff-base-breakdown-file-name: ${{ steps.download-master-breakdown.outputs.found_artifact == 'true' && 'master.breakdown' || '' }}
+          breakdown-file-name: ${{ github.ref_name == 'main' && 'main.breakdown' || '' }}
+          diff-base-breakdown-file-name: ${{ steps.download-main-breakdown.outputs.found_artifact == 'true' && 'main.breakdown' || '' }}
 
       # Post coverage report as comment
       - name: post coverage report
@@ -160,13 +129,13 @@ jobs:
             ${{ fromJSON(steps.coverage.outputs.report) }}
             ```
 
-      # Upload master branch breakdown for future comparison
-      - name: upload artifact (master.breakdown)
+      # Upload main branch breakdown for future comparison
+      - name: upload artifact (main.breakdown)
         uses: actions/upload-artifact@v4
-        if: github.ref_name == 'master'
+        if: github.ref_name == 'main'
         with:
-          name: master.breakdown
-          path: master.breakdown
+          name: main.breakdown
+          path: main.breakdown
           if-no-files-found: error
 
       - name: Upload coverage reports to Codecov

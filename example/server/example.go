@@ -24,7 +24,9 @@ func client() {
 	done <- struct{}{}
 }
 
-// use fixtures/test.wsdl
+// gen is generated from fixtures/test.wsdl with:
+//
+//	gowsdl -generate-server -p gen -o myservice.go -d example/server fixtures/test.wsdl
 func main() {
 	// TODO: Server endpoint generation not implemented yet
 	// http.HandleFunc("/", gen.Endpoint)

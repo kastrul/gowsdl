@@ -2,7 +2,6 @@ package generator
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -133,20 +132,7 @@ func TestGenerator_findNameByType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Write WSDL to temp file
-			tmpFile, err := os.CreateTemp("", "test-findnameby-*.wsdl")
-			require.NoError(t, err)
-			defer func() {
-				_ = os.Remove(tmpFile.Name())
-			}()
-
-			_, err = tmpFile.WriteString(tt.wsdl)
-			require.NoError(t, err)
-			err = tmpFile.Close()
-			require.NoError(t, err)
-
-			// Create generator
-			gen, err := New(tmpFile.Name(), WithPackage("testpkg"))
+			gen, err := New(writeWSDL(t, tt.wsdl), WithPackage("testpkg"))
 			require.NoError(t, err)
 
 			// Generate code to trigger WSDL parsing

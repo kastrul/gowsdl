@@ -28,9 +28,9 @@ The `elementFormDefault` that counts is the one on the schema that declares the 
 - The template asks `isQualified .` for each declaration; it is backed by `declarationNamespaces.isQualified` in `pkg/generator/schema_namespaces.go`
 
 ### 4. Added Comprehensive Tests
-- `namespace_qualification_test.go`: Tests for elementFormDefault behavior
-- `namespace_complete_test.go`: End-to-end test with user's WSDL structure
-- `soap_namespace_test.go`: Tests for SOAP envelope structure
+- `pkg/generator/xmlname_test.go`: `TestGenerator_XMLNameAndTargetNamespace` covers the XMLName and `TargetNamespace()` output per `elementFormDefault`
+- `pkg/generator/schema_namespaces_test.go`: per-schema namespace and qualification tests
+- `soap/namespace_envelope_simple_test.go`: Tests for the SOAP envelope structure
 
 ## Example
 
