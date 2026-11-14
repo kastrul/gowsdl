@@ -21,16 +21,37 @@ const OperationsWSDL1Template = `
 			{{end}}
 			{{if .Doc}}{{comment .Doc}}{{end}}
 			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
+			{{if and $.UseGenerics (not (isRPCPortType $portType)) (ne $requestType "") (ne $responseType "")}}
+			{{.Name | makePublic}}Generic(ctx context.Context, request *{{$requestType}}) (soap.Result[{{$responseType}}], error)
+			{{end}}
 		{{end}}
 	}
 
 	type {{$portType | makePrivate}} struct {
 		client *soap.Client
+		{{if and $.UseGenerics (not (isRPCPortType $portType))}}
+		{{range .Operations}}
+			{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
+			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
+			{{if and (ne $requestType "") (ne $responseType "")}}
+			{{.Name | makePrivate}}Client *soap.GenericClient[{{$requestType}}, {{$responseType}}]
+			{{end}}
+		{{end}}
+		{{end}}
 	}
 
 	func New{{$portType}}(client *soap.Client) {{$portType}} {
 		return &{{$portType | makePrivate}}{
 			client: client,
+			{{if and $.UseGenerics (not (isRPCPortType $portType))}}
+			{{range .Operations}}
+				{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
+				{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
+				{{if and (ne $requestType "") (ne $responseType "")}}
+				{{.Name | makePrivate}}Client: soap.NewGenericClientFromClient[{{$requestType}}, {{$responseType}}](client, "{{findSOAPAction .Name $portType}}"),
+				{{end}}
+			{{end}}
+			{{end}}
 		}
 	}
 
@@ -110,6 +131,15 @@ const OperationsWSDL1Template = `
 				return response, nil
 			{{end}}
 		}
+
+		{{if and $.UseGenerics (not (isRPCPortType $portType)) (ne $requestType "") (ne $responseType "")}}
+		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}Generic(ctx context.Context, request *{{$requestType}}) (soap.Result[{{$responseType}}], error) {
+			if request == nil {
+				return soap.Result[{{$responseType}}]{}, soap.ErrNilRequest
+			}
+			return service.{{.Name | makePrivate}}Client.CallAsResult(ctx, *request), nil
+		}
+		{{end}}
 	{{end}}
 {{end}}
 `

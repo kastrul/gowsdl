@@ -110,13 +110,73 @@ func TestManager_GetServerTemplate(t *testing.T) {
 	assert.Equal(t, "server", tmpl.Name())
 }
 
-func TestManager_GetGenericOperationsTemplate(t *testing.T) {
-	manager := NewManager(nil)
-	tmpl, err := manager.GetGenericOperationsTemplate()
+func wsdl1StubFuncMap() template.FuncMap {
+	identity := func(s string) string { return s }
+	return template.FuncMap{
+		"makePublic":            identity,
+		"makePrivate":           func(s string) string { return strings.ToLower(s[:1]) + s[1:] },
+		"replaceReservedWords":  identity,
+		"removeNamespacePrefix": identity,
+		"comment":               identity,
+		"findType": func(message string) string {
+			return strings.TrimSuffix(message, "Message")
+		},
+		"findSOAPAction": func(operation, portType string) string { return operation },
+		"isRPCPortType":  func(portType string) bool { return false },
+	}
+}
 
+type stubMessageRef struct{ Message string }
+
+type stubOperation struct {
+	Name   string
+	Doc    string
+	Faults []struct{ Name, Doc string }
+	Input  stubMessageRef
+	Output stubMessageRef
+}
+
+type stubPortType struct {
+	Name       string
+	Operations []stubOperation
+}
+
+func TestManager_GetGenericOperationsTemplate(t *testing.T) {
+	manager := NewManager(wsdl1StubFuncMap())
+	tmpl, err := manager.GetGenericOperationsTemplate()
 	require.NoError(t, err)
-	assert.NotNil(t, tmpl)
 	assert.Equal(t, "generic_operations", tmpl.Name())
+
+	render := func(useGenerics bool) string {
+		data := struct {
+			PortTypes   []stubPortType
+			Messages    []struct{}
+			UseGenerics bool
+		}{
+			PortTypes: []stubPortType{{
+				Name: "UserService",
+				Operations: []stubOperation{{
+					Name:   "GetUser",
+					Input:  stubMessageRef{Message: "GetUserRequestMessage"},
+					Output: stubMessageRef{Message: "GetUserResponseMessage"},
+				}},
+			}},
+			UseGenerics: useGenerics,
+		}
+		var buf bytes.Buffer
+		require.NoError(t, tmpl.Execute(&buf, data))
+		return buf.String()
+	}
+
+	withGenerics := render(true)
+	assert.Contains(t, withGenerics, "GetUserGeneric(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
+	assert.Contains(t, withGenerics, "getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]")
+	assert.Contains(t, withGenerics, `soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`)
+	assert.Contains(t, withGenerics, "CallAsResult")
+
+	withoutGenerics := render(false)
+	assert.Contains(t, withoutGenerics, "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)")
+	assert.NotContains(t, withoutGenerics, "Generic")
 }
 
 func TestManager_TemplateExecution(t *testing.T) {
@@ -225,7 +285,7 @@ func TestManager_MultipleFunctionMaps(t *testing.T) {
 			tmpl, err := tt.getter()
 			
 			// Some templates may require specific functions we don't have in tests
-			if err != nil && tt.name == "operations" {
+			if err != nil && (tt.name == "operations" || tt.name == "generic_operations") {
 				assert.Contains(t, err.Error(), "function")
 				assert.Contains(t, err.Error(), "not defined")
 			} else {
@@ -263,15 +323,18 @@ func TestManager_NilFuncMapHandling(t *testing.T) {
 	assert.NotNil(t, tmpl4)
 
 	tmpl5, err := manager.GetGenericOperationsTemplate()
-	assert.NoError(t, err)
-	assert.NotNil(t, tmpl5)
+	if err != nil {
+		assert.Contains(t, err.Error(), "function")
+		assert.Contains(t, err.Error(), "not defined")
+	} else {
+		assert.NotNil(t, tmpl5)
+	}
 }
 
 func TestManager_ConcurrentAccess(t *testing.T) {
 	// Test that the manager can be safely accessed concurrently
-	funcMap := template.FuncMap{
-		"test": func() string { return "test" },
-	}
+	funcMap := wsdl1StubFuncMap()
+	funcMap["test"] = func() string { return "test" }
 	manager := NewManager(funcMap)
 
 	done := make(chan bool, 5)
