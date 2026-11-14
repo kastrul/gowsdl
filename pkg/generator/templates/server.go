@@ -292,7 +292,7 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 		field = val.Field(i)
 		name = val.Type().Field(i).Name
 
-		if !field.IsNil() {
+		if field.Kind() == reflect.Ptr && !field.IsNil() {
 			find = true
 			break
 		}
