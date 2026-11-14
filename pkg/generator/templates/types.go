@@ -102,6 +102,8 @@ const TypesTemplate = `
 		{{if ne .Extension.Base ""}}
 			{{if eq .Extension.Base "soap:Header"}}
 				soap.Header
+			{{else if eq (toGoType .Extension.Base false) "interface{}"}}
+				InnerXML string ` + "`" + `xml:",innerxml"` + "`" + `
 			{{else}}
 				{{toGoType .Extension.Base false}}
 			{{end}}
@@ -218,6 +220,8 @@ const TypesTemplate = `
 		{{if ne .Extension.Base ""}}
 			{{if eq .Extension.Base "soap:Header"}}
 				soap.Header
+			{{else if eq (toGoType .Extension.Base false) "interface{}"}}
+				InnerXML string ` + "`" + `xml:",innerxml"` + "`" + `
 			{{else}}
 				{{toGoType .Extension.Base false}}
 			{{end}}

@@ -34,11 +34,6 @@ var knownNonCompilingFixtures = map[string]string{
 	// needs the enclosing type at every element-rendering path in the types template or
 	// a cycle-breaking pass over the generated structs.
 	"fixtures/usda-awdb.wsdl": "invalid recursive type DiagnosticException (optional self-reference emitted as a value)",
-
-	// complexType AttributeType extends xsd:anyType; the complexContent extension path
-	// embeds the base's Go type, which for anyType is interface{}, giving an unnamed
-	// "interface{}" field that is a syntax error.
-	"fixtures/epcis/EPCglobal-epcis-query-1_2.wsdl": "complexContent extension of xsd:anyType embeds interface{}",
 }
 
 // fixtureWSDLs returns every *.wsdl file in a fixtures or test_fixtures
