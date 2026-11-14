@@ -7,14 +7,18 @@ package generator
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
+	goparser "go/parser"
 	"go/printer"
 	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -144,6 +148,50 @@ func (g generated) moduleFiles(dir string) map[string]string {
 		files[filepath.Join(dir, "server.go")] = string(g["server_header"]) + string(g["server_wsdl"]) + string(g["server"])
 	}
 	return files
+}
+
+// structBody returns the source between the braces of the struct type name
+// declared in code, without the first newline and with runs of spaces and
+// tabs collapsed to one space.
+func structBody(t *testing.T, code, name string) string {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := goparser.ParseFile(fset, "generated.go", code, goparser.ParseComments)
+	require.NoError(t, err)
+
+	var fields *ast.FieldList
+	ast.Inspect(file, func(n ast.Node) bool {
+		if ts, ok := n.(*ast.TypeSpec); ok && ts.Name.Name == name {
+			if st, ok := ts.Type.(*ast.StructType); ok {
+				fields = st.Fields
+			}
+		}
+		return fields == nil
+	})
+	require.NotNil(t, fields, "struct %s not found in generated code", name)
+
+	body := code[fset.Position(fields.Opening).Offset+1 : fset.Position(fields.Closing).Offset]
+	body = strings.TrimPrefix(body, "\n")
+	return regexp.MustCompile(`[ \t]+`).ReplaceAllString(body, " ")
+}
+
+// declaredTypes returns the sorted names of every type declared in the
+// generated types part src, including types local to function bodies.
+func declaredTypes(src string) []string {
+	file, err := goparser.ParseFile(token.NewFileSet(), "types.go", "package p\n"+src, 0)
+	if err != nil {
+		panic(fmt.Sprintf("generated types do not parse: %v", err))
+	}
+	var names []string
+	ast.Inspect(file, func(n ast.Node) bool {
+		if ts, ok := n.(*ast.TypeSpec); ok {
+			names = append(names, ts.Name.Name)
+		}
+		return true
+	})
+	sort.Strings(names)
+	return names
 }
 
 // receiverName returns the type name of fn's receiver, or "" for a function.

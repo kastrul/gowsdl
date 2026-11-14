@@ -6,12 +6,7 @@ package generator
 
 import (
 	"encoding/json"
-	"go/ast"
-	goparser "go/parser"
-	"go/token"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,32 +20,6 @@ var elementRefsFixture = filepath.Join("..", "..", "fixtures", "element_refs.wsd
 func generateElementRefsFixture(t *testing.T) generated {
 	t.Helper()
 	return generate(t, elementRefsFixture, WithPackage("refs"))
-}
-
-// structBody returns the source between the braces of the struct type name
-// declared in code, without the first newline and with runs of spaces and
-// tabs collapsed to one space.
-func structBody(t *testing.T, code, name string) string {
-	t.Helper()
-
-	fset := token.NewFileSet()
-	file, err := goparser.ParseFile(fset, "generated.go", code, goparser.ParseComments)
-	require.NoError(t, err)
-
-	var fields *ast.FieldList
-	ast.Inspect(file, func(n ast.Node) bool {
-		if ts, ok := n.(*ast.TypeSpec); ok && ts.Name.Name == name {
-			if st, ok := ts.Type.(*ast.StructType); ok {
-				fields = st.Fields
-			}
-		}
-		return fields == nil
-	})
-	require.NotNil(t, fields, "struct %s not found in generated code", name)
-
-	body := code[fset.Position(fields.Opening).Offset+1 : fset.Position(fields.Closing).Offset]
-	body = strings.TrimPrefix(body, "\n")
-	return regexp.MustCompile(`[ \t]+`).ReplaceAllString(body, " ")
 }
 
 func TestGenerator_RefElementTagNames(t *testing.T) {

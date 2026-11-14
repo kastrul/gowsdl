@@ -1,11 +1,6 @@
 package generator
 
 import (
-	"fmt"
-	"go/ast"
-	goparser "go/parser"
-	"go/token"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -163,24 +158,6 @@ const typePruningWSDL11 = `<?xml version="1.0" encoding="UTF-8"?>
 		</wsdl:operation>
 	</wsdl:binding>
 </wsdl:definitions>`
-
-// declaredTypes returns the sorted names of every type declared in the
-// generated types part src, including types local to function bodies.
-func declaredTypes(src string) []string {
-	file, err := goparser.ParseFile(token.NewFileSet(), "types.go", "package p\n"+src, 0)
-	if err != nil {
-		panic(fmt.Sprintf("generated types do not parse: %v", err))
-	}
-	var names []string
-	ast.Inspect(file, func(n ast.Node) bool {
-		if ts, ok := n.(*ast.TypeSpec); ok {
-			names = append(names, ts.Name.Name)
-		}
-		return true
-	})
-	sort.Strings(names)
-	return names
-}
 
 func TestGenerator_TypePruning_KeepsReachableTypesOnly(t *testing.T) {
 	code, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetOrder"))
