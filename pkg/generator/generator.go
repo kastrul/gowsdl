@@ -55,9 +55,13 @@ func WithPackage(pkg string) Option {
 	}
 }
 
-// WithHTTPConfig sets the HTTP configuration
+// WithHTTPConfig sets the HTTP configuration. A nil config, including a nil
+// *http.HTTPClientConfig, selects http.DefaultHTTPClientConfig.
 func WithHTTPConfig(config http.HTTPConfig) Option {
 	return func(g *Generator) error {
+		if c, ok := config.(*http.HTTPClientConfig); config == nil || (ok && c == nil) {
+			config = http.DefaultHTTPClientConfig()
+		}
 		g.httpConfig = config
 		return nil
 	}
@@ -109,6 +113,7 @@ func New(file string, opts ...Option) (*Generator, error) {
 	g := &Generator{
 		loc:        loc,
 		pkg:        "myservice",
+		httpConfig: http.DefaultHTTPClientConfig(),
 		typeMapper: types.NewTypeMapper(),
 	}
 
