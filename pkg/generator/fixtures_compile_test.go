@@ -26,14 +26,6 @@ var knownNonCompilingFixtures = map[string]string{
 	// Incomplete fixture: the WSDL imports core-types.xsd, query-messagetypes.xsd,
 	// reflect-messagetypes.xsd and vim-messagetypes.xsd, which are not in the repository.
 	"fixtures/vim.wsdl": "imported XSDs are missing from the repository",
-
-	// complexType diagnosticException has an optional element "cause" of its own type.
-	// Optional complex elements are emitted as value fields (with omitzero), so the
-	// struct contains itself: "invalid recursive type DiagnosticException". A fix has to
-	// emit a pointer for the field that closes a cycle, including indirect cycles, which
-	// needs the enclosing type at every element-rendering path in the types template or
-	// a cycle-breaking pass over the generated structs.
-	"fixtures/usda-awdb.wsdl": "invalid recursive type DiagnosticException (optional self-reference emitted as a value)",
 }
 
 // fixtureWSDLs returns every *.wsdl file in a fixtures or test_fixtures
