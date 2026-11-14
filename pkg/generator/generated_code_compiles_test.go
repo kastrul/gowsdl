@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,14 +58,6 @@ func assertGeneratedCodeBuilds(t *testing.T, module string, out map[string][]byt
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	assert.NoError(t, err, "generated code should compile:\n%s", output)
-}
-
-// structBody returns the body of the struct declaration for name in gofmt'ed code.
-func structBody(t *testing.T, code, name string) string {
-	t.Helper()
-	m := regexp.MustCompile(`(?ms)^type ` + regexp.QuoteMeta(name) + ` struct \{\n(.*?)^\}`).FindStringSubmatch(code)
-	require.NotNil(t, m, "struct %s not found", name)
-	return m[1]
 }
 
 func chromeDataWSDL() string {
