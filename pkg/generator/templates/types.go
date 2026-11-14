@@ -46,9 +46,9 @@ const TypesTemplate = `
 	{{end}}
 
 	{{range $complexType.Sequence}}
-		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
@@ -80,7 +80,7 @@ const TypesTemplate = `
 	{{end}}
 
 	{{range $complexType.Choice}}
-		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if .ComplexType}}
 			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
 			{{if eq .MaxOccurs "unbounded"}}
@@ -104,7 +104,7 @@ const TypesTemplate = `
 	{{end}}
 
 	{{range $complexType.All}}
-		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if .ComplexType}}
 			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
 			{{if eq .MaxOccurs "unbounded"}}
@@ -135,7 +135,7 @@ const TypesTemplate = `
 		{{if eq .Name "id"}}
 			{{$name = "idAttr"}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 
 	{{if ne (len $complexType.Any) 0}}
@@ -155,9 +155,9 @@ const TypesTemplate = `
 	{{end}}
 
 	{{range .Sequence}}
-		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
@@ -238,9 +238,9 @@ const TypesTemplate = `
 	{{end}}
 
 	{{range .Choice}}
-		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
@@ -260,9 +260,9 @@ const TypesTemplate = `
 	{{end}}
 
 	{{range .All}}
-		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
@@ -290,7 +290,7 @@ const TypesTemplate = `
 		{{if eq .Name "id"}}
 			{{$name = "idAttr"}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 
 	{{if ne (len .Any) 0}}
@@ -318,7 +318,7 @@ const TypesTemplate = `
 		{{with .ComplexContent}}
 			{{template "Elements" (dict "ParentTypeName" $.Name "Elements" .Extension.Sequence)}}
 			{{range .Extension.Attributes}}
-				{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
+				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 		{{with .SimpleContent}}
@@ -327,7 +327,7 @@ const TypesTemplate = `
 			{{end}}
 			{{range .Extension.Attributes}}
 				
-				{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
+				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	}
@@ -358,7 +358,7 @@ const TypesTemplate = `
 			{{/* Simple content with attributes */}}
 			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
 			{{range $inline.ComplexType.SimpleContent.Extension.Attributes}}
-				{{$attrName := .Name | replaceReservedWords | makePublic}}
+				{{$attrName := .Name | replaceReservedWords | makeFieldPublic}}
 				{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{else}}
@@ -491,11 +491,18 @@ const TypesTemplate = `
 
 {{/* Generate wrapper types for RPC-style messages */}}
 {{range .Messages}}
-	{{if isRPCStyleMessage .}}
+	{{if isEmptyMessage .}}
+		{{$type := replaceReservedWords .Name | makePublic}}
+		// {{$type}} is the empty {{.Name}} message. It marshals to no XML, so the SOAP body stays empty.
+		type {{$type}} struct{}
+
+		// MarshalXML implements xml.Marshaler and writes nothing.
+		func ({{$type}}) MarshalXML(*xml.Encoder, xml.StartElement) error { return nil }
+	{{else if isRPCStyleMessage .}}
 		{{$type := replaceReservedWords .Name | makePublic}}
 		type {{$type}} struct {
 			{{range .Parts}}
-				{{$partName := .Name | replaceReservedWords | makePublic}}
+				{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
 				{{if ne .Type ""}}
 					{{$partType := .Type | removeNamespacePrefix}}
 					{{$partName}} {{toGoType $partType false}} ` + "`" + `xml:"{{.Name}}" json:"{{.Name}}"` + "`" + `
@@ -525,7 +532,7 @@ const TypesTemplate = `
 						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}"` + "`" + `
 						
 						{{range .Parts}}
-							{{$partName := .Name | replaceReservedWords | makePublic}}
+							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
 							{{if ne .Type ""}}
 								{{$partType := .Type | removeNamespacePrefix}}
 								{{$partName}} *{{toGoType $partType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -546,7 +553,7 @@ const TypesTemplate = `
 						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}Response"` + "`" + `
 						
 						{{range .Parts}}
-							{{$partName := .Name | replaceReservedWords | makePublic}}
+							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
 							{{if ne .Type ""}}
 								{{$partType := .Type | removeNamespacePrefix}}
 								{{if eq .Name "return"}}
@@ -574,15 +581,15 @@ const TypesTemplate = `
 	{{$parentTypeName := .ParentTypeName}}
 	{{range .Elements}}
 		{{if ne .Ref ""}}
-			{{removeNamespacePrefix .Ref | replaceReservedWords | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 		{{else}}
 			{{if not .Type}}
 				{{if .ComplexType}}
 					{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
-					{{replaceReservedWords .Name | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+					{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
 				{{end}}
 			{{else}}
-				{{replaceReservedWords .Name | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
