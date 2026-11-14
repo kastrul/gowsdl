@@ -109,14 +109,14 @@ func multipartParams(contentType string) (boundary string, params map[string]str
 
 // newRequestEncoder selects the request encoding once, from the client's
 // MTOM and MMA options.
-func (s *Client) newRequestEncoder(w io.Writer) (requestEncoder, error) {
+func (c *Client) newRequestEncoder(w io.Writer) (requestEncoder, error) {
 	switch {
-	case s.opts.mtom && s.opts.mma:
+	case c.opts.mtom && c.opts.mma:
 		return nil, fmt.Errorf("cannot use MTOM (XOP) and MMA (MIME Multipart Attachments) option at the same time")
-	case s.opts.mtom:
+	case c.opts.mtom:
 		return newMtomEncoder(w), nil
-	case s.opts.mma:
-		return newMmaEncoder(w, s.attachments), nil
+	case c.opts.mma:
+		return newMmaEncoder(w, c.attachments), nil
 	default:
 		return xmlRequestEncoder{xml.NewEncoder(w)}, nil
 	}
@@ -125,14 +125,14 @@ func (s *Client) newRequestEncoder(w io.Writer) (requestEncoder, error) {
 // newResponseDecoder selects the response decoding from the response's
 // Content-Type header. An MTOM response is recognised whatever the client's
 // options; an MMA response only when the client uses MMA.
-func (s *Client) newResponseDecoder(contentType string) (func(io.Reader) SOAPDecoder, error) {
+func (c *Client) newResponseDecoder(contentType string) (func(io.Reader) SOAPDecoder, error) {
 	mtomBoundary, err := getMtomHeader(contentType)
 	if err != nil {
 		return nil, err
 	}
 
 	var mmaBoundary string
-	if s.opts.mma {
+	if c.opts.mma {
 		mmaBoundary, err = getMmaHeader(contentType)
 		if err != nil {
 			return nil, err
