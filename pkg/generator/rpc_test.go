@@ -245,6 +245,26 @@ func TestIsRPCStyleMessage(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "element body with attachment part",
+			message: &parser.WSDLMessage{
+				Parts: []*parser.WSDLPart{
+					{Name: "body", Element: "tns:RequestBody"},
+					{Name: "attachment", Type: "xsd:base64Binary"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "multiple element parts",
+			message: &parser.WSDLMessage{
+				Parts: []*parser.WSDLPart{
+					{Name: "client", Element: "xroad:client"},
+					{Name: "service", Element: "xroad:service"},
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "empty parts",
 			message: &parser.WSDLMessage{
 				Parts: []*parser.WSDLPart{},
