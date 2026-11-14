@@ -148,7 +148,7 @@ called with the extension's base type.
 	{{if ne .Extension.Base ""}}
 		{{if eq .Extension.Base "soap:Header"}}
 			soap.Header
-		{{else if eq (toGoType .Extension.Base false) "interface{}"}}
+		{{else if eq (toGoType .Extension.Base false) "any"}}
 			InnerXML string ` + "`" + `xml:",innerxml"` + "`" + `
 		{{else}}
 			{{toGoType .Extension.Base false}}
@@ -361,7 +361,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 							type {{$type}} {{toGoType .Restriction.Base false}}
 						{{end}}
 					{{else}}
-						type {{$type}} interface{}
+						type {{$type}} any
 					{{end}}
 				{{end}}
 			{{end}}

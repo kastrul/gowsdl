@@ -49,7 +49,44 @@ func TestGenerator_ComplexContentExtensionOfAnyType(t *testing.T) {
 	attr := structBody(t, code, "Attribute")
 	assert.Regexp(t, `InnerXML string `+"`"+`xml:",innerxml"`+"`", attr)
 	assert.Regexp(t, `IdAttr string `+"`"+`xml:"id,attr`, attr)
-	assert.NotContains(t, code, "interface{}\n")
+	assert.NotRegexp(t, `(?m)^\s*(any|interface\{\})\s*$`, code, "anyType base must not be embedded")
 
 	assertGeneratedCodeBuilds(t, "anyext", out)
+}
+
+const anyTypeFieldWSDL = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+             xmlns:tns="urn:anyfield" targetNamespace="urn:anyfield">
+  <types>
+    <xs:schema targetNamespace="urn:anyfield" elementFormDefault="qualified">
+      <xs:complexType name="Payload">
+        <xs:sequence>
+          <xs:element name="value" type="xs:anyType"/>
+          <xs:element name="maybe" type="xs:anyType" nillable="true"/>
+          <xs:element name="simple" type="xs:anySimpleType"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:element name="tags">
+        <xs:simpleType>
+          <xs:list itemType="xs:string"/>
+        </xs:simpleType>
+      </xs:element>
+    </xs:schema>
+  </types>
+</definitions>`
+
+func TestGenerator_AnyTypeFieldsUseAny(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "anyfield.wsdl")
+	require.NoError(t, os.WriteFile(path, []byte(anyTypeFieldWSDL), 0o600))
+
+	code, out := generateCode(t, path, WithPackage("anyfield"))
+
+	payload := structBody(t, code, "Payload")
+	assert.Regexp(t, `Value\s+any\s`, payload)
+	assert.Regexp(t, `Maybe\s+any\s`, payload, "nillable anyType must not become *any")
+	assert.Regexp(t, `Simple\s+any\s`, payload)
+	assert.Regexp(t, `(?m)^type Tags any$`, code)
+	assert.NotContains(t, code, "interface{}")
+
+	assertGeneratedCodeBuilds(t, "anyfield", out)
 }
