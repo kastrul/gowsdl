@@ -207,9 +207,9 @@ func (f *SOAPFault) Error() string {
 
 // HTTPError is returned whenever the HTTP request to the server fails
 type HTTPError struct {
-	//StatusCode is the status code returned in the HTTP response
+	// StatusCode is the status code returned in the HTTP response
 	StatusCode int
-	//ResponseBody contains the body returned in the HTTP response
+	// ResponseBody contains the body returned in the HTTP response
 	ResponseBody []byte
 }
 
@@ -288,9 +288,9 @@ type options struct {
 }
 
 var defaultOptions = options{
-	timeout:          time.Duration(30 * time.Second),
-	contimeout:       time.Duration(90 * time.Second),
-	tlshshaketimeout: time.Duration(15 * time.Second),
+	timeout:          30 * time.Second,
+	contimeout:       90 * time.Second,
+	tlshshaketimeout: 15 * time.Second,
 }
 
 // A Option sets options such as credentials, tls, etc.

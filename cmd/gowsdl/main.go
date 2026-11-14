@@ -357,7 +357,7 @@ func run() error {
 	if err != nil {
 		// Write unformatted code and return error with context
 		if writeErr := writeData(file, data.Bytes()); writeErr != nil {
-			return fmt.Errorf("failed to format code and failed to write unformatted code: format error: %w, write error: %v", err, writeErr)
+			return fmt.Errorf("failed to format code and failed to write unformatted code: format error: %w, write error: %w", err, writeErr)
 		}
 		return fmt.Errorf("failed to format generated code: %w", err)
 	}
@@ -387,7 +387,7 @@ func run() error {
 		if err != nil {
 			// Write unformatted server code and return error with context
 			if writeErr := writeData(serverFile, serverData.Bytes()); writeErr != nil {
-				return fmt.Errorf("failed to format server code and failed to write unformatted server code: format error: %w, write error: %v", err, writeErr)
+				return fmt.Errorf("failed to format server code and failed to write unformatted server code: format error: %w, write error: %w", err, writeErr)
 			}
 			return fmt.Errorf("failed to format generated server code: %w", err)
 		}

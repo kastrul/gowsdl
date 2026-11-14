@@ -54,7 +54,7 @@ func TestWSDLErrorUnwrap(t *testing.T) {
 		Err:  baseErr,
 	}
 
-	if unwrapped := wsdlErr.Unwrap(); unwrapped != baseErr {
+	if unwrapped := wsdlErr.Unwrap(); !errors.Is(unwrapped, baseErr) {
 		t.Errorf("WSDLError.Unwrap() = %v, want %v", unwrapped, baseErr)
 	}
 
@@ -106,7 +106,7 @@ func TestSchemaErrorUnwrap(t *testing.T) {
 		Err:    baseErr,
 	}
 
-	if unwrapped := schemaErr.Unwrap(); unwrapped != baseErr {
+	if unwrapped := schemaErr.Unwrap(); !errors.Is(unwrapped, baseErr) {
 		t.Errorf("SchemaError.Unwrap() = %v, want %v", unwrapped, baseErr)
 	}
 

@@ -52,6 +52,9 @@ func TestSOAPCaptureRoundTrip(t *testing.T) {
 
 	// Execute round trip
 	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -82,6 +85,9 @@ func TestSOAPCaptureRequestWithoutBody(t *testing.T) {
 	}
 
 	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -106,6 +112,9 @@ func TestSOAPCaptureInvalidXML(t *testing.T) {
 	}
 
 	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -148,7 +157,10 @@ func TestSOAPCaptureThreadSafety(t *testing.T) {
 					Body:   io.NopCloser(strings.NewReader(soapBody)),
 				}
 
-				_, err := capture.RoundTrip(req)
+				resp, err := capture.RoundTrip(req)
+				if resp != nil {
+					_ = resp.Body.Close()
+				}
 				assert.NoError(t, err)
 			}
 		}(i)
@@ -181,7 +193,10 @@ func TestSOAPCaptureMultipleHeaders(t *testing.T) {
 	req.Header.Add("Accept", "application/xml")
 	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
 
-	_, err := capture.RoundTrip(req)
+	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 
 	lastReq := capture.GetLastRequest()
@@ -204,7 +219,10 @@ func TestSOAPCaptureReset(t *testing.T) {
 			Body:   io.NopCloser(strings.NewReader("<test/>")),
 		}
 
-		_, err := capture.RoundTrip(req)
+		resp, err := capture.RoundTrip(req)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		require.NoError(t, err)
 	}
 
@@ -285,7 +303,10 @@ func TestSOAPCaptureBodyRestore(t *testing.T) {
 	}
 
 	// Execute round trip
-	_, err := capture.RoundTrip(req)
+	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 
 	// Verify original request body is still readable
@@ -311,7 +332,10 @@ func TestSOAPCaptureReadError(t *testing.T) {
 	}
 
 	// Should return error from RoundTrip
-	_, err := capture.RoundTrip(req)
+	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read request body")
 }
