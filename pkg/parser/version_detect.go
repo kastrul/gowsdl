@@ -29,17 +29,17 @@ func DetectWSDLVersion(data []byte) (string, error) {
 			if se.Name.Local == "definitions" && se.Name.Space == wsdlNamespace {
 				return "1.1", nil
 			}
-			if se.Name.Local == "description" && se.Name.Space == wsdl2Namespace {
+			if se.Name.Local == "description" && isWSDL2Namespace(se.Name.Space) {
 				return "2.0", nil
 			}
 
 			// Also check default namespace
 			for _, attr := range se.Attr {
 				if attr.Name.Local == "xmlns" {
-					switch attr.Value {
-					case wsdlNamespace:
+					if attr.Value == wsdlNamespace {
 						return "1.1", nil
-					case wsdl2Namespace:
+					}
+					if isWSDL2Namespace(attr.Value) {
 						return "2.0", nil
 					}
 				}

@@ -48,6 +48,33 @@ func TestDetectWSDLVersion(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "WSDL 2.0 with spec namespace",
+			wsdl: `<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://www.w3.org/ns/wsdl"
+             targetNamespace="http://example.com/test">
+</description>`,
+			want:    "2.0",
+			wantErr: false,
+		},
+		{
+			name: "WSDL 2.0 with spec namespace and prefix",
+			wsdl: `<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:description xmlns:wsdl="http://www.w3.org/ns/wsdl"
+                  targetNamespace="http://example.com/test">
+</wsdl:description>`,
+			want:    "2.0",
+			wantErr: false,
+		},
+		{
+			name: "WSDL 2.0 namespace with unrelated suffix",
+			wsdl: `<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://www.w3.org/ns/wsdl/soap"
+             targetNamespace="http://example.com/test">
+</description>`,
+			want:    "",
+			wantErr: true,
+		},
+		{
 			name: "Invalid WSDL",
 			wsdl: `<?xml version="1.0" encoding="UTF-8"?>
 <root xmlns="http://example.com/unknown">

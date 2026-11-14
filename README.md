@@ -38,32 +38,44 @@ Generates idiomatic Go code from WSDL files with support for WSDL 1.1, WSDL 2.0,
 ### Usage
 ```
 Usage: gowsdl [options] myservice.wsdl
+  -d string
+    	Directory under which package directory will be created (default "./")
+  -generate-server
+    	Generate server implementation code
+  -http-proxy string
+    	HTTP proxy URL
+  -http-rate-limit int
+    	Rate limit for HTTP requests per second (0 = no limit)
+  -http-retries int
+    	Number of retries for failed requests
+  -http-retry-delay duration
+    	Delay between retries (default 1s)
+  -http-timeout duration
+    	Timeout for HTTP requests (default 30s)
+  -http-user-agent string
+    	User-Agent header for requests (default "gowsdl/1.0")
+  -i	Skips TLS Verification
+  -make-public
+    	Make the generated types public/exported (default true)
   -o string
-        File where the generated code will be saved (default "myservice.go")
-  -p string
-        Package under which code will be generated (default "myservice")
-  -i    Skips TLS Verification
-  -v    Shows gowsdl version
-  -use-generics
-        Generate code using Go generics (requires Go 1.18+ for generic features)
+    	File where the generated code will be saved (default "myservice.go")
   -operations string
-        Comma-separated list of operation names to generate client methods for (default: all)
+    	Comma-separated list of operation names to generate client methods for (default: all)
+  -p string
+    	Package under which code will be generated (default "myservice")
   -prune-types
-        With -operations, generate only the types used by the selected operations (default true)
-  -insecure-skip-verify
-        Skip TLS certificate verification when downloading WSDLs
-  -ca-cert string
-        Path to CA certificate file for TLS verification
-  -tls-cert string
-        Path to client certificate for mutual TLS
-  -tls-key string
-        Path to client key for mutual TLS
-  -proxy string
-        HTTP proxy URL
-  -timeout duration
-        HTTP client timeout (default 30s)
-  -server
-        Generate server-side code in addition to client code
+    	With -operations, generate only the types used by the selected operations (default true)
+  -tls-ca-cert string
+    	Path to CA certificate file
+  -tls-client-cert string
+    	Path to client certificate file (requires -tls-client-key)
+  -tls-client-key string
+    	Path to client key file (requires -tls-client-cert)
+  -tls-min-version string
+    	Minimum TLS version (1.0, 1.1, 1.2, 1.3) (default "1.2")
+  -use-generics
+    	Generate code using Go generics (requires Go 1.18+)
+  -v	Shows gowsdl version
 ```
 
 ### Generating Only Selected Operations

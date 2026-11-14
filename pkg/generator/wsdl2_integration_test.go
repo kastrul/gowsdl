@@ -2,7 +2,9 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -184,4 +186,81 @@ func TestWSDL2Integration(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "2.0", version)
 	})
+}
+
+func TestWSDL2Integration_SpecNamespace(t *testing.T) {
+	const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="%s"
+             xmlns:tns="http://example.com/stockquote"
+             targetNamespace="http://example.com/stockquote">
+  <types>
+    <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+               targetNamespace="http://example.com/stockquote"
+               elementFormDefault="qualified">
+      <xs:element name="GetQuoteRequest">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="symbol" type="xs:string"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="GetQuoteResponse">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="price" type="xs:decimal"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:schema>
+  </types>
+  <interface name="StockQuoteInterface">
+    <operation name="GetQuote" pattern="http://www.w3.org/ns/wsdl/in-out">
+      <input element="tns:GetQuoteRequest"/>
+      <output element="tns:GetQuoteResponse"/>
+    </operation>
+  </interface>
+  <binding name="StockQuoteSoapBinding" interface="tns:StockQuoteInterface"
+           type="http://www.w3.org/ns/wsdl/soap">
+    <operation ref="tns:GetQuote"/>
+  </binding>
+  <service name="StockQuoteService" interface="tns:StockQuoteInterface">
+    <endpoint name="StockQuoteEndpoint" binding="tns:StockQuoteSoapBinding"
+              address="http://example.com/stockquote"/>
+  </service>
+</description>`
+
+	tests := []struct {
+		name      string
+		namespace string
+	}{
+		{name: "spec", namespace: "http://www.w3.org/ns/wsdl"},
+		{name: "legacy_trailing_slash", namespace: "http://www.w3.org/ns/wsdl/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content := fmt.Sprintf(doc, tt.namespace)
+
+			version, err := parser.DetectWSDLVersion([]byte(content))
+			require.NoError(t, err)
+			assert.Equal(t, "2.0", version)
+
+			path := filepath.Join(t.TempDir(), "stockquote.wsdl")
+			require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+			g, err := New(path, WithPackage("stockquote"), WithServerGeneration(true))
+			require.NoError(t, err)
+
+			gocode, err := g.Generate(context.Background())
+			require.NoError(t, err)
+
+			typesStr := string(gocode["types"])
+			assert.Contains(t, typesStr, "GetQuoteRequest")
+			assert.Contains(t, typesStr, "GetQuoteResponse")
+
+			opsStr := string(gocode["operations"])
+			assert.Contains(t, opsStr, "StockQuoteInterface")
+			assert.Contains(t, opsStr, "GetQuoteContext")
+		})
+	}
 }
