@@ -8,7 +8,6 @@
 package testing
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,9 +32,7 @@ func TestFixtureRunnerWithRealCode(t *testing.T) {
 	}()
 
 	// Create a temporary test fixture
-	tempDir, err := ioutil.TempDir("", "fixture_test_*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Create a simple WSDL for testing
 	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -104,7 +101,7 @@ func TestFixtureRunnerWithRealCode(t *testing.T) {
 
 	// Write WSDL file
 	wsdlPath := filepath.Join(fixtureDir, "simple.wsdl")
-	require.NoError(t, ioutil.WriteFile(wsdlPath, []byte(wsdlContent), 0644))
+	require.NoError(t, os.WriteFile(wsdlPath, []byte(wsdlContent), 0644))
 
 	// Create expected request XML
 	expectedRequest := `<?xml version="1.0" encoding="UTF-8"?>
@@ -117,7 +114,7 @@ func TestFixtureRunnerWithRealCode(t *testing.T) {
 </soap:Envelope>`
 
 	requestPath := filepath.Join(fixtureDir, "simple_request.xml")
-	require.NoError(t, ioutil.WriteFile(requestPath, []byte(expectedRequest), 0644))
+	require.NoError(t, os.WriteFile(requestPath, []byte(expectedRequest), 0644))
 
 	// Create test data
 	testData := `{
@@ -126,7 +123,7 @@ func TestFixtureRunnerWithRealCode(t *testing.T) {
 	}`
 
 	testDataPath := filepath.Join(fixtureDir, "simple_test_data.json")
-	require.NoError(t, ioutil.WriteFile(testDataPath, []byte(testData), 0644))
+	require.NoError(t, os.WriteFile(testDataPath, []byte(testData), 0644))
 
 	// Load fixtures
 	err = runner.LoadFixtures(tempDir)
@@ -208,9 +205,7 @@ func TestFixtureRunnerFixtureLoading(t *testing.T) {
 	runner := NewFixtureRunner()
 
 	// Create temporary fixture structure
-	tempDir, err := ioutil.TempDir("", "fixture_loading_test_*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Create RPC fixture
 	rpcDir := filepath.Join(tempDir, "rpc_literal")
@@ -218,18 +213,18 @@ func TestFixtureRunnerFixtureLoading(t *testing.T) {
 
 	// Write RPC WSDL
 	wsdlContent := `<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"></definitions>`
-	require.NoError(t, ioutil.WriteFile(filepath.Join(rpcDir, "basic_rpc.wsdl"), []byte(wsdlContent), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(rpcDir, "basic_rpc.wsdl"), []byte(wsdlContent), 0644))
 
 	// Write RPC request
 	requestContent := `<soap:Envelope><soap:Body></soap:Body></soap:Envelope>`
-	require.NoError(t, ioutil.WriteFile(filepath.Join(rpcDir, "basic_rpc_request.xml"), []byte(requestContent), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(rpcDir, "basic_rpc_request.xml"), []byte(requestContent), 0644))
 
 	// Write RPC test data
 	testDataContent := `{"operation": "BasicRPC"}`
-	require.NoError(t, ioutil.WriteFile(filepath.Join(rpcDir, "basic_rpc_test_data.json"), []byte(testDataContent), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(rpcDir, "basic_rpc_test_data.json"), []byte(testDataContent), 0644))
 
 	// Load fixtures
-	err = runner.LoadFixtures(tempDir)
+	err := runner.LoadFixtures(tempDir)
 	require.NoError(t, err)
 
 	fixtures := runner.GetFixtures()
@@ -251,16 +246,14 @@ func TestFixtureRunnerErrorHandling(t *testing.T) {
 	assert.NoError(t, err, "Should handle non-existent directories gracefully")
 
 	// Test with incomplete fixtures (missing files)
-	tempDir, err := ioutil.TempDir("", "error_handling_test_*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	docDir := filepath.Join(tempDir, "document_literal")
 	require.NoError(t, os.MkdirAll(docDir, 0755))
 
 	// Only create WSDL file, missing request and test data
 	wsdlContent := `<definitions></definitions>`
-	require.NoError(t, ioutil.WriteFile(filepath.Join(docDir, "incomplete.wsdl"), []byte(wsdlContent), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(docDir, "incomplete.wsdl"), []byte(wsdlContent), 0644))
 
 	err = runner.LoadFixtures(tempDir)
 	assert.NoError(t, err, "Should handle incomplete fixtures gracefully")
