@@ -79,6 +79,7 @@ var dir = flag.String("d", "./", "Directory under which package directory will b
 var insecure = flag.Bool("i", false, "Skips TLS Verification")
 var makePublic = flag.Bool("make-public", true, "Make the generated types public/exported")
 var useGenerics = flag.Bool("use-generics", false, "Generate code using Go generics (requires Go 1.18+)")
+var genericsOnly = flag.Bool("generics-only", false, "Generate only generic methods (returning soap.Result) for WSDL 1.1 document-style operations; implies -use-generics")
 var generateServer = flag.Bool("generate-server", false, "Generate server implementation code")
 var operations = flag.String("operations", "", "Comma-separated list of operation names to generate client methods for (default: all)")
 var pruneTypes = flag.Bool("prune-types", true, "With -operations, generate only the types used by the selected operations")
@@ -288,7 +289,9 @@ func run() error {
 		gen.WithExportAllTypes(*makePublic),
 		gen.WithServerGeneration(*generateServer),
 	}
-	if *useGenerics {
+	if *genericsOnly {
+		opts = append(opts, gen.WithGenericsOnly())
+	} else if *useGenerics {
 		opts = append(opts, gen.WithGenerics())
 	}
 	if names := gen.ParseOperationList(*operations); len(names) > 0 {

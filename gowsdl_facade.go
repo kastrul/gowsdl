@@ -35,6 +35,14 @@ func WithGenerics() Option {
 	}
 }
 
+// WithGenericsOnly enables Go generics code generation and replaces the standard
+// methods of WSDL 1.1 document-style operations with generic ones returning soap.Result
+func WithGenericsOnly() Option {
+	return func(g *GoWSDL) error {
+		return generator.WithGenericsOnly()(g.generator)
+	}
+}
+
 // WithExportAllTypes enables exporting all types (making them public)
 func WithExportAllTypes(export bool) Option {
 	return func(g *GoWSDL) error {

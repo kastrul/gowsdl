@@ -35,6 +35,7 @@ type Generator struct {
 	wsdlVersion      string // "1.1" or "2.0"
 	httpConfig       http.HTTPConfig
 	useGenerics      bool
+	genericsOnly     bool
 	generateServer   bool
 	operations       map[string]bool
 	keepUnusedTypes  bool
@@ -69,6 +70,18 @@ func WithHTTPConfig(config http.HTTPConfig) Option {
 func WithGenerics() Option {
 	return func(g *Generator) error {
 		g.useGenerics = true
+		return nil
+	}
+}
+
+// WithGenericsOnly enables generic code generation and replaces the standard
+// methods of WSDL 1.1 document-style operations with generic ones that keep the
+// plain operation name and return soap.Result. Operations that cannot use the
+// generic client keep their standard methods.
+func WithGenericsOnly() Option {
+	return func(g *Generator) error {
+		g.useGenerics = true
+		g.genericsOnly = true
 		return nil
 	}
 }
@@ -633,15 +646,22 @@ func (g *Generator) genOperations() ([]byte, error) {
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
 		tmplText = templates.OperationsWSDL2Template
 		data = g.filteredInterfaces()
+		if g.useGenerics {
+			log.Printf("gowsdl: generic client generation is not supported for WSDL 2.0; generating standard operations only")
+		}
 	} else if g.wsdl != nil {
 		tmplText = templates.OperationsWSDL1Template
 		// Wrap data to include both PortTypes and Messages for RPC operations
 		data = struct {
-			PortTypes []*parser.WSDLPortType
-			Messages  []*parser.WSDLMessage
+			PortTypes    []*parser.WSDLPortType
+			Messages     []*parser.WSDLMessage
+			UseGenerics  bool
+			GenericsOnly bool
 		}{
-			PortTypes: g.filteredPortTypes(),
-			Messages:  g.wsdl.Messages,
+			PortTypes:    g.filteredPortTypes(),
+			Messages:     g.wsdl.Messages,
+			UseGenerics:  g.useGenerics,
+			GenericsOnly: g.genericsOnly,
 		}
 	} else {
 		return []byte{}, nil

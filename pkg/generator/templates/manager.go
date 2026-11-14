@@ -43,8 +43,9 @@ func (m *Manager) GetServerTemplate() (*template.Template, error) {
 	return template.New("server").Funcs(m.funcMap).Parse("")
 }
 
-// GetGenericOperationsTemplate returns the generic operations template
+// GetGenericOperationsTemplate returns the WSDL 1.1 operations template used
+// for generic client generation. Generic methods are emitted when the template
+// data has UseGenerics set to true.
 func (m *Manager) GetGenericOperationsTemplate() (*template.Template, error) {
-	// TODO: Add GenericOperationsTemplate constant
-	return template.New("generic_operations").Funcs(m.funcMap).Parse("")
+	return template.New("generic_operations").Funcs(m.funcMap).Parse(OperationsWSDL1Template)
 }

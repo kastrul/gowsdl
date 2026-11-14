@@ -35,6 +35,10 @@ func TestGeneratorOptions(t *testing.T) {
 			option: WithGenerics(),
 		},
 		{
+			name:   "WithGenericsOnly",
+			option: WithGenericsOnly(),
+		},
+		{
 			name:   "WithExportAllTypes_true",
 			option: WithExportAllTypes(true),
 		},

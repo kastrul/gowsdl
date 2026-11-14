@@ -7,9 +7,13 @@ package soap
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 )
+
+// ErrNilRequest is returned by generated generic operations when called with a nil request.
+var ErrNilRequest = errors.New("soap: request must not be nil")
 
 // GenericClient is a type-safe SOAP client using Go generics
 type GenericClient[TReq any, TResp any] struct {
@@ -21,6 +25,16 @@ type GenericClient[TReq any, TResp any] struct {
 func NewGenericClient[TReq any, TResp any](url string, action string, opts ...Option) *GenericClient[TReq, TResp] {
 	return &GenericClient[TReq, TResp]{
 		client: NewClient(url, opts...),
+		action: action,
+	}
+}
+
+// NewGenericClientFromClient creates a generic SOAP client that shares an
+// existing Client, so generic calls use the same URL, authentication, TLS,
+// headers and timeouts as non-generic calls made through that Client.
+func NewGenericClientFromClient[TReq any, TResp any](client *Client, action string) *GenericClient[TReq, TResp] {
+	return &GenericClient[TReq, TResp]{
+		client: client,
 		action: action,
 	}
 }

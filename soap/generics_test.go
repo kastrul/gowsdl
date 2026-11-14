@@ -299,3 +299,56 @@ func TestBatchClientWithContextCancellation(t *testing.T) {
 		assert.Contains(t, result.Result.Fault.String, "context deadline exceeded")
 	}
 }
+func TestNewGenericClientFromClient(t *testing.T) {
+	t.Run("shares client options and decodes response", func(t *testing.T) {
+		var gotUser, gotPass, gotAction string
+		var gotAuth bool
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotUser, gotPass, gotAuth = r.BasicAuth()
+			gotAction = r.Header.Get("SOAPAction")
+			w.Header().Set("Content-Type", "text/xml")
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+				<soap:Body>
+					<getUserResponse><user><id>7</id><name>Jane</name></user></getUserResponse>
+				</soap:Body>
+			</soap:Envelope>`))
+		}))
+		defer server.Close()
+
+		base := NewClient(server.URL, WithBasicAuth("alice", "secret"))
+		client := NewGenericClientFromClient[GetUserRequest, GetUserResponse](base, "getUser")
+
+		result := client.CallAsResult(context.Background(), GetUserRequest{UserID: 7})
+
+		require.True(t, result.IsSuccess(), "unexpected fault: %+v", result.Fault)
+		assert.Equal(t, 7, result.Value.User.ID)
+		assert.Equal(t, "Jane", result.Value.User.Name)
+		assert.True(t, gotAuth)
+		assert.Equal(t, "alice", gotUser)
+		assert.Equal(t, "secret", gotPass)
+		assert.Contains(t, gotAction, "getUser")
+	})
+
+	t.Run("SOAP fault is not a transport error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/xml")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+				<soap:Body>
+					<soap:Fault><faultcode>Client</faultcode><faultstring>User not found</faultstring></soap:Fault>
+				</soap:Body>
+			</soap:Envelope>`))
+		}))
+		defer server.Close()
+
+		client := NewGenericClientFromClient[GetUserRequest, GetUserResponse](NewClient(server.URL), "getUser")
+
+		result := client.CallAsResult(context.Background(), GetUserRequest{UserID: 1})
+
+		require.False(t, result.IsSuccess())
+		assert.False(t, result.TransportError)
+		assert.Equal(t, "User not found", result.Fault.String)
+	})
+}

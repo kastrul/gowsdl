@@ -42,6 +42,8 @@ Usage: gowsdl [options] myservice.wsdl
     	Directory under which package directory will be created (default "./")
   -generate-server
     	Generate server implementation code
+  -generics-only
+    	Generate only generic methods (returning soap.Result) for WSDL 1.1 document-style operations; implies -use-generics
   -http-proxy string
     	HTTP proxy URL
   -http-rate-limit int
@@ -106,10 +108,9 @@ g, err := gowsdl.NewGoWSDL("myservice.wsdl",
 
 Starting with Go 1.18, gowsdl can generate code that uses generics for type-safe SOAP operations. This feature provides:
 
-* Type-safe SOAP clients with compile-time type checking
-* Generic result types that can handle both success responses and SOAP faults
-* Generic array types for better handling of unbounded elements
-* Backward compatibility with non-generic code generation
+* An extra `<Operation>Generic` method per operation, backed by `soap.GenericClient[TReq, TResp]`
+* A `soap.Result[T]` return value that separates successful responses from SOAP faults and transport errors
+* Backward compatibility: the standard methods are generated unchanged, and nothing generic is generated without the flag
 
 To enable generic code generation, use the `-use-generics` flag:
 
@@ -117,39 +118,56 @@ To enable generic code generation, use the `-use-generics` flag:
 gowsdl -use-generics -p myservice -o myservice.go myservice.wsdl
 ```
 
+Generic methods are generated for WSDL 1.1 document-style operations. RPC-style port types and WSDL 2.0 files get the standard methods only.
+
 #### Example Usage
 
-With generics enabled, you get additional methods for each operation:
+With generics enabled, you get an additional method for each operation. It shares the `*soap.Client` passed to the service constructor, so authentication, TLS, headers and timeouts apply to both:
 
 ```go
-// Standard interface (always generated)
-response, err := client.GetUser(&GetUserRequest{UserID: 123})
+service := NewUserServicePortType(soap.NewClient(url, soap.WithBasicAuth("user", "pass")))
+
+// Standard method (always generated)
+response, err := service.GetUser(ctx, &GetUserRequest{UserId: 123})
 if err != nil {
     // Handle error
 }
 
-// Generic interface (only with -use-generics flag)
-result, err := client.GetUserGeneric(&GetUserRequest{UserID: 123})
+// Generic method (only with -use-generics flag)
+result, err := service.GetUserGeneric(ctx, &GetUserRequest{UserId: 123})
 if err != nil {
-    // Handle transport error
+    // Only returned for a nil request (soap.ErrNilRequest)
 }
 
 if result.IsSuccess() {
     user, _ := result.Unwrap()
     // Use user
+} else if result.TransportError {
+    // Network/transport error (connection refused, timeout, etc.)
+    fmt.Printf("Transport Error: %s\n", result.Fault.String)
 } else {
-    // Handle SOAP fault
-    if result.TransportError {
-        // Network/transport error (connection refused, timeout, etc.)
-        fmt.Printf("Transport Error: %s\n", result.Fault.String)
-    } else {
-        // Business logic error from SOAP service
-        fmt.Printf("SOAP Fault: %s\n", result.Fault.String)
-    }
+    // Business logic error from SOAP service
+    fmt.Printf("SOAP Fault: %s\n", result.Fault.String)
 }
 ```
 
-The generic interface provides better type safety and explicit fault handling, making it easier to distinguish between transport errors and business logic errors (SOAP faults).
+The generic method provides better type safety and explicit fault handling, making it easier to distinguish between transport errors and business logic errors (SOAP faults).
+
+#### Generic-only Mode
+
+Use `-generics-only` (or `WithGenericsOnly()` when using gowsdl as a library) to generate only the generic methods. They keep the plain operation name and replace the standard methods:
+
+```bash
+gowsdl -generics-only -p myservice -o myservice.go myservice.wsdl
+```
+
+```go
+type UserServicePortType interface {
+    GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)
+}
+```
+
+Operations that cannot use the generic client keep their standard methods: RPC-style port types, WSDL 2.0 files, and operations without a request or response type.
 
 ### New Features
 

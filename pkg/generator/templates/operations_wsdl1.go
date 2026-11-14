@@ -12,7 +12,7 @@ const OperationsWSDL1Template = `
 	type {{$portType}} interface {
 		{{range .Operations}}
 			{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
-			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
+			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}{{$generic := and $.UseGenerics (not (isRPCPortType $portType)) (ne $requestType "") (ne $responseType "")}}
 
 			{{if .Faults}}
 			// Error can be either of the following types:
@@ -20,25 +20,51 @@ const OperationsWSDL1Template = `
 			//   - {{.Name}}{{if .Doc}} {{.Doc}}{{end}}{{end}}
 			{{end}}
 			{{if .Doc}}{{comment .Doc}}{{end}}
+			{{if and $generic $.GenericsOnly -}}
+			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (soap.Result[{{$responseType}}], error)
+			{{- else -}}
 			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
+			{{- end}}
+			{{if and $generic (not $.GenericsOnly)}}
+			{{.Name | makePublic}}Generic(ctx context.Context, request *{{$requestType}}) (soap.Result[{{$responseType}}], error)
+			{{end}}
 		{{end}}
 	}
 
 	type {{$portType | makePrivate}} struct {
 		client *soap.Client
+		{{if and $.UseGenerics (not (isRPCPortType $portType))}}
+		{{range .Operations}}
+			{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
+			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
+			{{if and (ne $requestType "") (ne $responseType "")}}
+			{{.Name | makePrivate}}Client *soap.GenericClient[{{$requestType}}, {{$responseType}}]
+			{{end}}
+		{{end}}
+		{{end}}
 	}
 
 	func New{{$portType}}(client *soap.Client) {{$portType}} {
 		return &{{$portType | makePrivate}}{
 			client: client,
+			{{if and $.UseGenerics (not (isRPCPortType $portType))}}
+			{{range .Operations}}
+				{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
+				{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
+				{{if and (ne $requestType "") (ne $responseType "")}}
+				{{.Name | makePrivate}}Client: soap.NewGenericClientFromClient[{{$requestType}}, {{$responseType}}](client, "{{findSOAPAction .Name $portType}}"),
+				{{end}}
+			{{end}}
+			{{end}}
 		}
 	}
 
 	{{range .Operations}}
 		{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
 		{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
-		{{$soapAction := findSOAPAction .Name $portType}}
+		{{$soapAction := findSOAPAction .Name $portType}}{{$generic := and $.UseGenerics (not (isRPCPortType $portType)) (ne $requestType "") (ne $responseType "")}}
 
+		{{if not (and $generic $.GenericsOnly) -}}
 		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
 			{{if isRPCPortType $portType}}
 				// RPC-style operation: wrap request in operation element
@@ -110,6 +136,16 @@ const OperationsWSDL1Template = `
 				return response, nil
 			{{end}}
 		}
+		{{- end}}
+
+		{{if $generic}}
+		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}{{if not $.GenericsOnly}}Generic{{end}}(ctx context.Context, request *{{$requestType}}) (soap.Result[{{$responseType}}], error) {
+			if request == nil {
+				return soap.Result[{{$responseType}}]{}, soap.ErrNilRequest
+			}
+			return service.{{.Name | makePrivate}}Client.CallAsResult(ctx, *request), nil
+		}
+		{{end}}
 	{{end}}
 {{end}}
 `
