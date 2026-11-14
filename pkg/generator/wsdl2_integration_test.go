@@ -162,11 +162,6 @@ func TestWSDL2Integration(t *testing.T) {
 		t.Log("WSDL 2.0 code generation completed successfully")
 	})
 
-	t.Run("WSDL2HelperFunctions", func(t *testing.T) {
-		// Skip helper function tests - these are internal to generator package
-		t.Skip("Helper function tests require access to internal generator methods")
-	})
-
 	t.Run("WSDL2WithXSDElementReferences", func(t *testing.T) {
 		// Test that element references work in WSDL 2.0
 		wsdl2WithRefs := strings.ReplaceAll(wsdl2Content,

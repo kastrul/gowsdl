@@ -2,7 +2,6 @@ package generator
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,53 +45,6 @@ func TestComplexTypeWithInlineSequence(t *testing.T) {
 	assert.NotContains(t, codeStr, "Contact struct {\n\t\tValue string")
 }
 
-func TestComplexTypeFromOriginalWSDL(t *testing.T) {
-	// Test with the original problematic WSDL
-	wsdlFile := "/mnt/c/Users/info/repo/api/assets/go_webservice_demo.wsdl"
-
-	// Skip if file doesn't exist
-	if !fileExists(wsdlFile) {
-		t.Skip("Original WSDL file not found")
-	}
-
-	gen, err := New(wsdlFile, WithPackage("godemo"))
-	require.NoError(t, err)
-
-	code, err := gen.Generate(context.TODO())
-	require.NoError(t, err)
-
-	// Find the generated file
-	require.NotEmpty(t, code, "Generated code should not be empty")
-
-	// Look for the types file which contains the struct definitions
-	var codeStr string
-	for filename, content := range code {
-		t.Logf("Generated file: %s (size: %d)", filename, len(content))
-		if filename == "types" {
-			codeStr = string(content)
-			break
-		}
-	}
-
-	// If types not found separately, combine header and types
-	if codeStr == "" {
-		if header, ok := code["header"]; ok {
-			codeStr += string(header)
-		}
-		if types, ok := code["types"]; ok {
-			codeStr += string(types)
-		}
-	}
-
-	require.NotEmpty(t, codeStr, "Should have generated code content")
-
-	// Check that Abholadresse has proper fields
-	// First, just check if the generated code contains the expected fields
-	assert.Contains(t, codeStr, "Firmenname1 string", "Generated code should contain Firmenname1 field")
-	assert.NotContains(t, codeStr, `Abholadresse struct {
-		Value string`, "Abholadresse should not have just Value field")
-}
-
 func TestNestedComplexTypes(t *testing.T) {
 	// Test deeply nested complex types as identified by Gemini's review
 	wsdlFile := "../../fixtures/nested_complex_type_test.wsdl"
@@ -134,10 +86,4 @@ func TestNestedComplexTypes(t *testing.T) {
 	// Ensure nested complex types don't fallback to string
 	assert.NotContains(t, codeStr, "Manager string")
 	assert.NotContains(t, codeStr, "Employees string")
-}
-
-func fileExists(path string) bool {
-	// Simple file existence check
-	_, err := os.Stat(path)
-	return err == nil
 }

@@ -169,9 +169,3 @@ func TestGenerator_findNameByType_EmptyWSDL(t *testing.T) {
 	result := gen.findNameByType("anyType")
 	assert.Equal(t, "anyType", result, "Should return original type name when no WSDL data")
 }
-
-func TestGenerator_findNameByType_WSDL2(t *testing.T) {
-	// Skip this test for now as WSDL 2.0 support is limited
-	// The function works correctly for WSDL 1.1 which is the primary use case
-	t.Skip("WSDL 2.0 support is limited, test covers WSDL 1.1 extensively")
-}

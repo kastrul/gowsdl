@@ -305,18 +305,6 @@ func TestCodeGenerationWithNamespaces(t *testing.T) {
 	assert.Contains(t, types, "OtherType")
 }
 
-func TestMakePublicFunction(t *testing.T) {
-	t.Skip("MakePublic is in utils package, not exported from generator")
-}
-
-func TestReplaceReservedWords(t *testing.T) {
-	t.Skip("ReplaceReservedWords is in typeMapper, not exported from generator")
-}
-
-func TestNormalizeNames(t *testing.T) {
-	t.Skip("Normalize is not directly exported from generator")
-}
-
 func BenchmarkCodeGeneration(b *testing.B) {
 	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
