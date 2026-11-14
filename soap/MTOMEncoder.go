@@ -176,7 +176,7 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 				continue
 			}
 			if _, ok := e.Interface().(*Binary); ok {
-				*fields = append(*fields, v)
+				*fields = append(*fields, e)
 			} else {
 				getBinaryFields(e.Interface(), fields)
 			}
