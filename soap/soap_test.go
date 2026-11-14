@@ -240,7 +240,7 @@ func (s SimpleNode) HasData() bool {
 }
 
 type Wrapper struct {
-	Item    interface{} `xml:"SimpleNode"`
+	Item    any `xml:"SimpleNode"`
 	hasData bool
 }
 
@@ -277,8 +277,8 @@ func Test_Client_FaultDefault(t *testing.T) {
 		name          string
 		hasData       bool
 		wantErrString string
-		fault         interface{}
-		emptyFault    interface{}
+		fault         any
+		emptyFault    any
 	}{
 		{
 			name:          "Empty-WithFault",

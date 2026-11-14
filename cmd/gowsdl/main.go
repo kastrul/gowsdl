@@ -169,18 +169,15 @@ var (
 func main() {
 	if err := runFunc(); err != nil {
 		// Check for specific error types to provide better error messages
-		var validationErr *ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*ValidationError](err); ok {
 			log.Fatalf("Validation error: %v", validationErr)
 		}
 
-		var wsdlErr *gen.WSDLError
-		if errors.As(err, &wsdlErr) {
+		if wsdlErr, ok := errors.AsType[*gen.WSDLError](err); ok {
 			log.Fatalf("WSDL error: %v", wsdlErr)
 		}
 
-		var schemaErr *gen.SchemaError
-		if errors.As(err, &schemaErr) {
+		if schemaErr, ok := errors.AsType[*gen.SchemaError](err); ok {
 			log.Fatalf("Schema error: %v", schemaErr)
 		}
 

@@ -120,7 +120,7 @@ func TestDownloadFile(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				// Write more than the limit
 				data := make([]byte, 1024)
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					_, _ = w.Write(data)
 				}
 			},
@@ -185,7 +185,7 @@ func TestDownloadFileRateLimit(t *testing.T) {
 	config.RateLimitPerSecond = 2 // Allow 2 requests per second
 
 	// Make 3 requests
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_, err := DownloadFile(context.Background(), server.URL, config)
 		require.NoError(t, err)
 	}

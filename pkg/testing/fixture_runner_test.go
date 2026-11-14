@@ -86,7 +86,7 @@ func TestFixtureRunnerIncompleteFixtures(t *testing.T) {
   </message>
 </definitions>`
 
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"operation": "GetUser",
 		"userId":    "123",
 	}
@@ -120,7 +120,7 @@ func TestFixtureRunnerSimulateSOAPRequest(t *testing.T) {
 			fixture: FixtureTestCase{
 				Name:  "test_rpc",
 				Style: "rpc",
-				TestData: map[string]interface{}{
+				TestData: map[string]any{
 					"operation": "GetUserInfo",
 				},
 			},
@@ -131,7 +131,7 @@ func TestFixtureRunnerSimulateSOAPRequest(t *testing.T) {
 			fixture: FixtureTestCase{
 				Name:     "test_rpc_no_op",
 				Style:    "rpc",
-				TestData: map[string]interface{}{},
+				TestData: map[string]any{},
 			},
 			contains: []string{"GetUserInfo", "xmlns=\"http://example.com/rpc\"", "<userId>123</userId>"},
 		},
@@ -140,7 +140,7 @@ func TestFixtureRunnerSimulateSOAPRequest(t *testing.T) {
 			fixture: FixtureTestCase{
 				Name:  "test_rpc_invalid_op",
 				Style: "rpc",
-				TestData: map[string]interface{}{
+				TestData: map[string]any{
 					"operation": 123, // Not a string
 				},
 			},
@@ -151,7 +151,7 @@ func TestFixtureRunnerSimulateSOAPRequest(t *testing.T) {
 			fixture: FixtureTestCase{
 				Name:     "test_doc",
 				Style:    "document",
-				TestData: map[string]interface{}{},
+				TestData: map[string]any{},
 			},
 			contains: []string{"GetUserRequest", "xmlns=\"http://example.com/simple\"", "<userId>123</userId>"},
 		},
@@ -221,7 +221,7 @@ func TestFixtureRunnerInvalidWSDL(t *testing.T) {
 	// Create fixture with invalid WSDL
 	invalidWSDL := "not valid WSDL content"
 	expectedXML := `<?xml version="1.0"?><soap:Envelope>...</soap:Envelope>`
-	testData := map[string]interface{}{"operation": "test"}
+	testData := map[string]any{"operation": "test"}
 	testDataJSON, _ := json.Marshal(testData)
 
 	err = os.WriteFile(filepath.Join(docDir, "invalid.wsdl"), []byte(invalidWSDL), 0644)
@@ -309,7 +309,7 @@ func createTestFixture(dir, baseName, style string) error {
 </soap:Envelope>`
 	}
 
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"operation": "GetUserInfo",
 		"userId":    "123",
 	}

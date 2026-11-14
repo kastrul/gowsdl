@@ -58,7 +58,7 @@ func newMultipartDecoder(r io.Reader, boundary string) multipartDecoder {
 // returns true, given its Content-Type header, is XML-decoded into v. Every
 // other part must carry a Content-ID and is passed to attach with that ID
 // (without angle brackets), its Content-Type header and its content.
-func (d *multipartDecoder) decodeParts(v interface{}, isRoot func(contentType string) bool, attach func(contentID, contentType string, content []byte)) error {
+func (d *multipartDecoder) decodeParts(v any, isRoot func(contentType string) bool, attach func(contentID, contentType string, content []byte)) error {
 	for {
 		p, err := d.reader.NextPart()
 		if err != nil {

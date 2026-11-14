@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 )
@@ -124,12 +125,8 @@ func (nm *NamespaceManager) Clone() *NamespaceManager {
 		counter:    nm.counter,
 	}
 
-	for prefix, uri := range nm.namespaces {
-		clone.namespaces[prefix] = uri
-	}
-	for uri, prefix := range nm.prefixes {
-		clone.prefixes[uri] = prefix
-	}
+	maps.Copy(clone.namespaces, nm.namespaces)
+	maps.Copy(clone.prefixes, nm.prefixes)
 
 	return clone
 }
@@ -140,8 +137,6 @@ func (nm *NamespaceManager) GetAllNamespaces() map[string]string {
 	defer nm.mu.RUnlock()
 
 	result := make(map[string]string)
-	for prefix, uri := range nm.namespaces {
-		result[prefix] = uri
-	}
+	maps.Copy(result, nm.namespaces)
 	return result
 }

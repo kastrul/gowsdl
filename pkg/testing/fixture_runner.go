@@ -22,7 +22,7 @@ type FixtureTestCase struct {
 	Name            string
 	WSDLPath        string
 	ExpectedRequest string
-	TestData        map[string]interface{}
+	TestData        map[string]any
 	Style           string // "document" or "rpc"
 }
 

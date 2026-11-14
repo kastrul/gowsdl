@@ -14,13 +14,13 @@ import (
 
 // SOAPEncoder encodes a SOAP envelope onto a request body.
 type SOAPEncoder interface {
-	Encode(v interface{}) error
+	Encode(v any) error
 	Flush() error
 }
 
 // SOAPDecoder decodes a SOAP envelope from a response body.
 type SOAPDecoder interface {
-	Decode(v interface{}) error
+	Decode(v any) error
 }
 
 // SOAPEnvelopeResponse is the envelope of a SOAP response, including any
@@ -48,14 +48,14 @@ type SOAPEnvelope struct {
 type SOAPHeader struct {
 	XMLName xml.Name `xml:"soap:Header"`
 
-	Headers []interface{}
+	Headers []any
 }
 
 // SOAPHeaderResponse holds the header elements of a SOAP response.
 type SOAPHeaderResponse struct {
 	XMLName xml.Name `xml:"Header"`
 
-	Headers []interface{}
+	Headers []any
 }
 
 // SOAPBody is the body of an outgoing SOAP message. Body is marshaled directly
@@ -63,7 +63,7 @@ type SOAPHeaderResponse struct {
 type SOAPBody struct {
 	XMLName xml.Name `xml:"soap:Body"`
 
-	Body interface{}
+	Body any
 
 	// faultOccurred indicates whether the XML body included a fault;
 	// we cannot simply store SOAPFault as a pointer to indicate this, since
@@ -106,7 +106,7 @@ func (s SOAPBody) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 type SOAPBodyResponse struct {
 	XMLName xml.Name `xml:"Body"`
 
-	Body interface{} `xml:",omitempty"`
+	Body any `xml:",omitempty"`
 
 	// faultOccurred indicates whether the XML body included a fault;
 	// we cannot simply store SOAPFault as a pointer to indicate this, since
@@ -192,7 +192,7 @@ func (b *SOAPBodyResponse) ErrorFromFault() error {
 
 // DetailContainer wraps the contents of a SOAP fault's detail element.
 type DetailContainer struct {
-	Detail interface{}
+	Detail any
 }
 
 // FaultError is implemented by types that a SOAP fault's detail element is
@@ -411,7 +411,7 @@ func WithMIMEMultipartAttachments() Option {
 type Client struct {
 	url         string
 	opts        *options
-	headers     []interface{}
+	headers     []any
 	attachments []MIMEMultipartAttachment
 }
 
@@ -435,7 +435,7 @@ func NewClient(url string, opt ...Option) *Client {
 
 // AddHeader adds envelope header
 // For correct behavior, every header must contain a `XMLName` field.  Refer to #121 for details
-func (s *Client) AddHeader(header interface{}) {
+func (s *Client) AddHeader(header any) {
 	s.headers = append(s.headers, header)
 }
 
@@ -447,7 +447,7 @@ func (s *Client) AddMIMEMultipartAttachment(attachment MIMEMultipartAttachment) 
 
 // SetHeaders sets envelope headers, overwriting any existing headers.
 // For correct behavior, every header must contain a `XMLName` field.  Refer to #121 for details
-func (s *Client) SetHeaders(headers ...interface{}) {
+func (s *Client) SetHeaders(headers ...any) {
 	s.headers = headers
 }
 
@@ -469,13 +469,13 @@ func (s *Client) URL() string {
 }
 
 // CallContext performs HTTP POST request with a context
-func (s *Client) CallContext(ctx context.Context, soapAction string, request, response interface{}) error {
+func (s *Client) CallContext(ctx context.Context, soapAction string, request, response any) error {
 	return s.call(ctx, soapAction, request, response, nil, nil)
 }
 
 // Call performs HTTP POST request.
 // Note that if the server returns a status code >= 400, a HTTPError will be returned
-func (s *Client) Call(soapAction string, request, response interface{}) error {
+func (s *Client) Call(soapAction string, request, response any) error {
 	return s.call(context.Background(), soapAction, request, response, nil, nil)
 }
 
@@ -483,13 +483,13 @@ func (s *Client) Call(soapAction string, request, response interface{}) error {
 // Note that if SOAP fault is returned, it will be stored in the error.
 // On top the attachments array will be filled with attachments returned from the SOAP request.
 func (s *Client) CallContextWithAttachmentsAndFaultDetail(ctx context.Context, soapAction string, request,
-	response interface{}, faultDetail FaultError, attachments *[]MIMEMultipartAttachment) error {
+	response any, faultDetail FaultError, attachments *[]MIMEMultipartAttachment) error {
 	return s.call(ctx, soapAction, request, response, faultDetail, attachments)
 }
 
 // CallContextWithFaultDetail performs HTTP POST request.
 // Note that if SOAP fault is returned, it will be stored in the error.
-func (s *Client) CallContextWithFaultDetail(ctx context.Context, soapAction string, request, response interface{}, faultDetail FaultError) error {
+func (s *Client) CallContextWithFaultDetail(ctx context.Context, soapAction string, request, response any, faultDetail FaultError) error {
 	return s.call(ctx, soapAction, request, response, faultDetail, nil)
 }
 
@@ -497,13 +497,13 @@ func (s *Client) CallContextWithFaultDetail(ctx context.Context, soapAction stri
 // Note that if SOAP fault is returned, it will be stored in the error.
 // the passed in fault detail is expected to implement FaultError interface,
 // which allows to condense the detail into a short error message.
-func (s *Client) CallWithFaultDetail(soapAction string, request, response interface{}, faultDetail FaultError) error {
+func (s *Client) CallWithFaultDetail(soapAction string, request, response any, faultDetail FaultError) error {
 	return s.call(context.Background(), soapAction, request, response, faultDetail, nil)
 }
 
-func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}, faultDetail FaultError,
+func (s *Client) call(ctx context.Context, soapAction string, request, response any, faultDetail FaultError,
 	retAttachments *[]MIMEMultipartAttachment) error {
-	var envelope interface{}
+	var envelope any
 
 	// Try to extract namespace from request to determine which envelope to use
 	targetNamespace := ""
