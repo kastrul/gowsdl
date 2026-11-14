@@ -171,6 +171,68 @@ type XSDComplexType struct {
 	Any            []*XSDAny         `xml:"sequence>any"`
 }
 
+// xsdModelGroup captures a nested sequence or choice so that its elements can
+// be flattened into the enclosing complex type.
+type xsdModelGroup struct {
+	Elements  []*XSDElement    `xml:"element"`
+	Sequences []*xsdModelGroup `xml:"sequence"`
+	Choices   []*xsdModelGroup `xml:"choice"`
+}
+
+// UnmarshalXML implements xml.Unmarshaler for XSDComplexType. Elements of
+// sequences and choices nested inside the top-level sequence or choice are
+// flattened into Sequence, SequenceChoice and Choice.
+func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	type Base XSDComplexType
+	aux := struct {
+		*Base
+		SequenceSequences       []*xsdModelGroup `xml:"sequence>sequence"`
+		SequenceChoiceSequences []*xsdModelGroup `xml:"sequence>choice>sequence"`
+		SequenceChoiceChoices   []*xsdModelGroup `xml:"sequence>choice>choice"`
+		ChoiceSequences         []*xsdModelGroup `xml:"choice>sequence"`
+		ChoiceChoices           []*xsdModelGroup `xml:"choice>choice"`
+	}{Base: (*Base)(ct)}
+
+	if err := d.DecodeElement(&aux, &start); err != nil {
+		return err
+	}
+	ct.XMLName = start.Name
+
+	for _, g := range aux.SequenceSequences {
+		g.flattenSequence(&ct.Sequence, &ct.SequenceChoice)
+	}
+	for _, g := range append(aux.SequenceChoiceSequences, aux.SequenceChoiceChoices...) {
+		g.flattenAll(&ct.SequenceChoice)
+	}
+	for _, g := range append(aux.ChoiceSequences, aux.ChoiceChoices...) {
+		g.flattenAll(&ct.Choice)
+	}
+	return nil
+}
+
+// flattenSequence appends the group's elements to seq, descending into nested
+// sequences, and appends every element below a nested choice to choice.
+func (g *xsdModelGroup) flattenSequence(seq, choice *[]*XSDElement) {
+	*seq = append(*seq, g.Elements...)
+	for _, s := range g.Sequences {
+		s.flattenSequence(seq, choice)
+	}
+	for _, c := range g.Choices {
+		c.flattenAll(choice)
+	}
+}
+
+// flattenAll appends every element in the group and its nested groups to out.
+func (g *xsdModelGroup) flattenAll(out *[]*XSDElement) {
+	*out = append(*out, g.Elements...)
+	for _, s := range g.Sequences {
+		s.flattenAll(out)
+	}
+	for _, c := range g.Choices {
+		c.flattenAll(out)
+	}
+}
+
 // XSDGroup element is used to define a group of elements to be used in complex type definitions.
 type XSDGroup struct {
 	Name     string       `xml:"name,attr"`
