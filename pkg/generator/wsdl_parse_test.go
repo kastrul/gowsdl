@@ -169,19 +169,8 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temporary WSDL file
-			tempFile, err := os.CreateTemp("", "test-*.wsdl")
-			require.NoError(t, err)
-			defer func() {
-				_ = os.Remove(tempFile.Name())
-			}()
-
-			_, err = tempFile.WriteString(tt.wsdlContent)
-			require.NoError(t, err)
-			_ = tempFile.Close()
-
 			// Parse WSDL
-			g, err := New(tempFile.Name(), WithPackage("test"))
+			g, err := New(writeWSDL(t, tt.wsdlContent), WithPackage("test"))
 			require.NoError(t, err)
 
 			// Try to parse by generating code
@@ -203,12 +192,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 }
 
 func TestWSDLWithExternalSchema(t *testing.T) {
-	// Create temporary directory for test files
-	tempDir, err := os.MkdirTemp("", "wsdl-test-*")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
+	tempDir := t.TempDir()
 
 	// Create external schema file
 	schemaContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -223,8 +207,7 @@ func TestWSDLWithExternalSchema(t *testing.T) {
 </xs:schema>`
 
 	schemaFile := filepath.Join(tempDir, "external.xsd")
-	err = os.WriteFile(schemaFile, []byte(schemaContent), 0644)
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(schemaFile, []byte(schemaContent), 0644))
 
 	// Create WSDL that imports the schema
 	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -238,16 +221,9 @@ func TestWSDLWithExternalSchema(t *testing.T) {
 </definitions>`
 
 	wsdlFile := filepath.Join(tempDir, "test.wsdl")
-	err = os.WriteFile(wsdlFile, []byte(wsdlContent), 0644)
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(wsdlFile, []byte(wsdlContent), 0644))
 
-	// Parse WSDL
-	g, err := New(wsdlFile, WithPackage("test"))
-	require.NoError(t, err)
-
-	// Generate will call unmarshal internally
-	_, err = g.Generate(context.Background())
-	require.NoError(t, err)
+	generate(t, wsdlFile, WithPackage("test"))
 
 	// Check that external schema was loaded - test passes if no error
 	t.Log("External schema loaded successfully")
@@ -299,30 +275,11 @@ func BenchmarkWSDLParsing(b *testing.B) {
 	</portType>
 </definitions>`
 
-	tempFile, err := os.CreateTemp("", "benchmark-*.wsdl")
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	_, err = tempFile.WriteString(wsdlContent)
-	if err != nil {
-		b.Fatal(err)
-	}
-	_ = tempFile.Close()
+	path := writeWSDL(b, wsdlContent)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		g, err := New(tempFile.Name(), WithPackage("test"))
-		if err != nil {
-			b.Fatal(err)
-		}
-
-		// Generate will call unmarshal internally
-		_, err = g.Generate(context.Background())
-		if err != nil {
+		if _, err := tryGenerate(b, path, WithPackage("test")); err != nil {
 			b.Fatal(err)
 		}
 	}

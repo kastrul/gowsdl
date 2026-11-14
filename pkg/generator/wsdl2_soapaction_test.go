@@ -1,10 +1,7 @@
 package generator
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
@@ -59,19 +56,9 @@ const wsdl2SOAPActionTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 func generateWSDL2Operations(t *testing.T, namespace, bindingOpAttrs string) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "stockquote.wsdl")
-	content := fmt.Sprintf(wsdl2SOAPActionTemplate, namespace, bindingOpAttrs)
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
-
-	g, err := New(path, WithPackage("stockquote"))
-	require.NoError(t, err)
-
-	files, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	ops, ok := files["operations"]
-	require.True(t, ok, "operations file should be generated")
-	return string(ops)
+	files := generate(t, writeWSDL(t, fmt.Sprintf(wsdl2SOAPActionTemplate, namespace, bindingOpAttrs)), WithPackage("stockquote"))
+	require.Contains(t, files, "operations", "operations file should be generated")
+	return files.operations()
 }
 
 func TestGenerator_WSDL20_SOAPActionInOperations(t *testing.T) {

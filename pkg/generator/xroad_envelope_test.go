@@ -4,9 +4,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -106,7 +103,7 @@ func TestGenerator_XRoad_MixedQualificationTypes(t *testing.T) {
 	out, err := tryGenerate(t, writeWSDL(t, xroadMixedQualificationWSDL), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 	out.client(t)
-	code := string(out["types"])
+	code := out.types()
 
 	assert.Contains(t, code, "`xml:\"tns:query\"`", "unqualified operation schema must not be qualified by the inline X-Road schemas")
 	assert.Contains(t, code, "func (t Query) TargetNamespace() string")
@@ -198,25 +195,11 @@ func TestGenerator_XRoad_MixedQualificationEnvelope(t *testing.T) {
 	out, err := tryGenerate(t, writeWSDL(t, xroadMixedQualificationWSDL), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	goMod := "module svc\n\ngo 1.21\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
-	client := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "svc.go"), []byte(client), 0o600))
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "envelope"), 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "envelope", "main.go"), []byte(xroadEnvelopeProgram), 0o600))
-
-	cmd := exec.Command("go", "run", "-mod=mod", "./cmd/envelope")
-	cmd.Dir = dir
-	cmd.Stderr = &strings.Builder{}
-	stdout, err := cmd.Output()
-	require.NoError(t, err, "running generated code failed:\n%s", cmd.Stderr)
+	dir := goModule(t, "svc", map[string]string{
+		"svc.go":               out.client(t),
+		"cmd/envelope/main.go": xroadEnvelopeProgram,
+	})
+	stdout := []byte(runGo(t, dir, "run", "./cmd/envelope"))
 
 	const (
 		soapNS = "{http://schemas.xmlsoap.org/soap/envelope/}"

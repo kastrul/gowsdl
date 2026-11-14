@@ -1,7 +1,10 @@
 package generator
 
 import (
-	"regexp"
+	"fmt"
+	"go/ast"
+	goparser "go/parser"
+	"go/token"
 	"sort"
 	"testing"
 
@@ -161,13 +164,20 @@ const typePruningWSDL11 = `<?xml version="1.0" encoding="UTF-8"?>
 	</wsdl:binding>
 </wsdl:definitions>`
 
-var typeDeclRe = regexp.MustCompile(`(?m)^\s*type (\w+) `)
-
+// declaredTypes returns the sorted names of every type declared in the
+// generated types part src, including types local to function bodies.
 func declaredTypes(src string) []string {
-	var names []string
-	for _, m := range typeDeclRe.FindAllStringSubmatch(src, -1) {
-		names = append(names, m[1])
+	file, err := goparser.ParseFile(token.NewFileSet(), "types.go", "package p\n"+src, 0)
+	if err != nil {
+		panic(fmt.Sprintf("generated types do not parse: %v", err))
 	}
+	var names []string
+	ast.Inspect(file, func(n ast.Node) bool {
+		if ts, ok := n.(*ast.TypeSpec); ok {
+			names = append(names, ts.Name.Name)
+		}
+		return true
+	})
 	sort.Strings(names)
 	return names
 }
@@ -175,7 +185,7 @@ func declaredTypes(src string) []string {
 func TestGenerator_TypePruning_KeepsReachableTypesOnly(t *testing.T) {
 	code, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetOrder"))
 	require.NoError(t, err)
-	types := declaredTypes(string(code["types"]))
+	types := declaredTypes(code.types())
 
 	for _, name := range []string{
 		"GetOrder", "GetOrderResponse",
@@ -205,8 +215,8 @@ func TestGenerator_TypePruning_KeptTypesMatchUnprunedOutput(t *testing.T) {
 	full, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 
-	prunedTypes := declaredTypes(string(pruned["types"]))
-	fullTypes := declaredTypes(string(full["types"]))
+	prunedTypes := declaredTypes(pruned.types())
+	fullTypes := declaredTypes(full.types())
 	assert.Subset(t, fullTypes, prunedTypes)
 	assert.Less(t, len(prunedTypes), len(fullTypes))
 	assert.Contains(t, prunedTypes, "ListCustomersResponseExtraType")
@@ -221,27 +231,27 @@ func TestGenerator_TypePruning_Disabled(t *testing.T) {
 	full, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 
-	assert.Equal(t, string(full["types"]), string(pruned["types"]))
-	assert.NotContains(t, string(pruned["operations"]), "ListCustomers(ctx")
+	assert.Equal(t, full.types(), pruned.types())
+	assert.NotContains(t, pruned.operations(), "ListCustomers(ctx")
 }
 
 func TestGenerator_TypePruning_NoOperationFilter(t *testing.T) {
 	code, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithTypePruning(true))
 	require.NoError(t, err)
-	assert.Contains(t, declaredTypes(string(code["types"])), "CustomerFilter")
+	assert.Contains(t, declaredTypes(code.types()), "CustomerFilter")
 }
 
 func TestGenerator_TypePruning_SkippedWithServerGeneration(t *testing.T) {
 	code, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetOrder"), WithServerGeneration(true))
 	require.NoError(t, err)
-	assert.Contains(t, declaredTypes(string(code["types"])), "CustomerFilter",
+	assert.Contains(t, declaredTypes(code.types()), "CustomerFilter",
 		"server code covers every operation, so every type is kept")
 }
 
 func TestGenerator_TypePruning_WSDL20(t *testing.T) {
 	code, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL20), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetUser"))
 	require.NoError(t, err)
-	types := declaredTypes(string(code["types"]))
+	types := declaredTypes(code.types())
 
 	assert.Contains(t, types, "GetUser")
 	assert.Contains(t, types, "GetUserResponse")
@@ -299,7 +309,7 @@ const typePruningRPC = `<?xml version="1.0" encoding="UTF-8"?>
 func TestGenerator_TypePruning_RPC(t *testing.T) {
 	code, err := tryGenerate(t, writeWSDL(t, typePruningRPC), WithPackage("svc"), WithExportAllTypes(true), WithOperations("getUser"))
 	require.NoError(t, err)
-	types := declaredTypes(string(code["types"]))
+	types := declaredTypes(code.types())
 
 	assert.Contains(t, types, "User")
 	assert.Contains(t, types, "GetUserRequest")

@@ -6,7 +6,6 @@ package generator
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/kastrul/gowsdl/pkg/http"
@@ -231,14 +230,7 @@ func TestGeneratorHelperMethods(t *testing.T) {
 
 func TestGeneratorWithDifferentVersions(t *testing.T) {
 	t.Run("WSDL_1.1", func(t *testing.T) {
-		tempFile := minimalServiceWSDL
-
-		g, err := New(tempFile, WithPackage("test"), WithServerGeneration(true))
-		require.NoError(t, err)
-
-		ctx := context.Background()
-		code, err := g.Generate(ctx)
-		require.NoError(t, err)
+		code := generate(t, minimalServiceWSDL, WithPackage("test"), WithServerGeneration(true))
 
 		assert.Contains(t, code, "header")
 		assert.Contains(t, code, "types")
@@ -294,24 +286,7 @@ func TestGeneratorWithDifferentVersions(t *testing.T) {
   </service>
 </description>`
 
-		tmpFile, err := os.CreateTemp("", "test-wsdl2-*.wsdl")
-		require.NoError(t, err)
-		defer func() {
-			if err := os.Remove(tmpFile.Name()); err != nil {
-				t.Logf("Failed to remove temp file: %v", err)
-			}
-		}()
-
-		_, err = tmpFile.WriteString(wsdl2Content)
-		require.NoError(t, err)
-		err = tmpFile.Close()
-		require.NoError(t, err)
-
-		g, err := New(tmpFile.Name(), WithPackage("stockquote"), WithServerGeneration(true))
-		require.NoError(t, err)
-
-		code, err := g.Generate(context.Background())
-		require.NoError(t, err)
+		code := generate(t, writeWSDL(t, wsdl2Content), WithPackage("stockquote"), WithServerGeneration(true))
 
 		assert.Contains(t, code, "header")
 		assert.Contains(t, code, "types")

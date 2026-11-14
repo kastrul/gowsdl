@@ -1,14 +1,11 @@
 package generator
 
 import (
-	"context"
-	"go/format"
 	"path/filepath"
 	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestFixStructOmitempty_NamedStruct(t *testing.T) {
@@ -94,15 +91,7 @@ func TestFixStructOmitempty_InvalidSource(t *testing.T) {
 }
 
 func TestGenerator_EC2_StructFieldsUseOmitzero(t *testing.T) {
-	g, err := New(filepath.Join("..", "..", "fixtures", "ec2.wsdl"), WithPackage("ec2"))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"]) + string(out["operations"])))
-	require.NoError(t, err)
-	code := string(formatted)
+	code := generate(t, filepath.Join("..", "..", "fixtures", "ec2.wsdl"), WithPackage("ec2")).client(t)
 
 	assert.Regexp(t, `LaunchTime\s+soap\.XSDDateTime\s+`+"`"+`xml:"launchTime,omitempty" json:"launchTime,omitzero"`, code)
 	assert.Regexp(t, `\[\]\w+\s+`+"`"+`xml:"\w+,omitempty" json:"\w+,omitempty"`, code)

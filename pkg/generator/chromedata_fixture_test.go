@@ -8,8 +8,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -90,10 +88,7 @@ func TestGenerator_SequenceChoiceFieldsRendered(t *testing.T) {
     </types>
 </definitions>`
 
-	path := filepath.Join(t.TempDir(), "service.wsdl")
-	require.NoError(t, os.WriteFile(path, []byte(wsdl), 0o600))
-
-	code := generate(t, path, WithPackage("svc"), WithExportAllTypes(true)).client(t)
+	code := generate(t, writeWSDL(t, wsdl), WithPackage("svc"), WithExportAllTypes(true)).client(t)
 
 	assert.ElementsMatch(t, []string{"Amount", "Card", "Iban"}, structFieldNames(t, code, "Payment"))
 	assert.ElementsMatch(t, []string{"Code", "Label"}, structFieldNames(t, code, "HolderDetailType"))

@@ -1,13 +1,10 @@
 package generator
 
 import (
-	"context"
-	"os"
 	"testing"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRPCStyleWSDLGeneration(t *testing.T) {
@@ -71,22 +68,7 @@ func TestRPCStyleWSDLGeneration(t *testing.T) {
     </service>
 </definitions>`
 
-	// Write WSDL to a temporary file
-	tmpFile := t.TempDir() + "/test.wsdl"
-	err := os.WriteFile(tmpFile, []byte(wsdl), 0644)
-	require.NoError(t, err)
-
-	gen, err := New(tmpFile, WithPackage("test"))
-	require.NoError(t, err)
-
-	code, err := gen.Generate(context.TODO())
-	require.NoError(t, err)
-
-	// Combine all generated code for testing
-	var generatedCode string
-	for _, content := range code {
-		generatedCode += string(content) + "\n"
-	}
+	generatedCode := generate(t, writeWSDL(t, wsdl), WithPackage("test")).client(t)
 
 	// Check that wrapper types are generated for RPC-style messages
 	assert.Contains(t, generatedCode, "type SearchRequest struct {")
@@ -176,22 +158,7 @@ func TestDocumentStyleWSDLNotAffected(t *testing.T) {
     </service>
 </definitions>`
 
-	// Write WSDL to a temporary file
-	tmpFile := t.TempDir() + "/test.wsdl"
-	err := os.WriteFile(tmpFile, []byte(wsdl), 0644)
-	require.NoError(t, err)
-
-	gen, err := New(tmpFile, WithPackage("test"))
-	require.NoError(t, err)
-
-	code, err := gen.Generate(context.TODO())
-	require.NoError(t, err)
-
-	// Combine all generated code for testing
-	var generatedCode string
-	for _, content := range code {
-		generatedCode += string(content) + "\n"
-	}
+	generatedCode := generate(t, writeWSDL(t, wsdl), WithPackage("test")).client(t)
 
 	// Check that document-style operations still work correctly
 	assert.Contains(t, generatedCode, "type GetUserRequest struct {")
@@ -344,21 +311,7 @@ func TestMessageTypeGeneration(t *testing.T) {
     </binding>
 </definitions>`
 
-	tmpFile := t.TempDir() + "/test.wsdl"
-	err := os.WriteFile(tmpFile, []byte(wsdl), 0644)
-	require.NoError(t, err)
-
-	gen, err := New(tmpFile, WithPackage("test"))
-	require.NoError(t, err)
-
-	code, err := gen.Generate(context.TODO())
-	require.NoError(t, err)
-
-	// Combine all generated code for testing
-	var generatedCode string
-	for _, content := range code {
-		generatedCode += string(content) + "\n"
-	}
+	generatedCode := generate(t, writeWSDL(t, wsdl), WithPackage("test")).client(t)
 
 	// Check that wrapper types are generated for RPC-style messages
 	assert.Contains(t, generatedCode, "type MultiPartMessage struct {")
