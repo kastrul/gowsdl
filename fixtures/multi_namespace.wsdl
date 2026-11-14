@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:tns="urn:ns:main"
+             xmlns:hdr="urn:ns:hdr"
+             targetNamespace="urn:ns:main">
+    <types>
+        <!-- Listed first on purpose: element namespaces must not depend on schema order. -->
+        <xsd:schema targetNamespace="urn:ns:hdr"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:hdr="urn:ns:hdr"
+                    elementFormDefault="qualified">
+            <xsd:complexType name="ClientType">
+                <xsd:sequence>
+                    <xsd:element name="memberCode" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:element name="client" type="hdr:ClientType"/>
+            <xsd:element name="represented">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="partyCode" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+
+        <xsd:schema targetNamespace="urn:ns:main"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:tns="urn:ns:main"
+                    elementFormDefault="qualified">
+            <xsd:element name="GetThing">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="id" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:complexType name="GetThingResponseType">
+                <xsd:sequence>
+                    <xsd:element name="result" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:element name="GetThingResponse" type="tns:GetThingResponseType"/>
+        </xsd:schema>
+    </types>
+
+    <message name="GetThingRequest">
+        <part name="parameters" element="tns:GetThing"/>
+    </message>
+    <message name="GetThingResponse">
+        <part name="parameters" element="tns:GetThingResponse"/>
+    </message>
+    <message name="Header">
+        <part name="client" element="hdr:client"/>
+        <part name="represented" element="hdr:represented"/>
+    </message>
+
+    <portType name="ThingPort">
+        <operation name="GetThing">
+            <input message="tns:GetThingRequest"/>
+            <output message="tns:GetThingResponse"/>
+        </operation>
+    </portType>
+
+    <binding name="ThingBinding" type="tns:ThingPort">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="GetThing">
+            <soap:operation soapAction="urn:ns:main/GetThing"/>
+            <input>
+                <soap:body parts="parameters" use="literal"/>
+                <soap:header message="tns:Header" part="client" use="literal"/>
+                <soap:header message="tns:Header" part="represented" use="literal"/>
+            </input>
+            <output><soap:body use="literal"/></output>
+        </operation>
+    </binding>
+
+    <service name="ThingService">
+        <port name="ThingPort" binding="tns:ThingBinding">
+            <soap:address location="http://localhost/thing"/>
+        </port>
+    </service>
+</definitions>

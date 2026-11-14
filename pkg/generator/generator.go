@@ -42,6 +42,7 @@ type Generator struct {
 	namespaceManager *core.NamespaceManager
 	typeMapper       *types.TypeMapper
 	refNamespaces    map[*parser.XSDElement]string
+	declNamespaces   map[any]string
 }
 
 // Option defines a function that configures Generator
@@ -310,6 +311,7 @@ func (g *Generator) unmarshal(ctx context.Context) error {
 	g.resolveSchemaExternals(ctx)
 	ResolveAttributeRefs(g.getSchemas())
 	g.refNamespaces = resolveElementRefNamespaces(g.getSchemas())
+	g.declNamespaces = resolveDeclarationNamespaces(g.getSchemas())
 
 	return nil
 }
@@ -801,6 +803,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"findNameByType":           g.findNameByType,
 		"isMessageElement":         g.isMessageElement,
 		"refXMLName":               g.refXMLName,
+		"namespaceOf":              g.namespaceOf,
 	}
 }
 

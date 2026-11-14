@@ -324,7 +324,7 @@ const TypesTemplate = `
 	type {{$type}} struct {
 		{{if isMessageElement .Name}}
 			{{if isElementFormQualified}}
-			XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}}"` + "`" + `
+			XMLName xml.Name ` + "`" + `xml:"{{namespaceOf $}} {{.Name}}"` + "`" + `
 			{{else if isResponseElement .Name}}
 			{{/* Response elements use local name only to handle any namespace prefix */}}
 			XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
@@ -354,7 +354,7 @@ const TypesTemplate = `
 		{{if not isElementFormQualified}}
 		// TargetNamespace returns the target namespace for SOAP envelope configuration
 		func (t {{$type}}) TargetNamespace() string {
-			return "{{getTargetNamespace}}"
+			return "{{namespaceOf $}}"
 		}
 		{{end}}
 	{{end}}
@@ -403,7 +403,7 @@ const TypesTemplate = `
 			{{if isComplexType .Type}}
 				type {{$type}} struct {
 					{{if isElementFormQualified}}
-					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
+					XMLName xml.Name ` + "`" + `xml:"{{namespaceOf .}} {{.Name}}"` + "`" + `
 					{{else if isResponseElement .Name}}
 					{{/* Response elements use local name only to handle any namespace prefix */}}
 					XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
@@ -415,7 +415,7 @@ const TypesTemplate = `
 				
 				{{if not isElementFormQualified}}
 				func (t {{$type}}) TargetNamespace() string {
-					return "{{$.TargetNamespace}}"
+					return "{{namespaceOf .}}"
 				}
 				{{end}}
 			{{else}}
@@ -460,7 +460,7 @@ const TypesTemplate = `
 			{{else}}
 				type {{$outerType}} struct {
 					{{if isElementFormQualified}}
-					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
+					XMLName xml.Name ` + "`" + `xml:"{{namespaceOf .}} {{.Name}}"` + "`" + `
 					{{else if isResponseElement .Name}}
 					{{/* Response elements use local name only to handle any namespace prefix */}}
 					XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
@@ -472,7 +472,7 @@ const TypesTemplate = `
 				
 				{{if not isElementFormQualified}}
 				func (t {{$outerType}}) TargetNamespace() string {
-					return "{{$.TargetNamespace}}"
+					return "{{namespaceOf .}}"
 				}
 				{{end}}
 			{{end}}
