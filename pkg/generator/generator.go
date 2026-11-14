@@ -172,26 +172,17 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	// Calculate number of goroutines based on generateServer flag
-	numGoroutines := 3 // header, types, operations
+	// Calculate number of goroutines based on generateServer flag. The
+	// header is generated afterwards because its imports depend on the
+	// types and operations code.
+	numGoroutines := 2 // types, operations
 	if g.generateServer {
-		numGoroutines = 6 // add server, server_header, server_wsdl
+		numGoroutines = 5 // add server, server_header, server_wsdl
 	}
 	errChan := make(chan error, numGoroutines)
 
 	// Generate all components in parallel
 	wg.Add(numGoroutines)
-
-	go func() {
-		defer wg.Done()
-		if data, err := g.genHeader(); err != nil {
-			errChan <- err
-		} else {
-			mu.Lock()
-			gocode["header"] = data
-			mu.Unlock()
-		}
-	}()
 
 	go func() {
 		defer wg.Done()
@@ -258,6 +249,12 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 	for err := range errChan {
 		return nil, err
 	}
+
+	header, err := g.genHeader(gocode["types"], gocode["operations"])
+	if err != nil {
+		return nil, err
+	}
+	gocode["header"] = header
 
 	return gocode, nil
 }
@@ -392,15 +389,24 @@ func (g *Generator) fetchFile(ctx context.Context, loc *http.Location) ([]byte, 
 }
 
 // Template generation methods
-func (g *Generator) genHeader() ([]byte, error) {
+// genHeader renders the file header, importing context and soap only when
+// the given generated code refers to them.
+func (g *Generator) genHeader(code ...[]byte) ([]byte, error) {
 	funcMap := g.createFuncMap()
 	tmpl, err := template.New("header").Funcs(funcMap).Parse(templates.HeaderTemplate)
 	if err != nil {
 		return nil, err
 	}
 
+	used := referencedPackages(code...)
+	data := templates.HeaderData{
+		Package: g.pkg,
+		Context: used["context"],
+		SOAP:    used["soap"],
+	}
+
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, g.pkg); err != nil {
+	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 

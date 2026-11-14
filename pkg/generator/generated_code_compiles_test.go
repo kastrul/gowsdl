@@ -183,3 +183,53 @@ func TestGenerator_InlineComplexTypes_AnonymousElement_Compiles(t *testing.T) {
 
 	assertGeneratedCodeBuilds(t, "inline", out)
 }
+
+const soapImport = `"github.com/kastrul/gowsdl/soap"`
+
+func TestGenerator_NoOperations_GeneratedCodeCompiles(t *testing.T) {
+	path := filepath.Join("..", "..", "fixtures", "nested_complex_type_test.wsdl")
+	_, out := generateCode(t, path, WithPackage("nested"))
+
+	header := string(out["header"])
+	assert.NotContains(t, header, `"context"`)
+	assert.NotContains(t, header, soapImport)
+
+	assertGeneratedCodeBuilds(t, "nested", out)
+}
+
+const typesOnlyDateTimeWSDL = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:typesonly" targetNamespace="urn:typesonly">
+  <types>
+    <xs:schema targetNamespace="urn:typesonly" elementFormDefault="qualified">
+      <xs:complexType name="Event">
+        <xs:sequence>
+          <xs:element name="name" type="xs:string"/>
+          <xs:element name="at" type="xs:dateTime"/>
+        </xs:sequence>
+      </xs:complexType>
+    </xs:schema>
+  </types>
+</definitions>`
+
+func TestGenerator_NoOperations_SOAPTypesKeepSOAPImport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "typesonly.wsdl")
+	require.NoError(t, os.WriteFile(path, []byte(typesOnlyDateTimeWSDL), 0o600))
+
+	code, out := generateCode(t, path, WithPackage("typesonly"))
+	require.Contains(t, code, "soap.XSDDateTime")
+
+	header := string(out["header"])
+	assert.NotContains(t, header, `"context"`)
+	assert.Contains(t, header, soapImport)
+
+	assertGeneratedCodeBuilds(t, "typesonly", out)
+}
+
+func TestGenerator_WithOperations_ImportsContextAndSOAP(t *testing.T) {
+	_, out := generateCode(t, chromeDataWSDL(), WithPackage("chromedata"))
+
+	header := string(out["header"])
+	assert.Contains(t, header, `"context"`)
+	assert.Contains(t, header, soapImport)
+}
