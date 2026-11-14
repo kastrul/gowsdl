@@ -13,7 +13,7 @@ import (
 )
 
 const wsdl2SOAPActionTemplate = `<?xml version="1.0" encoding="UTF-8"?>
-<description xmlns="http://www.w3.org/ns/wsdl/"
+<description xmlns="%s"
              xmlns:tns="http://example.com/stockquote"
              xmlns:wsoap="http://www.w3.org/ns/wsdl/soap"
              targetNamespace="http://example.com/stockquote">
@@ -56,11 +56,11 @@ const wsdl2SOAPActionTemplate = `<?xml version="1.0" encoding="UTF-8"?>
   </service>
 </description>`
 
-func generateWSDL2Operations(t *testing.T, bindingOpAttrs string) string {
+func generateWSDL2Operations(t *testing.T, namespace, bindingOpAttrs string) string {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "stockquote.wsdl")
-	content := fmt.Sprintf(wsdl2SOAPActionTemplate, bindingOpAttrs)
+	content := fmt.Sprintf(wsdl2SOAPActionTemplate, namespace, bindingOpAttrs)
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
 	g, err := New(path, WithPackage("stockquote"))
@@ -107,11 +107,18 @@ func TestGenerator_WSDL20_SOAPActionInOperations(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ops := generateWSDL2Operations(t, tt.attrs)
-			assert.Contains(t, ops, tt.wantCall)
-		})
+	namespaces := map[string]string{
+		"spec namespace":   "http://www.w3.org/ns/wsdl",
+		"legacy namespace": "http://www.w3.org/ns/wsdl/",
+	}
+
+	for nsName, ns := range namespaces {
+		for _, tt := range tests {
+			t.Run(nsName+"/"+tt.name, func(t *testing.T) {
+				ops := generateWSDL2Operations(t, ns, tt.attrs)
+				assert.Contains(t, ops, tt.wantCall)
+			})
+		}
 	}
 }
 
