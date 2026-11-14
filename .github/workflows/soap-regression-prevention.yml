@@ -86,8 +86,9 @@ jobs:
         run: |
           echo "🔍 Validating template changes don't break SOAP generation..."
           
-          # Run all SOAP validation tests since templates affect XML output
-          go test -v -tags=integration ./pkg/testing
+          # Templates affect XML output: check the requests generated clients
+          # send, the XMLName tags and that every fixture's code compiles
+          go test -race -v -run 'TestGenerator_TestFixtures_RequestsMatchExpectedXML|TestGenerator_XMLNameAndTargetNamespace|TestGenerator_AllFixtures_GeneratedCodeCompiles' ./pkg/generator
           
           echo "✅ Template changes validated - SOAP generation still works"
 
@@ -134,11 +135,10 @@ jobs:
           echo "🧪 Testing SOAP package changes..."
           
           # Run SOAP package tests
-          go test -v ./soap/...
+          go test -race -v ./soap/...
           
-          # Run our SOAP validation framework to ensure marshaling still works
-          go test -v ./pkg/testing -run TestSOAPCapture
-          go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
+          # Run our SOAP validation framework, including the validation rules
+          go test -race -v ./pkg/testing
           
           echo "✅ SOAP package changes validated"
 
@@ -146,8 +146,8 @@ jobs:
         run: |
           echo "🔬 Testing for XML marshaling regressions..."
           
-          # Test the specific XML marshaling that was problematic
-          go test -v -tags=integration ./pkg/testing -run TestFixtureValidationIntegration
+          # Marshal real requests through generated clients and the soap package
+          go test -race -v -run TestGenerator_TestFixtures_RequestsMatchExpectedXML ./pkg/generator
           
           echo "✅ No XML marshaling regressions detected"
 
@@ -176,11 +176,8 @@ jobs:
         run: |
           echo "🏗️ Testing generator core changes..."
           
-          # Run generator tests
-          go test -v ./pkg/generator/...
-          
-          # Run RPC-specific tests since generator handles RPC detection
-          go test -v ./pkg/generator -run ".*[Rr][Pp][Cc].*"
+          # Run generator tests, which include the RPC-specific ones
+          go test -race -v ./pkg/generator/...
           
           echo "✅ Generator changes validated"
 
@@ -204,14 +201,11 @@ jobs:
         run: |
           echo "🛡️ Running comprehensive SOAP regression prevention test..."
           
-          # This test specifically validates against known issues
-          go test -v -tags=integration ./pkg/testing -run TestFixtureValidationIntegration
+          # Run the validation rules, including the known RPC namespace issues
+          go test -race -v ./pkg/testing
           
-          # Run all validation rules to catch any new issues
-          go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
-          
-          # Run comprehensive validation
-          go test -v -tags=integration ./pkg/testing -run TestComprehensiveSOAPValidation
+          # Check the requests generated clients send against test_fixtures
+          go test -race -v -run TestGenerator_TestFixtures_RequestsMatchExpectedXML ./pkg/generator
           
           echo "✅ Comprehensive regression test passed"
 

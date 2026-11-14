@@ -67,24 +67,18 @@ jobs:
             echo "✅ Test fixtures structure validated"
           fi
 
-      - name: Run SOAP Request Framework Tests
-        run: |
-          echo "🧪 Running SOAP request testing framework tests..."
-          go test -v ./pkg/testing -run "TestSOAPCapture|TestXMLComparator|TestExtractOperationName"
-          echo "✅ Framework tests completed"
-
       - name: Run Fixture-Based SOAP Tests
         id: fixture-tests
         run: |
-          echo "📋 Running fixture-based SOAP request tests..."
+          echo "📋 Checking the requests of generated clients against test_fixtures..."
           
           # Capture test output
-          TEST_OUTPUT=$(go test -v ./pkg/testing -run TestSOAPRequestFixtures 2>&1) || TEST_FAILED=1
+          TEST_OUTPUT=$(go test -race -v -run TestGenerator_TestFixtures_RequestsMatchExpectedXML ./pkg/generator 2>&1) || TEST_FAILED=1
           
           echo "$TEST_OUTPUT"
           
-          # Extract fixture count from output
-          FIXTURE_COUNT=$(echo "$TEST_OUTPUT" | grep -o "Loaded [0-9]* fixtures" | grep -o "[0-9]*" || echo "0")
+          # Count the fixture cases that ran
+          FIXTURE_COUNT=$(echo "$TEST_OUTPUT" | grep -c -- "--- PASS: TestGenerator_TestFixtures_RequestsMatchExpectedXML/" || true)
           
           echo "fixture_count=$FIXTURE_COUNT" >> $GITHUB_OUTPUT
           
@@ -98,16 +92,16 @@ jobs:
       - name: Run SOAP Compliance Validation
         id: compliance-tests
         run: |
-          echo "🔒 Running SOAP compliance rule validation..."
+          echo "🔒 Running the SOAP request testing framework tests, including the compliance rules..."
           
-          # Run compliance tests and capture output
-          COMPLIANCE_OUTPUT=$(go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues 2>&1) || COMPLIANCE_FAILED=1
+          # Run the framework tests and capture output
+          COMPLIANCE_OUTPUT=$(go test -race -v ./pkg/testing 2>&1) || COMPLIANCE_FAILED=1
           
           echo "$COMPLIANCE_OUTPUT"
           
           # Count rule violations caught
-          ERROR_COUNT=$(echo "$COMPLIANCE_OUTPUT" | grep -c "Error \[.*\]:" || echo "0")
-          RULE_TESTS=$(echo "$COMPLIANCE_OUTPUT" | grep -c "=== RUN.*RPC\|Document\|Missing\|Empty" || echo "0")
+          ERROR_COUNT=$(echo "$COMPLIANCE_OUTPUT" | grep -c "Error \[.*\]:" || true)
+          RULE_TESTS=$(echo "$COMPLIANCE_OUTPUT" | grep -c "=== RUN.*RPC\|Document\|Missing\|Empty" || true)
           
           echo "rule_tests=$RULE_TESTS" >> $GITHUB_OUTPUT
           echo "errors_caught=$ERROR_COUNT" >> $GITHUB_OUTPUT
@@ -118,18 +112,6 @@ jobs:
           else
             echo "✅ All $RULE_TESTS compliance tests passed, caught $ERROR_COUNT expected errors"
           fi
-
-      - name: Run Integration Tests
-        run: |
-          echo "🔗 Running comprehensive SOAP validation integration tests..."
-          go test -v -tags=integration ./pkg/testing -run TestComprehensiveSOAPValidation
-          echo "✅ Integration tests completed"
-
-      - name: Test RPC Namespace Issue Detection
-        run: |
-          echo "🎯 Testing RPC namespace issue detection (regression test)..."
-          go test -v -tags=integration ./pkg/testing -run TestFixtureValidationIntegration
-          echo "✅ RPC namespace regression test passed"
 
       - name: Generate SOAP Validation Report
         if: always()
@@ -243,13 +225,19 @@ jobs:
         run: |
           echo "🔬 Testing ${{ matrix.soap-style }} style SOAP with WSDL ${{ matrix.wsdl-version }}"
           
-          # Run style-specific tests
-          if [ "${{ matrix.soap-style }}" = "rpc" ]; then
+          if [ "${{ matrix.wsdl-version }}" = "2.0" ]; then
+            # WSDL 2.0 has no separate RPC and document fixtures, so both
+            # styles run the WSDL 2.0 generator tests
+            echo "Testing WSDL 2.0 generation..."
+            go test -race -v ./pkg/generator -run 'WSDL2|WSDL20'
+          elif [ "${{ matrix.soap-style }}" = "rpc" ]; then
             echo "Testing RPC-style SOAP operations..."
-            go test -v ./pkg/testing -run ".*[Rr][Pp][Cc].*"
+            go test -race -v ./pkg/testing ./pkg/generator -run '.*[Rr][Pp][Cc].*'
+            go test -race -v ./pkg/generator -run 'TestGenerator_TestFixtures_RequestsMatchExpectedXML/rpc_literal'
           else
-            echo "Testing Document-style SOAP operations..."  
-            go test -v ./pkg/testing -run ".*[Dd]ocument.*"
+            echo "Testing Document-style SOAP operations..."
+            go test -race -v ./pkg/testing ./pkg/generator -run '.*[Dd]ocument.*'
+            go test -race -v ./pkg/generator -run 'TestGenerator_TestFixtures_RequestsMatchExpectedXML/document_literal'
           fi
           
           echo "✅ ${{ matrix.soap-style }} style validation completed"
