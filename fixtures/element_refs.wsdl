@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:tns="urn:refs:main"
+             targetNamespace="urn:refs:main">
+    <types>
+        <xsd:schema targetNamespace="urn:refs:main"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:tns="urn:refs:main"
+                    xmlns:oth="urn:refs:other"
+                    xmlns:rep="urn:refs:repr"
+                    elementFormDefault="qualified">
+            <xsd:import namespace="urn:refs:other"/>
+            <xsd:import namespace="urn:refs:repr"/>
+
+            <xsd:element name="partyClass" type="xsd:string"/>
+            <xsd:element name="memberTag" type="xsd:string"/>
+            <xsd:element name="chosenOne" type="xsd:string"/>
+            <xsd:element name="anyOrder" type="xsd:string"/>
+
+            <xsd:complexType name="PartyType">
+                <xsd:sequence>
+                    <xsd:element ref="tns:partyClass"/>
+                    <xsd:element ref="oth:partyCode"/>
+                    <xsd:element ref="tns:memberTag" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element name="represented" type="rep:RepresentedPartyType" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:complexType name="ChoiceType">
+                <xsd:choice>
+                    <xsd:element ref="tns:chosenOne"/>
+                    <xsd:element ref="oth:extraNote"/>
+                </xsd:choice>
+            </xsd:complexType>
+
+            <xsd:complexType name="AllType">
+                <xsd:all>
+                    <xsd:element ref="tns:anyOrder"/>
+                </xsd:all>
+            </xsd:complexType>
+
+            <xsd:complexType name="HolderType">
+                <xsd:sequence>
+                    <xsd:element name="nested" minOccurs="0">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element ref="tns:partyClass"/>
+                                <xsd:element ref="oth:partyCode"/>
+                            </xsd:sequence>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="nestedChoice" minOccurs="0">
+                        <xsd:complexType>
+                            <xsd:choice>
+                                <xsd:element ref="tns:chosenOne"/>
+                                <xsd:element ref="oth:extraNote"/>
+                            </xsd:choice>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="nestedAll" minOccurs="0">
+                        <xsd:complexType>
+                            <xsd:all>
+                                <xsd:element ref="tns:anyOrder"/>
+                            </xsd:all>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="hash" minOccurs="0">
+                        <xsd:complexType>
+                            <xsd:simpleContent>
+                                <xsd:extension base="xsd:string">
+                                    <xsd:attribute name="algorithmId" type="xsd:string"/>
+                                </xsd:extension>
+                            </xsd:simpleContent>
+                        </xsd:complexType>
+                    </xsd:element>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="GetParty">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="party" type="tns:PartyType"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="GetPartyResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="holder" type="tns:HolderType"/>
+                        <xsd:element name="choice" type="tns:ChoiceType"/>
+                        <xsd:element name="all" type="tns:AllType"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+
+        <xsd:schema targetNamespace="urn:refs:other"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    elementFormDefault="qualified">
+            <xsd:element name="partyCode" type="xsd:string"/>
+            <xsd:element name="extraNote" type="xsd:string"/>
+        </xsd:schema>
+
+        <!-- Mirrors X-Road representation.xsd: unprefixed refs resolved via the default namespace -->
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   xmlns="urn:refs:repr"
+                   targetNamespace="urn:refs:repr"
+                   elementFormDefault="qualified">
+            <xs:element name="partyRole" type="xs:string"/>
+            <xs:element name="partyId" type="xs:string"/>
+            <xs:complexType name="RepresentedPartyType">
+                <xs:sequence>
+                    <xs:element minOccurs="0" ref="partyRole"/>
+                    <xs:element minOccurs="1" ref="partyId"/>
+                </xs:sequence>
+            </xs:complexType>
+        </xs:schema>
+    </types>
+
+    <message name="GetPartyRequest">
+        <part name="parameters" element="tns:GetParty"/>
+    </message>
+    <message name="GetPartyResponse">
+        <part name="parameters" element="tns:GetPartyResponse"/>
+    </message>
+
+    <portType name="PartyPort">
+        <operation name="GetParty">
+            <input message="tns:GetPartyRequest"/>
+            <output message="tns:GetPartyResponse"/>
+        </operation>
+    </portType>
+
+    <binding name="PartyBinding" type="tns:PartyPort">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="GetParty">
+            <soap:operation soapAction="urn:refs:main/GetParty"/>
+            <input><soap:body use="literal"/></input>
+            <output><soap:body use="literal"/></output>
+        </operation>
+    </binding>
+
+    <service name="PartyService">
+        <port name="PartyPort" binding="tns:PartyBinding">
+            <soap:address location="http://localhost/party"/>
+        </port>
+    </service>
+</definitions>
