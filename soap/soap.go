@@ -468,7 +468,9 @@ func (s *Client) URL() string {
 	return s.url
 }
 
-// CallContext performs HTTP POST request with a context
+// CallContext performs HTTP POST request with a context.
+// A nil response makes it a one-way call: an empty reply, such as HTTP 202
+// Accepted, succeeds, and any reply content other than a fault is ignored.
 func (s *Client) CallContext(ctx context.Context, soapAction string, request, response any) error {
 	return s.call(ctx, soapAction, request, response, nil, nil)
 }
@@ -499,6 +501,12 @@ func (s *Client) CallContextWithFaultDetail(ctx context.Context, soapAction stri
 // which allows to condense the detail into a short error message.
 func (s *Client) CallWithFaultDetail(soapAction string, request, response any, faultDetail FaultError) error {
 	return s.call(context.Background(), soapAction, request, response, faultDetail, nil)
+}
+
+// oneWayResponse accepts and discards whatever element the SOAP body of a
+// reply to a one-way call holds.
+type oneWayResponse struct {
+	Content []byte `xml:",innerxml"`
 }
 
 func (s *Client) call(ctx context.Context, soapAction string, request, response any, faultDetail FaultError,
@@ -590,6 +598,24 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 			StatusCode:   res.StatusCode,
 			ResponseBody: body,
 		}
+	}
+
+	// A nil response is a one-way call: the reply carries nothing to decode,
+	// but a fault in it must still be reported. An empty reply, often without
+	// a Content-Type, succeeds unless its status says otherwise.
+	if response == nil {
+		data, err := io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		if len(bytes.TrimSpace(data)) == 0 {
+			if res.StatusCode >= 300 {
+				return &HTTPError{StatusCode: res.StatusCode, ResponseBody: data}
+			}
+			return nil
+		}
+		res.Body = io.NopCloser(bytes.NewReader(data))
+		response = new(oneWayResponse)
 	}
 
 	// xml Decoder (used with and without MTOM) cannot handle namespace prefixes (yet),

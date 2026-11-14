@@ -16,6 +16,10 @@ not compile or did not work before.
   SOAP fault, the original error for a transport error. `SOAPFault.Unwrap`
   exposes the cause of a synthetic transport fault, so `errors.Is` and
   `errors.As` see `context.DeadlineExceeded` or an `*HTTPError`.
+- A nil `response` makes `soap.Client.CallContext` and `Call` a one-way call:
+  an empty reply, such as HTTP 202 Accepted with no body or Content-Type,
+  succeeds; a fault or an error status is still reported, and any other
+  reply content is ignored.
 
 ### Changed
 
@@ -42,6 +46,12 @@ not compile or did not work before.
 
 ### Fixed
 
+- A one-way operation (a WSDL 1.1 operation with no `output`, or a WSDL 2.0
+  in-only operation) is now generated as a method returning only `error` that
+  sends the request and expects no response. It used to be generated as
+  returning `(*, error)`, which did not compile. Server code generated for a
+  WSDL 1.1 service with a one-way operation now compiles too; as for WSDL 2.0,
+  the server does not implement one-way operations.
 - A named `simpleType` with no mappable base (a restriction, list or union of
   nested simple types, or an empty one) is now declared as `string` instead of
   being left out, which made every field using it fail to compile.
