@@ -38,6 +38,9 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"findNameByType":           g.findNameByType,
 		"isMessageElement":         g.isMessageElement,
 		"refXMLName":               g.refXMLName,
+		"attrXMLName":              g.attrXMLName,
+		"isHeaderMessage":          g.isHeaderMessage,
+		"partXMLName":              g.partXMLName,
 	}
 }
 
