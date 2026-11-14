@@ -173,7 +173,7 @@ func declaredTypes(src string) []string {
 }
 
 func TestGenerator_TypePruning_KeepsReachableTypesOnly(t *testing.T) {
-	code, err := generateWithOperations(t, typePruningWSDL11, WithOperations("GetOrder"))
+	code, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetOrder"))
 	require.NoError(t, err)
 	types := declaredTypes(string(code["types"]))
 
@@ -196,13 +196,13 @@ func TestGenerator_TypePruning_KeepsReachableTypesOnly(t *testing.T) {
 		assert.NotContains(t, types, name, "unused type %s must be pruned", name)
 	}
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_TypePruning_KeptTypesMatchUnprunedOutput(t *testing.T) {
-	pruned, err := generateWithOperations(t, typePruningWSDL11, WithOperations("ListCustomers"))
+	pruned, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("ListCustomers"))
 	require.NoError(t, err)
-	full, err := generateWithOperations(t, typePruningWSDL11)
+	full, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 
 	prunedTypes := declaredTypes(string(pruned["types"]))
@@ -212,13 +212,13 @@ func TestGenerator_TypePruning_KeptTypesMatchUnprunedOutput(t *testing.T) {
 	assert.Contains(t, prunedTypes, "ListCustomersResponseExtraType")
 	assert.Equal(t, full["operations"] != nil, pruned["operations"] != nil)
 
-	assertCompilableSource(t, pruned)
+	pruned.client(t)
 }
 
 func TestGenerator_TypePruning_Disabled(t *testing.T) {
-	pruned, err := generateWithOperations(t, typePruningWSDL11, WithOperations("GetOrder"), WithTypePruning(false))
+	pruned, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetOrder"), WithTypePruning(false))
 	require.NoError(t, err)
-	full, err := generateWithOperations(t, typePruningWSDL11)
+	full, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 
 	assert.Equal(t, string(full["types"]), string(pruned["types"]))
@@ -226,20 +226,20 @@ func TestGenerator_TypePruning_Disabled(t *testing.T) {
 }
 
 func TestGenerator_TypePruning_NoOperationFilter(t *testing.T) {
-	code, err := generateWithOperations(t, typePruningWSDL11, WithTypePruning(true))
+	code, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithTypePruning(true))
 	require.NoError(t, err)
 	assert.Contains(t, declaredTypes(string(code["types"])), "CustomerFilter")
 }
 
 func TestGenerator_TypePruning_SkippedWithServerGeneration(t *testing.T) {
-	code, err := generateWithOperations(t, typePruningWSDL11, WithOperations("GetOrder"), WithServerGeneration(true))
+	code, err := tryGenerate(t, writeWSDL(t, typePruningWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetOrder"), WithServerGeneration(true))
 	require.NoError(t, err)
 	assert.Contains(t, declaredTypes(string(code["types"])), "CustomerFilter",
 		"server code covers every operation, so every type is kept")
 }
 
 func TestGenerator_TypePruning_WSDL20(t *testing.T) {
-	code, err := generateWithOperations(t, operationFilterWSDL20, WithOperations("GetUser"))
+	code, err := tryGenerate(t, writeWSDL(t, operationFilterWSDL20), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetUser"))
 	require.NoError(t, err)
 	types := declaredTypes(string(code["types"]))
 
@@ -248,7 +248,7 @@ func TestGenerator_TypePruning_WSDL20(t *testing.T) {
 	assert.NotContains(t, types, "DeleteUser")
 	assert.NotContains(t, types, "DeleteUserResponse")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 const typePruningRPC = `<?xml version="1.0" encoding="UTF-8"?>
@@ -297,7 +297,7 @@ const typePruningRPC = `<?xml version="1.0" encoding="UTF-8"?>
 </definitions>`
 
 func TestGenerator_TypePruning_RPC(t *testing.T) {
-	code, err := generateWithOperations(t, typePruningRPC, WithOperations("getUser"))
+	code, err := tryGenerate(t, writeWSDL(t, typePruningRPC), WithPackage("svc"), WithExportAllTypes(true), WithOperations("getUser"))
 	require.NoError(t, err)
 	types := declaredTypes(string(code["types"]))
 
@@ -309,5 +309,5 @@ func TestGenerator_TypePruning_RPC(t *testing.T) {
 	assert.NotContains(t, types, "GetInvoiceRequest")
 	assert.NotContains(t, types, "OperationGetInvoiceIn")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }

@@ -103,9 +103,9 @@ const xroadMixedQualificationWSDL = `<?xml version="1.0" encoding="UTF-8"?>
 </wsdl:definitions>`
 
 func TestGenerator_XRoad_MixedQualificationTypes(t *testing.T) {
-	out, err := generateWithOperations(t, xroadMixedQualificationWSDL)
+	out, err := tryGenerate(t, writeWSDL(t, xroadMixedQualificationWSDL), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
-	assertCompilableSource(t, out)
+	out.client(t)
 	code := string(out["types"])
 
 	assert.Contains(t, code, "`xml:\"tns:query\"`", "unqualified operation schema must not be qualified by the inline X-Road schemas")
@@ -195,7 +195,7 @@ func TestGenerator_XRoad_MixedQualificationEnvelope(t *testing.T) {
 		t.Skip("skipping go run of generated code in short mode")
 	}
 
-	out, err := generateWithOperations(t, xroadMixedQualificationWSDL)
+	out, err := tryGenerate(t, writeWSDL(t, xroadMixedQualificationWSDL), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 
 	root, err := filepath.Abs(filepath.Join("..", ".."))

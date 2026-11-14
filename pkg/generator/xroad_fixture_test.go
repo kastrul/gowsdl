@@ -36,7 +36,7 @@ func declarationCount(code, name string) int {
 }
 
 func TestGenerator_XRoad_GeneratedCodeCompiles(t *testing.T) {
-	_, out := generateCode(t, filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"),
+	out := generate(t, filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"),
 		WithPackage("xroad"), WithServerGeneration(true))
 	assertGeneratedCodeBuilds(t, "xroad", out)
 }

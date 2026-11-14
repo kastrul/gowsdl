@@ -5,9 +5,7 @@
 package generator
 
 import (
-	"context"
 	"encoding/json"
-	"go/format"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,20 +19,6 @@ import (
 )
 
 var multiSchemaFixture = filepath.Join("..", "..", "fixtures", "multi_schema_namespaces.wsdl")
-
-func generateFormatted(t *testing.T, wsdlPath, pkg string) (map[string][]byte, string) {
-	t.Helper()
-
-	g, err := New(wsdlPath, WithPackage(pkg))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
-	require.NoError(t, err)
-	return out, string(formatted)
-}
 
 func TestResolveDeclarationNamespaces(t *testing.T) {
 	headerEl := &parser.XSDElement{Name: "client", Type: "hdr:ClientType"}
@@ -73,7 +57,7 @@ func TestResolveDeclarationNamespaces(t *testing.T) {
 }
 
 func TestGenerator_MultiSchema_XMLNameUsesDeclaringSchemaNamespace(t *testing.T) {
-	_, code := generateFormatted(t, multiSchemaFixture, "ms")
+	code := generate(t, multiSchemaFixture, WithPackage("ms")).client(t)
 
 	tests := []struct {
 		structName string
@@ -112,7 +96,7 @@ func TestGenerator_ElementRefs_SchemaOrderDoesNotChangeXMLName(t *testing.T) {
 	reordered := filepath.Join(t.TempDir(), "element_refs_reordered.wsdl")
 	require.NoError(t, os.WriteFile(reordered, []byte(text), 0o600))
 
-	_, code := generateFormatted(t, reordered, "refs")
+	code := generate(t, reordered, WithPackage("refs")).client(t)
 
 	assert.Contains(t, structBody(t, code, "GetParty"), "XMLName xml.Name `xml:\"urn:refs:main GetParty\"`")
 	assert.Contains(t, structBody(t, code, "GetPartyResponse"), "XMLName xml.Name `xml:\"urn:refs:main GetPartyResponse\"`")
@@ -183,7 +167,7 @@ func TestGenerator_MultiSchema_UnqualifiedTargetNamespaceMethod(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "unqualified.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(unqualifiedMultiSchemaWSDL), 0o600))
 
-	_, code := generateFormatted(t, path, "uq")
+	code := generate(t, path, WithPackage("uq")).client(t)
 
 	t.Run("XMLName keeps the unqualified tns prefix form", func(t *testing.T) {
 		assert.Contains(t, structBody(t, code, "Client"), "XMLName xml.Name `xml:\"tns:client\"`")
@@ -310,7 +294,7 @@ func TestGenerator_MultiSchema_RoundTrip(t *testing.T) {
 		t.Skip("skipping go run of generated code in short mode")
 	}
 
-	out, _ := generateFormatted(t, multiSchemaFixture, "ms")
+	out := generate(t, multiSchemaFixture, WithPackage("ms"))
 
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	require.NoError(t, err)
@@ -363,7 +347,7 @@ func TestGenerator_MultiSchema_RoundTrip(t *testing.T) {
 }
 
 func TestGenerator_GlobalElementInlineSimpleContent(t *testing.T) {
-	_, code := generateFormatted(t, multiSchemaFixture, "ms")
+	code := generate(t, multiSchemaFixture, WithPackage("ms")).client(t)
 
 	body := structBody(t, code, "RequestHash")
 	assert.Contains(t, body, "Value string `xml:\",chardata\" json:\"value\"`")

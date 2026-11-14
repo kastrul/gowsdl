@@ -80,7 +80,8 @@ func TestGenerator_SimpleTypeWithoutMappableBaseIsString(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "st.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(simpleTypeFallbackWSDL), 0o600))
 
-	code, out := generateCode(t, path, WithPackage("st"))
+	out := generate(t, path, WithPackage("st"))
+	code := out.client(t)
 
 	for _, name := range []string{"Opaque", "Code", "Codes", "SizeOrAuto"} {
 		assert.Regexp(t, `(?m)^type `+name+` string$`, code)

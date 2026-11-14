@@ -2,54 +2,12 @@ package generator
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-// writeGeneratedModule writes the generator output and any extra files into a
-// temporary Go module that depends on this repository and returns its directory.
-func writeGeneratedModule(t *testing.T, module string, out map[string][]byte, extra map[string]string) string {
-	t.Helper()
-
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	client := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "client.go"), []byte(client), 0o600))
-	if len(out["server"]) > 0 {
-		server := string(out["server_header"]) + string(out["server_wsdl"]) + string(out["server"])
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "server.go"), []byte(server), 0o600))
-	}
-	for name, content := range extra {
-		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
-	}
-
-	goMod := "module " + module + "\n\ngo 1.21\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
-	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
-	return dir
-}
-
-// runGeneratedModuleTests runs go test inside a module built by writeGeneratedModule.
-func runGeneratedModuleTests(t *testing.T, module string, out map[string][]byte, extra map[string]string) {
-	t.Helper()
-	if testing.Short() {
-		t.Skip("skipping go test of generated code in short mode")
-	}
-
-	dir := writeGeneratedModule(t, module, out, extra)
-	cmd := exec.Command("go", "test", "-mod=mod", "-count=1", "./...")
-	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
-	require.NoError(t, err, "tests against generated code failed:\n%s", output)
-}
 
 // replaceGeneratedStub swaps the body of a generated server stub so the server
 // returns a real response instead of WSDLUndefinedError.
@@ -109,7 +67,7 @@ func TestGenerator_WSDL2Server_DispatchesValidRequest(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "quote.wsdl")
 	require.NoError(t, os.WriteFile(path, []byte(wsdl2StockQuote), 0o600))
 
-	_, out := generateCode(t, path, WithPackage("quote"), WithServerGeneration(true))
+	out := generate(t, path, WithPackage("quote"), WithServerGeneration(true))
 	replaceGeneratedStub(t, out,
 		"func (service *SOAPBodyRequest) GetQuoteRequestFunc(request *GetQuoteRequest) (*GetQuoteResponse, error)",
 		"\treturn &GetQuoteResponse{Price: 42.5}, nil")
@@ -183,7 +141,7 @@ func TestEndpointRejectsWrongContentTypeOnce(t *testing.T) {
 `
 
 func TestGenerator_WSDL11Server_WrongContentTypeWritesOneEnvelope(t *testing.T) {
-	_, out := generateCode(t, filepath.Join("..", "..", "fixtures", "stock.wsdl"),
+	out := generate(t, filepath.Join("..", "..", "fixtures", "stock.wsdl"),
 		WithPackage("stock"), WithServerGeneration(true))
 
 	runGeneratedModuleTests(t, "stock", out, map[string]string{"server_test.go": wsdl11ServerContentTypeTest})

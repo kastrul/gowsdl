@@ -168,7 +168,7 @@ const httpBindingWSDL11 = `<?xml version="1.0" encoding="UTF-8"?>
 </wsdl:definitions>`
 
 func TestGenerator_HTTPBinding_PortTypeSkipped(t *testing.T) {
-	code, err := generateWithOperations(t, httpBindingWSDL11)
+	code, err := tryGenerate(t, writeWSDL(t, httpBindingWSDL11), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 	ops := string(code["operations"])
 
@@ -179,11 +179,11 @@ func TestGenerator_HTTPBinding_PortTypeSkipped(t *testing.T) {
 	assert.NotContains(t, ops, "GetAlertsHttpGetIn")
 	assert.NotContains(t, ops, "HttpOnly")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_HTTPBinding_WithOperationFilter(t *testing.T) {
-	code, err := generateWithOperations(t, httpBindingWSDL11, WithOperations("GetAlerts"))
+	code, err := tryGenerate(t, writeWSDL(t, httpBindingWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("GetAlerts"))
 	require.NoError(t, err)
 
 	ops := string(code["operations"])
@@ -197,17 +197,17 @@ func TestGenerator_HTTPBinding_WithOperationFilter(t *testing.T) {
 	assert.NotContains(t, types, "GetAlertsHttpGetIn")
 	assert.NotContains(t, types, "ArrayOfAlert", "types used only by HTTP port types are pruned")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_HTTPBinding_OperationOnlyOnHTTPIsUnknown(t *testing.T) {
-	_, err := generateWithOperations(t, httpBindingWSDL11, WithOperations("HttpOnly"))
+	_, err := tryGenerate(t, writeWSDL(t, httpBindingWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithOperations("HttpOnly"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown operation(s) HttpOnly")
 }
 
 func TestGenerator_HTTPBinding_ServerSkipsHTTPPortType(t *testing.T) {
-	code, err := generateWithOperations(t, httpBindingWSDL11, WithServerGeneration(true))
+	code, err := tryGenerate(t, writeWSDL(t, httpBindingWSDL11), WithPackage("svc"), WithExportAllTypes(true), WithServerGeneration(true))
 	require.NoError(t, err)
 	server := string(code["server"])
 
@@ -218,7 +218,7 @@ func TestGenerator_HTTPBinding_ServerSkipsHTTPPortType(t *testing.T) {
 }
 
 func TestGenerator_EmptyInputMessage_Document(t *testing.T) {
-	code, err := generateWithOperations(t, httpBindingWSDL11)
+	code, err := tryGenerate(t, writeWSDL(t, httpBindingWSDL11), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 	types := string(code["types"])
 
@@ -227,11 +227,11 @@ func TestGenerator_EmptyInputMessage_Document(t *testing.T) {
 	assert.NotContains(t, types, "type GetAlertsHttpGetIn", "empty messages of skipped port types are not declared")
 	assert.Contains(t, string(code["operations"]), "GetAlerts(ctx context.Context, request *GetAlertsSoapIn) (*GetAlertsResponse, error)")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_EmptyInputMessage_RPC(t *testing.T) {
-	code, err := generateWithOperations(t, httpBindingWSDL11)
+	code, err := tryGenerate(t, writeWSDL(t, httpBindingWSDL11), WithPackage("svc"), WithExportAllTypes(true))
 	require.NoError(t, err)
 	types := string(code["types"])
 
@@ -240,20 +240,20 @@ func TestGenerator_EmptyInputMessage_RPC(t *testing.T) {
 	assert.Contains(t, types, "type OperationPingOut struct")
 	assert.Contains(t, string(code["operations"]), "Ping(ctx context.Context, request *PingRequest) (*PingResponse, error)")
 
-	assertCompilableSource(t, code)
+	code.client(t)
 }
 
 func TestGenerator_EmptyInputMessage_Generics(t *testing.T) {
 	for name, opt := range map[string]Option{"generics": WithGenerics(), "generics-only": WithGenericsOnly()} {
 		t.Run(name, func(t *testing.T) {
-			code, err := generateWithOperations(t, httpBindingWSDL11, opt)
+			code, err := tryGenerate(t, writeWSDL(t, httpBindingWSDL11), WithPackage("svc"), WithExportAllTypes(true), opt)
 			require.NoError(t, err)
 			ops := string(code["operations"])
 
 			assert.Contains(t, ops, "service.client.CallResult[GetAlertsResponse](ctx, ")
 			assert.NotContains(t, ops, "HttpGet")
 
-			assertCompilableSource(t, code)
+			code.client(t)
 		})
 	}
 }

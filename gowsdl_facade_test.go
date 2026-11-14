@@ -6,7 +6,6 @@ package gowsdl
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,12 +54,7 @@ func TestWithOptions(t *testing.T) {
 	}
 
 	// Create a temporary WSDL file for testing
-	tempFile := createTempWSDLFile(t)
-	defer func() {
-		if err := os.Remove(tempFile); err != nil {
-			t.Logf("Failed to remove temp file: %v", err)
-		}
-	}()
+	tempFile := minimalServiceWSDL
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -81,7 +75,7 @@ func TestNewGoWSDL(t *testing.T) {
 	}{
 		{
 			name: "valid_wsdl_file",
-			file: createTempWSDLFile(t),
+			file: minimalServiceWSDL,
 			opts: []Option{WithPackage("test")},
 		},
 		{
@@ -98,14 +92,6 @@ func TestNewGoWSDL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "valid_wsdl_file" {
-				defer func() {
-					if err := os.Remove(tt.file); err != nil {
-						t.Logf("Failed to remove temp file: %v", err)
-					}
-				}()
-			}
-
 			gowsdl, err := NewGoWSDL(tt.file, tt.opts...)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -120,12 +106,7 @@ func TestNewGoWSDL(t *testing.T) {
 }
 
 func TestNewGoWSDLWithConfig(t *testing.T) {
-	tempFile := createTempWSDLFile(t)
-	defer func() {
-		if err := os.Remove(tempFile); err != nil {
-			t.Logf("Failed to remove temp file: %v", err)
-		}
-	}()
+	tempFile := minimalServiceWSDL
 
 	httpConfig := &HTTPClientConfig{
 		Timeout: 30,
@@ -138,12 +119,7 @@ func TestNewGoWSDLWithConfig(t *testing.T) {
 }
 
 func TestNewGoWSDLWithOptions(t *testing.T) {
-	tempFile := createTempWSDLFile(t)
-	defer func() {
-		if err := os.Remove(tempFile); err != nil {
-			t.Logf("Failed to remove temp file: %v", err)
-		}
-	}()
+	tempFile := minimalServiceWSDL
 
 	httpConfig := &HTTPClientConfig{
 		Timeout: 30,
@@ -174,12 +150,7 @@ func TestNewGoWSDLWithOptions(t *testing.T) {
 }
 
 func TestGoWSDLStart(t *testing.T) {
-	tempFile := createTempWSDLFile(t)
-	defer func() {
-		if err := os.Remove(tempFile); err != nil {
-			t.Logf("Failed to remove temp file: %v", err)
-		}
-	}()
+	tempFile := minimalServiceWSDL
 
 	gowsdl, err := NewGoWSDL(tempFile, WithPackage("test"))
 	require.NoError(t, err)
@@ -193,12 +164,7 @@ func TestGoWSDLStart(t *testing.T) {
 }
 
 func TestGoWSDLStartWithContext(t *testing.T) {
-	tempFile := createTempWSDLFile(t)
-	defer func() {
-		if err := os.Remove(tempFile); err != nil {
-			t.Logf("Failed to remove temp file: %v", err)
-		}
-	}()
+	tempFile := minimalServiceWSDL
 
 	gowsdl, err := NewGoWSDL(tempFile, WithPackage("test"))
 	require.NoError(t, err)
@@ -213,12 +179,7 @@ func TestGoWSDLStartWithContext(t *testing.T) {
 }
 
 func TestGoWSDLWithServerGeneration(t *testing.T) {
-	tempFile := createTempWSDLFile(t)
-	defer func() {
-		if err := os.Remove(tempFile); err != nil {
-			t.Logf("Failed to remove temp file: %v", err)
-		}
-	}()
+	tempFile := minimalServiceWSDL
 
 	gowsdl, err := NewGoWSDL(tempFile, WithPackage("test"), WithServerGeneration(true))
 	require.NoError(t, err)
@@ -234,78 +195,11 @@ func TestGoWSDLWithServerGeneration(t *testing.T) {
 	assert.Contains(t, code, "server_wsdl")
 }
 
-func createTempWSDLFile(t *testing.T) string {
-	t.Helper()
-
-	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
-<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
-	xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
-	xmlns:tns="http://example.com/test"
-	targetNamespace="http://example.com/test">
-
-	<wsdl:types>
-		<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-			targetNamespace="http://example.com/test">
-			<xsd:element name="TestRequest">
-				<xsd:complexType>
-					<xsd:sequence>
-						<xsd:element name="input" type="xsd:string"/>
-					</xsd:sequence>
-				</xsd:complexType>
-			</xsd:element>
-			<xsd:element name="TestResponse">
-				<xsd:complexType>
-					<xsd:sequence>
-						<xsd:element name="output" type="xsd:string"/>
-					</xsd:sequence>
-				</xsd:complexType>
-			</xsd:element>
-		</xsd:schema>
-	</wsdl:types>
-
-	<wsdl:message name="TestRequestMessage">
-		<wsdl:part name="parameters" element="tns:TestRequest"/>
-	</wsdl:message>
-	<wsdl:message name="TestResponseMessage">
-		<wsdl:part name="parameters" element="tns:TestResponse"/>
-	</wsdl:message>
-
-	<wsdl:portType name="TestPortType">
-		<wsdl:operation name="TestOperation">
-			<wsdl:input message="tns:TestRequestMessage"/>
-			<wsdl:output message="tns:TestResponseMessage"/>
-		</wsdl:operation>
-	</wsdl:portType>
-
-	<wsdl:binding name="TestBinding" type="tns:TestPortType">
-		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
-		<wsdl:operation name="TestOperation">
-			<soap:operation soapAction="testAction"/>
-			<wsdl:input><soap:body use="literal"/></wsdl:input>
-			<wsdl:output><soap:body use="literal"/></wsdl:output>
-		</wsdl:operation>
-	</wsdl:binding>
-
-	<wsdl:service name="TestService">
-		<wsdl:port name="TestPort" binding="tns:TestBinding">
-			<soap:address location="http://example.com/test"/>
-		</wsdl:port>
-	</wsdl:service>
-</wsdl:definitions>`
-
-	tmpFile, err := os.CreateTemp("", "test-*.wsdl")
-	require.NoError(t, err)
-
-	_, err = tmpFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	return tmpFile.Name()
-}
-
 func TestParseOperationList(t *testing.T) {
 	assert.Equal(t, []string{"A", "B"}, ParseOperationList(" A, ,B "))
 	assert.Nil(t, ParseOperationList(""))
 }
+
+// minimalServiceWSDL is a one-operation document/literal WSDL shared with the
+// pkg/generator tests.
+const minimalServiceWSDL = "pkg/generator/testdata/minimal_service.wsdl"
