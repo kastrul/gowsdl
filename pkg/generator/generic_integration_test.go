@@ -22,7 +22,11 @@ import (
 func TestGenericCodeGeneration(t *testing.T) {
 	tmpDir, err := os.MkdirTemp(".", "tmp-generic-")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("failed to remove %s: %v", tmpDir, err)
+		}
+	})
 
 	wsdlPath := filepath.Join(tmpDir, "test.wsdl")
 	require.NoError(t, os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0644))
