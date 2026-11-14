@@ -16,9 +16,11 @@ import (
 type InlineComplexType struct {
 	Name          string
 	GeneratedName string
-	ComplexType   *parser.XSDComplexType
-	MinOccurs     string
-	MaxOccurs     string
+	// Scope is the parent name under which the inline types nested in this one were collected.
+	Scope       string
+	ComplexType *parser.XSDComplexType
+	MinOccurs   string
+	MaxOccurs   string
 }
 
 // CollectInlineComplexTypes finds all inline complex types in the schema and generates names for them.
@@ -45,6 +47,7 @@ func CollectInlineComplexTypes(schemas []*parser.XSDSchema) map[string]*InlineCo
 				inlineTypes[key] = &InlineComplexType{
 					Name:          el.Name,
 					GeneratedName: typeName,
+					Scope:         el.Name,
 					ComplexType:   el.ComplexType,
 					MinOccurs:     el.MinOccurs,
 					MaxOccurs:     el.MaxOccurs,
@@ -103,6 +106,7 @@ func collectFromComplexType(parentTypeName string, ct *parser.XSDComplexType, in
 			inlineTypes[key] = &InlineComplexType{
 				Name:          el.Name,
 				GeneratedName: typeName,
+				Scope:         typeName,
 				ComplexType:   el.ComplexType,
 				MinOccurs:     el.MinOccurs,
 				MaxOccurs:     el.MaxOccurs,

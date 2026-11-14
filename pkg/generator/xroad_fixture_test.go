@@ -4,7 +4,6 @@ import (
 	"context"
 	"go/format"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -37,36 +36,9 @@ func declarationCount(code, name string) int {
 }
 
 func TestGenerator_XRoad_GeneratedCodeCompiles(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping go build of generated code in short mode")
-	}
-
-	g, err := New(filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"),
+	_, out := generateCode(t, filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"),
 		WithPackage("xroad"), WithServerGeneration(true))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	client := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	server := string(out["server_header"]) + string(out["server_wsdl"]) + string(out["server"])
-	goMod := "module xroad\n\ngo 1.21\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
-	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	require.NoError(t, err)
-
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "client.go"), []byte(client), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "server.go"), []byte(server), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
-
-	cmd := exec.Command("go", "build", "-mod=mod", "./...")
-	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
-	assert.NoError(t, err, "generated code should compile:\n%s", output)
+	assertGeneratedCodeBuilds(t, "xroad", out)
 }
 
 func TestGenerator_XRoad_LowercaseTypeReferences(t *testing.T) {
