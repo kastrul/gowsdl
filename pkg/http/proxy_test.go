@@ -38,7 +38,7 @@ func proxyFor(t *testing.T, transport *http.Transport, rawURL string) string {
 	if transport.Proxy == nil {
 		t.Fatal("expected transport.Proxy to be set")
 	}
-	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, rawURL, nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestHTTPClientConfig_Build_HonorsProxyEnvVars(t *testing.T) {
 		"NO_PROXY=bypass.example",
 	)
 
-	cmd := exec.Command(os.Args[0], "-test.run=^TestProxyEnvHelper$", "-test.v")
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestProxyEnvHelper$", "-test.v")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

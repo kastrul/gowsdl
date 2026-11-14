@@ -11,7 +11,6 @@ import (
 	"go/ast"
 	"go/format"
 	"go/parser"
-	goparser "go/parser"
 	"go/printer"
 	"go/token"
 	"os"
@@ -185,7 +184,7 @@ func structBody(t *testing.T, code, name string) string {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	file, err := goparser.ParseFile(fset, "generated.go", code, goparser.ParseComments)
+	file, err := parser.ParseFile(fset, "generated.go", code, parser.ParseComments)
 	require.NoError(t, err)
 
 	var fields *ast.FieldList
@@ -207,7 +206,7 @@ func structBody(t *testing.T, code, name string) string {
 // declaredTypes returns the sorted names of every type declared in the
 // generated types part src, including types local to function bodies.
 func declaredTypes(src string) []string {
-	file, err := goparser.ParseFile(token.NewFileSet(), "types.go", "package p\n"+src, 0)
+	file, err := parser.ParseFile(token.NewFileSet(), "types.go", "package p\n"+src, 0)
 	if err != nil {
 		panic(fmt.Sprintf("generated types do not parse: %v", err))
 	}
@@ -282,7 +281,7 @@ func runGo(tb testing.TB, dir string, args ...string) string {
 // tryGo is runGo returning the failure instead: on error, the returned
 // string holds the command's standard output and standard error.
 func tryGo(dir string, args ...string) (string, error) {
-	cmd := exec.Command("go", append([]string{args[0], "-mod=mod"}, args[1:]...)...)
+	cmd := exec.CommandContext(context.Background(), "go", append([]string{args[0], "-mod=mod"}, args[1:]...)...)
 	cmd.Dir = dir
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

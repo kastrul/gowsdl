@@ -47,7 +47,7 @@ func TestClientCall_ErrorTypesAreNotWrapped(t *testing.T) {
 
 		err := NewClient(srv.URL).Call("ping", &errorTypesPing{}, &errorTypesPong{})
 
-		fault, ok := err.(*SOAPFault)
+		fault, ok := err.(*SOAPFault) //nolint:errorlint // pins that the error is returned unwrapped
 		require.True(t, ok, "direct type assertion on %T", err)
 		assert.Equal(t, "boom", fault.String)
 		target, ok := errors.AsType[*SOAPFault](err)
@@ -64,7 +64,7 @@ func TestClientCall_ErrorTypesAreNotWrapped(t *testing.T) {
 
 		err := NewClient(srv.URL).Call("ping", &errorTypesPing{}, &errorTypesPong{})
 
-		httpErr, ok := err.(*HTTPError)
+		httpErr, ok := err.(*HTTPError) //nolint:errorlint // pins that the error is returned unwrapped
 		require.True(t, ok, "direct type assertion on %T", err)
 		assert.Equal(t, http.StatusNotFound, httpErr.StatusCode)
 		assert.Equal(t, "missing", string(httpErr.ResponseBody))
@@ -80,7 +80,7 @@ func TestClientCall_ErrorTypesAreNotWrapped(t *testing.T) {
 
 		err := NewClient(addr).Call("ping", &errorTypesPing{}, &errorTypesPong{})
 
-		urlErr, ok := err.(*url.Error)
+		urlErr, ok := err.(*url.Error) //nolint:errorlint // pins that the error is returned unwrapped
 		require.True(t, ok, "direct type assertion on %T", err)
 		target, ok := errors.AsType[*url.Error](err)
 		require.True(t, ok)

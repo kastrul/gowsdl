@@ -93,7 +93,7 @@ func TestGenericCodeGeneration(t *testing.T) {
 			args = append(args, tt.extraArgs...)
 			args = append(args, wsdlPath)
 
-			cmd := exec.Command("go", args...)
+			cmd := exec.CommandContext(t.Context(), "go", args...)
 			output, err := cmd.CombinedOutput()
 			require.NoError(t, err, "Failed to generate code: %s", string(output))
 
@@ -109,12 +109,12 @@ func TestGenericCodeGeneration(t *testing.T) {
 				assert.NotContains(t, contentStr, check)
 			}
 
-			cmd = exec.Command("go", "build", ".")
+			cmd = exec.CommandContext(t.Context(), "go", "build", ".")
 			cmd.Dir = pkgDir
 			output, err = cmd.CombinedOutput()
 			require.NoError(t, err, "Generated code does not compile: %s", string(output))
 
-			cmd = exec.Command("go", "vet", ".")
+			cmd = exec.CommandContext(t.Context(), "go", "vet", ".")
 			cmd.Dir = pkgDir
 			output, err = cmd.CombinedOutput()
 			require.NoError(t, err, "Generated code fails go vet: %s", string(output))

@@ -552,15 +552,13 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 		return fmt.Errorf("soap: encoding request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.url, buffer)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url, buffer)
 	if err != nil {
 		return fmt.Errorf("soap: building request: %w", err)
 	}
 	if c.opts.auth != nil {
 		req.SetBasicAuth(c.opts.auth.Login, c.opts.auth.Password)
 	}
-
-	req = req.WithContext(ctx)
 
 	req.Header.Add("Content-Type", encoder.ContentType())
 	req.Header.Add("SOAPAction", soapAction)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -250,17 +251,17 @@ func captureFixtureRequest(t *testing.T, root, wsdl, operation string, values []
 	}))
 	defer server.Close()
 
-	build := exec.Command("go", "build", "-mod=mod", "-o", "driver", ".")
+	build := exec.CommandContext(t.Context(), "go", "build", "-mod=mod", "-o", "driver", ".")
 	build.Dir = dir
 	output, err := build.CombinedOutput()
 	require.NoError(t, err, "driver does not build:\n%s", output)
 
-	cmd := exec.Command(filepath.Join(dir, "driver"), server.URL, "values.json")
+	cmd := exec.CommandContext(t.Context(), filepath.Join(dir, "driver"), server.URL, "values.json")
 	cmd.Dir = dir
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err = cmd.Run()
-	if exit, isExit := err.(*exec.ExitError); isExit && exit.ExitCode() == 2 {
+	if exit, isExit := errors.AsType[*exec.ExitError](err); isExit && exit.ExitCode() == 2 {
 		t.Logf("driver: %s", strings.TrimSpace(stderr.String()))
 		return "", false
 	}

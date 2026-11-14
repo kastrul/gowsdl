@@ -410,14 +410,14 @@ func main() {
 func (fr *FixtureRunner) executeTestAndCaptureXML(packageDir string) (string, error) {
 	// Initialize go module if needed
 	if _, err := os.Stat(filepath.Join(packageDir, "go.mod")); os.IsNotExist(err) {
-		goModInit := exec.Command("go", "mod", "init", "fixture_test")
+		goModInit := exec.CommandContext(context.Background(), "go", "mod", "init", "fixture_test")
 		goModInit.Dir = packageDir
 		if err := goModInit.Run(); err != nil {
 			return "", fmt.Errorf("failed to initialize go module: %w", err)
 		}
 
 		// Add required dependencies
-		goModTidy := exec.Command("go", "mod", "tidy")
+		goModTidy := exec.CommandContext(context.Background(), "go", "mod", "tidy")
 		goModTidy.Dir = packageDir
 		if err := goModTidy.Run(); err != nil {
 			// Continue if tidy fails, might work anyway
@@ -426,14 +426,14 @@ func (fr *FixtureRunner) executeTestAndCaptureXML(packageDir string) (string, er
 	}
 
 	// Build and run the test
-	buildCmd := exec.Command("go", "build", "-o", "fixture_test", ".")
+	buildCmd := exec.CommandContext(context.Background(), "go", "build", "-o", "fixture_test", ".")
 	buildCmd.Dir = packageDir
 	if err := buildCmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to build test: %w", err)
 	}
 
 	// Execute the test
-	runCmd := exec.Command("./fixture_test")
+	runCmd := exec.CommandContext(context.Background(), "./fixture_test")
 	runCmd.Dir = packageDir
 	output, err := runCmd.Output()
 	if err != nil {

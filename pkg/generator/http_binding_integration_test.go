@@ -76,7 +76,7 @@ func TestHTTPBindingAndEmptyMessages_GeneratedCodeBuilds(t *testing.T) {
 			args = append(args, tt.extraArgs...)
 			args = append(args, tt.wsdl)
 
-			output, err := exec.Command("go", args...).CombinedOutput()
+			output, err := exec.CommandContext(t.Context(), "go", args...).CombinedOutput()
 			require.NoError(t, err, "failed to generate code: %s", output)
 
 			pkgDir := filepath.Join(tmpDir, pkgName)
@@ -86,14 +86,14 @@ func TestHTTPBindingAndEmptyMessages_GeneratedCodeBuilds(t *testing.T) {
 			}
 
 			for _, step := range [][]string{{"build", "."}, {"vet", "."}} {
-				cmd := exec.Command("go", step...)
+				cmd := exec.CommandContext(t.Context(), "go", step...)
 				cmd.Dir = pkgDir
 				output, err := cmd.CombinedOutput()
 				require.NoError(t, err, "go %s failed: %s", step[0], output)
 			}
 
 			if tt.runTests {
-				cmd := exec.Command("go", "test", ".")
+				cmd := exec.CommandContext(t.Context(), "go", "test", ".")
 				cmd.Dir = pkgDir
 				output, err := cmd.CombinedOutput()
 				require.NoError(t, err, "generated package tests failed: %s", output)

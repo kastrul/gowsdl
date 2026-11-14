@@ -75,7 +75,7 @@ replace github.com/kastrul/gowsdl => ` + getRootDir()
 			require.NoError(t, err)
 
 			// Try to build the generated code
-			cmd := exec.Command("go", "build", "-mod=mod", ".")
+			cmd := exec.CommandContext(t.Context(), "go", "build", "-mod=mod", ".")
 			cmd.Dir = tempDir
 			output, err := cmd.CombinedOutput()
 			assert.NoError(t, err, "Generated code should compile. Output: %s", string(output))
@@ -209,13 +209,13 @@ replace github.com/kastrul/gowsdl => ` + getRootDir()
 	require.NoError(t, err)
 
 	// Run go mod tidy
-	cmd := exec.Command("go", "mod", "tidy")
+	cmd := exec.CommandContext(t.Context(), "go", "mod", "tidy")
 	cmd.Dir = tempDir
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "go mod tidy failed: %s", string(output))
 
 	// Run the test
-	cmd = exec.Command("go", "test", "-v", ".")
+	cmd = exec.CommandContext(t.Context(), "go", "test", "-v", ".")
 	cmd.Dir = tempDir
 	output, err = cmd.CombinedOutput()
 	assert.NoError(t, err, "Generated code test failed: %s", string(output))
