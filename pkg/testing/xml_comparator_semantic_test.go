@@ -353,19 +353,19 @@ func TestXMLComparatorComplexStructures(t *testing.T) {
 	assert.Equal(t, 2, len(result.Differences), "Should find 2 differences (userId and format)")
 
 	// Verify specific differences
-	var userIdDiff, formatDiff *Difference
+	var userIDDiff, formatDiff *Difference
 	for i := range result.Differences {
 		diff := &result.Differences[i] // Take address of slice element, not loop variable
 		if strings.Contains(diff.Path, "userId") {
-			userIdDiff = diff
+			userIDDiff = diff
 		} else if strings.Contains(diff.Path, "format") {
 			formatDiff = diff
 		}
 	}
 
-	require.NotNil(t, userIdDiff, "Should detect userId difference")
-	assert.Equal(t, "123", userIdDiff.Expected)
-	assert.Equal(t, "456", userIdDiff.Actual)
+	require.NotNil(t, userIDDiff, "Should detect userId difference")
+	assert.Equal(t, "123", userIDDiff.Expected)
+	assert.Equal(t, "456", userIDDiff.Actual)
 
 	require.NotNil(t, formatDiff, "Should detect format difference")
 	assert.Equal(t, "json", formatDiff.Expected)

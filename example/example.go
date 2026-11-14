@@ -9,6 +9,7 @@ import (
 	"github.com/kastrul/gowsdl/soap"
 )
 
+// ExampleBasicUsage calls a service through a generated client with default options.
 func ExampleBasicUsage() {
 	client := soap.NewClient("http://svc.asmx")
 	service := gen.NewStockQuotePortType(client)
@@ -19,12 +20,14 @@ func ExampleBasicUsage() {
 	log.Println(reply)
 }
 
+// ExampleWithOptions calls a service through a generated client with a timeout,
+// basic auth and a custom TLS configuration.
 func ExampleWithOptions() {
 	client := soap.NewClient(
 		"http://svc.asmx",
 		soap.WithTimeout(time.Second*5),
 		soap.WithBasicAuth("usr", "psw"),
-		soap.WithTLS(&tls.Config{InsecureSkipVerify: true}),
+		soap.WithTLS(&tls.Config{MinVersion: tls.VersionTLS12}),
 	)
 	service := gen.NewStockQuotePortType(client)
 	reply, err := service.GetLastTradePrice(&gen.TradePriceRequest{})
