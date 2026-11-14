@@ -330,19 +330,66 @@ func (g *Generator) genOperations() ([]byte, error) {
 func (g *Generator) genServer() ([]byte, error) {
 	// Choose template based on WSDL version
 	var tmplText string
-	var data interface{}
+	var data templates.ServerData
 
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
 		tmplText = templates.ServerWSDL2Template
-		data = g.wsdl2.Interfaces
+		data = templates.ServerData{
+			Operations:              g.serverOperationsWSDL2(g.wsdl2.Interfaces),
+			AcceptSOAP12ContentType: true,
+			WSDL2Layout:             true,
+		}
 	} else if g.wsdl != nil {
 		tmplText = templates.ServerTemplate
-		data = g.soapPortTypes()
+		data = templates.ServerData{Operations: g.serverOperationsWSDL1(g.soapPortTypes())}
 	} else {
 		return nil, errors.New("no WSDL data available")
 	}
 
 	return renderTemplate("server", tmplText, g.createFuncMap(), data)
+}
+
+// serverTypeName returns the Go type generated server code uses for the
+// message or element ref names.
+func (g *Generator) serverTypeName(ref string) string {
+	return utils.MakePublic(g.typeMapper.EscapeReservedWord(g.findType(ref)))
+}
+
+// serverOperationsWSDL1 resolves the request and response types of every
+// operation of the given WSDL 1.1 port types from their messages.
+func (g *Generator) serverOperationsWSDL1(portTypes []*parser.WSDLPortType) []templates.ServerOperation {
+	var ops []templates.ServerOperation
+	for _, pt := range portTypes {
+		for _, op := range pt.Operations {
+			ops = append(ops, templates.ServerOperation{
+				Request:     g.serverTypeName(op.Input.Message),
+				Response:    g.serverTypeName(op.Output.Message),
+				HasRequest:  true,
+				HasResponse: true,
+			})
+		}
+	}
+	return ops
+}
+
+// serverOperationsWSDL2 resolves the request and response types of every
+// operation of the given WSDL 2.0 interfaces from their elements. An
+// operation may lack an input or an output.
+func (g *Generator) serverOperationsWSDL2(interfaces []*parser.WSDL2Interface) []templates.ServerOperation {
+	var ops []templates.ServerOperation
+	for _, iface := range interfaces {
+		for _, op := range iface.Operations {
+			var so templates.ServerOperation
+			if op.Input != nil {
+				so.Request, so.HasRequest = g.serverTypeName(op.Input.Element), true
+			}
+			if op.Output != nil {
+				so.Response, so.HasResponse = g.serverTypeName(op.Output.Element), true
+			}
+			ops = append(ops, so)
+		}
+	}
+	return ops
 }
 
 func (g *Generator) genServerHeader() ([]byte, error) {
