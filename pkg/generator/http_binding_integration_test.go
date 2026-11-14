@@ -2,9 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build integration
-// +build integration
-
 package generator
 
 import (
@@ -41,6 +38,10 @@ func TestEmptyMessageMarshalsToEmptyBody(t *testing.T) {
 `
 
 func TestHTTPBindingAndEmptyMessages_GeneratedCodeBuilds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping go run of the gowsdl command in short mode")
+	}
+
 	tmpDir, err := os.MkdirTemp(".", "tmp-httpbinding-")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })

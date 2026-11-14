@@ -2,9 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build integration
-// +build integration
-
 package gowsdl
 
 import (
@@ -279,7 +276,10 @@ func TestIntegrationHTTPSWSDL(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	// Skip if no internet connection
+	if os.Getenv("GOWSDL_NETWORK_TESTS") == "" {
+		t.Skip("set GOWSDL_NETWORK_TESTS=1 to run tests that download from the public internet")
+	}
+
 	ctx := context.Background()
 	testURL := "https://www.w3schools.com/xml/tempconvert.asmx?WSDL"
 
@@ -287,9 +287,7 @@ func TestIntegrationHTTPSWSDL(t *testing.T) {
 	config.Timeout = 10 * time.Second
 
 	_, err := gowsdlhttp.DownloadFile(ctx, testURL, config)
-	if err != nil {
-		t.Skipf("Cannot reach test WSDL URL: %v", err)
-	}
+	require.NoError(t, err, "cannot download the test WSDL")
 
 	// Test downloading and generating code
 	g, err := NewGoWSDLWithConfig(testURL, "tempconvert", config, true)
