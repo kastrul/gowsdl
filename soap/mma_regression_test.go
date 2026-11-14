@@ -107,3 +107,39 @@ func TestMMADecoder_LaterXMLPartStaysAttachment(t *testing.T) {
 	assert.Equal(t, "reply", reply.Name)
 	assert.Equal(t, []MIMEMultipartAttachment{{Name: "doc.xml", Data: []byte("<doc/>")}}, env.Attachments)
 }
+
+func TestClient_MMA_ResponseWithOtherStartParameter(t *testing.T) {
+	const boundary = "MMABoundary"
+	body := fmt.Sprintf("--%[1]s\r\n"+
+		"Content-Type: text/xml; charset=UTF-8\r\n"+
+		"Content-ID: <rootpart@example.com>\r\n\r\n"+
+		`<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>`+
+		`<attachmentRequest xmlns="http://example.com/service.xsd"><name>reply</name></attachmentRequest>`+
+		"</soap:Body></soap:Envelope>\r\n"+
+		"--%[1]s\r\n"+
+		"Content-Type: application/octet-stream\r\n"+
+		"Content-ID: <file1>\r\n\r\n"+
+		"payload\r\n"+
+		"--%[1]s--\r\n", boundary)
+
+	for name, contentType := range map[string]string{
+		"OtherStart": `multipart/related; type="text/xml"; start="<rootpart@example.com>"; boundary=` + boundary,
+		"NoStart":    `multipart/related; type="text/xml"; boundary=` + boundary,
+	} {
+		t.Run(name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", contentType)
+				_, _ = w.Write([]byte(body))
+			}))
+			defer ts.Close()
+
+			reply := &AttachmentRequest{}
+			var attachments []MIMEMultipartAttachment
+			require.NoError(t, NewClient(ts.URL, WithMIMEMultipartAttachments()).CallContextWithAttachmentsAndFaultDetail(
+				context.Background(), "''", &AttachmentRequest{Name: "upload"}, reply, nil, &attachments))
+
+			assert.Equal(t, "reply", reply.Name)
+			assert.Equal(t, []MIMEMultipartAttachment{{Name: "file1", Data: []byte("payload")}}, attachments)
+		})
+	}
+}
