@@ -18,11 +18,7 @@ import (
 // compile, each with the reason. TestGenerator_AllFixtures_GeneratedCodeCompiles
 // fails when a fixture listed here starts compiling, so entries must be removed
 // as the underlying bugs are fixed and the table can only shrink.
-var knownNonCompilingFixtures = map[string]string{
-	// Incomplete fixture: the WSDL imports core-types.xsd, query-messagetypes.xsd,
-	// reflect-messagetypes.xsd and vim-messagetypes.xsd, which are not in the repository.
-	"fixtures/vim.wsdl": "imported XSDs are missing from the repository",
-}
+var knownNonCompilingFixtures = map[string]string{}
 
 // fixtureWSDLs returns every *.wsdl file in a fixtures or test_fixtures
 // directory of the repository, relative to the repository root.
