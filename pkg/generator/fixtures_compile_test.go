@@ -40,7 +40,7 @@ func fixtureWSDLs(t *testing.T, root string) []string {
 		if err != nil {
 			return err
 		}
-		for _, dir := range strings.Split(filepath.ToSlash(filepath.Dir(rel)), "/") {
+		for dir := range strings.SplitSeq(filepath.ToSlash(filepath.Dir(rel)), "/") {
 			if dir == "fixtures" || dir == "test_fixtures" {
 				files = append(files, filepath.ToSlash(rel))
 				break

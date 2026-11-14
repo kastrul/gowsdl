@@ -38,7 +38,7 @@ func (h partsHeader) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 }
 
 func TestMarshalParts_WritesNonZeroPartsAsSiblings(t *testing.T) {
-	hdr := SOAPHeader{Headers: []interface{}{partsHeader{
+	hdr := SOAPHeader{Headers: []any{partsHeader{
 		Client:   partsIdentifier{Instance: "EE", ObjectType: "SUBSYSTEM"},
 		ID:       "msg-1",
 		Untagged: "u",

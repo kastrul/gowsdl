@@ -37,7 +37,7 @@ func WithOperations(names ...string) Option {
 // trimming whitespace and dropping empty entries.
 func ParseOperationList(list string) []string {
 	var names []string
-	for _, name := range strings.Split(list, ",") {
+	for name := range strings.SplitSeq(list, ",") {
 		if name = strings.TrimSpace(name); name != "" {
 			names = append(names, name)
 		}

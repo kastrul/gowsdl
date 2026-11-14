@@ -36,7 +36,7 @@ func (e *mmaEncoder) ContentType() string {
 	return fmt.Sprintf(mmaContentType, e.Boundary())
 }
 
-func (e *mmaEncoder) Encode(v interface{}) error {
+func (e *mmaEncoder) Encode(v any) error {
 	var err error
 	var soapPartWriter io.Writer
 
@@ -80,7 +80,7 @@ func getMmaHeader(contentType string) (string, error) {
 	return boundary, err
 }
 
-func (d *mmaDecoder) Decode(v interface{}) error {
+func (d *mmaDecoder) Decode(v any) error {
 	soapEnvResp := v.(*SOAPEnvelopeResponse)
 	attachments := make([]MIMEMultipartAttachment, 0)
 	rootDecoded := false

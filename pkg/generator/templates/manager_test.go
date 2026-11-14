@@ -387,7 +387,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 	}()
 
 	// Wait for all goroutines to complete
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		<-done
 	}
 }

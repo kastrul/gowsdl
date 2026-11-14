@@ -254,7 +254,7 @@ func (u *typeUsage) walkSimpleType(st *parser.XSDSimpleType) {
 	u.useType(st.Restriction.Base)
 	u.useType(st.List.ItemType)
 	u.walkSimpleType(st.List.SimpleType)
-	for _, member := range strings.Fields(st.Union.MemberTypes) {
+	for member := range strings.FieldsSeq(st.Union.MemberTypes) {
 		u.useType(member)
 	}
 	for _, member := range st.Union.SimpleType {

@@ -179,7 +179,7 @@ func TestBasicAuthIntegration(t *testing.T) {
 		type EmptyResponse struct{}
 
 		// Make multiple requests
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			err := client.CallContext(context.Background(), "", &EmptyRequest{}, &EmptyResponse{})
 			require.NoError(t, err)
 		}

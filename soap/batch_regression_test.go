@@ -24,7 +24,7 @@ func countGoroutinesIn(fn string) int {
 		buf = make([]byte, 2*len(buf))
 	}
 	count := 0
-	for _, g := range strings.Split(string(buf), "\n\n") {
+	for g := range strings.SplitSeq(string(buf), "\n\n") {
 		if strings.Contains(g, fn) {
 			count++
 		}
@@ -40,7 +40,7 @@ func TestBatchClient_CancelledBatchDoesNotLeakGoroutines(t *testing.T) {
 	defer server.Close()
 
 	batchClient := NewBatchClient[GetUserRequest, GetUserResponse](server.URL, "getUser")
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 		batchClient.CallBatch(ctx, []GetUserRequest{{UserID: 1}, {UserID: 2}})
 		cancel()

@@ -60,8 +60,7 @@ func (c *GenericClient[TReq, TResp]) CallWithFault(ctx context.Context, request 
 
 	// Check if error is a SOAP fault
 	if err != nil {
-		fault := &SOAPFault{}
-		if errors.As(err, &fault) {
+		if fault, ok := errors.AsType[*SOAPFault](err); ok {
 			return nil, fault, nil
 		}
 		return nil, nil, err
@@ -166,8 +165,8 @@ func (a *SOAPArray[T]) Length() int {
 
 // GenericEnvelope is a type-safe SOAP envelope
 type GenericEnvelope[T any] struct {
-	XMLName xml.Name      `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
-	Headers []interface{} `xml:"http://schemas.xmlsoap.org/soap/envelope/ Header,omitempty"`
+	XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
+	Headers []any    `xml:"http://schemas.xmlsoap.org/soap/envelope/ Header,omitempty"`
 	Body    GenericBody[T]
 }
 
@@ -207,18 +206,18 @@ func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TRe
 	defer cancel()
 
 	for i, req := range requests {
-		go func(index int, request TReq) {
-			result := b.client.CallAsResult(batchCtx, request)
+		go func() {
+			result := b.client.CallAsResult(batchCtx, req)
 			select {
-			case ch <- BatchResult[TResp]{Index: index, Result: result}:
+			case ch <- BatchResult[TResp]{Index: i, Result: result}:
 			case <-batchCtx.Done():
 				// Context cancelled, exit goroutine
 			}
-		}(i, req)
+		}()
 	}
 
 	// Collect results with context awareness
-	for i := 0; i < len(requests); i++ {
+	for range requests {
 		select {
 		case result := <-ch:
 			results[result.Index] = result
@@ -227,7 +226,7 @@ func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TRe
 			// Context cancelled, create error results for remaining requests
 			cancel() // Cancel all pending requests
 			// Fill remaining results with context error
-			for j := 0; j < len(requests); j++ {
+			for j := range requests {
 				// Check if this result hasn't been received yet
 				if !received[j] {
 					results[j] = BatchResult[TResp]{
