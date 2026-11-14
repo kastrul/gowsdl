@@ -14,19 +14,136 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/enthus-golang/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenericCodeGeneration(t *testing.T) {
-	// Create a temporary directory for generated code
-	tmpDir := "tmp-generic-test"
-	err := os.MkdirAll(tmpDir, 0755)
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	rootDir := moduleRoot(t)
 
-	// Test WSDL content
-	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
+	// The generated packages must live inside the module so that they
+	// resolve github.com/enthus-golang/gowsdl/soap without a go.mod.
+	tmpDir, err := os.MkdirTemp(rootDir, "tmp-generic-test-")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+
+
+	// Write WSDL file
+	wsdlPath := filepath.Join(tmpDir, "test.wsdl")
+	err = os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0644)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		useGenerics  bool
+		checkContent []string
+	}{
+		{
+			name:        "Standard code generation",
+			useGenerics: false,
+			checkContent: []string{
+				"type UserServicePortType interface",
+				"GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)",
+			},
+		},
+		{
+			name:        "Generic code generation",
+			useGenerics: true,
+			checkContent: []string{
+				"type UserServicePortType interface",
+				"GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)",
+				"GetUserGeneric(request *GetUserRequest) (soap.Result[GetUserResponse]",
+				"GetUserGenericContext(ctx context.Context",
+				"getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create package directory
+			pkgName := "testpkg"
+			if tt.useGenerics {
+				pkgName = "testpkggen"
+			}
+			
+			// Generate code
+			args := []string{
+				"run", "cmd/gowsdl/main.go",
+				"-p", pkgName,
+				"-o", "generated.go",
+				"-d", tmpDir,
+			}
+			if tt.useGenerics {
+				args = append(args, "-use-generics")
+			}
+			args = append(args, wsdlPath)
+			
+			cmd := exec.Command("go", args...)
+			cmd.Dir = rootDir
+			output, err := cmd.CombinedOutput()
+			require.NoError(t, err, "Failed to generate code: %s", string(output))
+			
+			// Read generated file
+			pkgDir := filepath.Join(tmpDir, pkgName)
+			content, err := os.ReadFile(filepath.Join(pkgDir, "generated.go"))
+			require.NoError(t, err)
+			
+			// Check content
+			contentStr := string(content)
+			for _, check := range tt.checkContent {
+				assert.Contains(t, contentStr, check, "Expected content not found: %s", check)
+			}
+			
+			// Verify it compiles
+			cmd = exec.Command("go", "build", ".")
+			cmd.Dir = pkgDir
+			output, err = cmd.CombinedOutput()
+			require.NoError(t, err, "Generated code does not compile: %s", string(output))
+		})
+	}
+}
+
+func TestGenericClientUsage(t *testing.T) {
+	wsdlPath := filepath.Join(t.TempDir(), "test_generic.wsdl")
+	require.NoError(t, os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0644))
+
+	g, err := New(wsdlPath,
+		WithPackage("testgen"),
+		WithHTTPConfig(http.DefaultHTTPClientConfig()),
+		WithExportAllTypes(true),
+		WithServerGeneration(true),
+		WithGenerics(),
+	)
+	require.NoError(t, err)
+
+	code, err := g.Generate(context.Background())
+	require.NoError(t, err)
+
+	operationsCode := string(code["operations"])
+	assert.Contains(t, operationsCode, "soap.GenericClient")
+	assert.Contains(t, operationsCode, "soap.Result[")
+	assert.Contains(t, operationsCode, "CallAsResult")
+}
+
+// moduleRoot returns the directory containing the module's go.mod.
+func moduleRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	require.NoError(t, err)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		require.NotEqual(t, dir, parent, "go.mod not found")
+		dir = parent
+	}
+}
+
+const genericTestWSDL = `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
              xmlns:tns="http://example.com/test"
@@ -99,99 +216,3 @@ func TestGenericCodeGeneration(t *testing.T) {
   </service>
 
 </definitions>`
-
-	// Write WSDL file
-	wsdlPath := filepath.Join(tmpDir, "test.wsdl")
-	err = os.WriteFile(wsdlPath, []byte(wsdlContent), 0644)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name         string
-		useGenerics  bool
-		checkContent []string
-	}{
-		{
-			name:        "Standard code generation",
-			useGenerics: false,
-			checkContent: []string{
-				"type UserServicePortType interface",
-				"GetUser(request *GetUserRequest)",
-				"GetUserContext(ctx context.Context",
-			},
-		},
-		{
-			name:        "Generic code generation",
-			useGenerics: true,
-			checkContent: []string{
-				"type UserServicePortType interface",
-				"GetUser(request *GetUserRequest)",
-				"GetUserContext(ctx context.Context",
-				"GetUserGeneric(request *GetUserRequest) (soap.Result[GetUserResponse]",
-				"GetUserGenericContext(ctx context.Context",
-				"getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create package directory
-			pkgName := "testpkg"
-			if tt.useGenerics {
-				pkgName = "testpkggen"
-			}
-			
-			// Generate code
-			args := []string{
-				"run", "cmd/gowsdl/main.go",
-				"-p", pkgName,
-				"-o", "generated.go",
-				"-d", "./",
-			}
-			if tt.useGenerics {
-				args = append(args, "-use-generics")
-			}
-			args = append(args, wsdlPath)
-			
-			cmd := exec.Command("go", args...)
-			output, err := cmd.CombinedOutput()
-			require.NoError(t, err, "Failed to generate code: %s", string(output))
-			
-			// Read generated file
-			generatedPath := filepath.Join(pkgName, "generated.go")
-			content, err := os.ReadFile(generatedPath)
-			require.NoError(t, err)
-			defer os.RemoveAll(pkgName) // Clean up generated package directory
-			
-			// Check content
-			contentStr := string(content)
-			for _, check := range tt.checkContent {
-				assert.Contains(t, contentStr, check, "Expected content not found: %s", check)
-			}
-			
-			// Verify it compiles
-			cmd = exec.Command("go", "build", ".")
-			cmd.Dir = pkgName
-			output, err = cmd.CombinedOutput()
-			require.NoError(t, err, "Generated code does not compile: %s", string(output))
-		})
-	}
-}
-
-func TestGenericClientUsage(t *testing.T) {
-	// Test that demonstrates how to use the generic client
-	httpConfig := DefaultHTTPClientConfig()
-	
-	// Generate code with generics
-	g, err := NewGoWSDLWithOptions("test_generic.wsdl", "testgen", httpConfig, true, true)
-	require.NoError(t, err)
-	
-	code, err := g.StartWithContext(context.Background())
-	require.NoError(t, err)
-	
-	// Verify generic-specific content
-	operationsCode := string(code["operations"])
-	assert.Contains(t, operationsCode, "soap.GenericClient")
-	assert.Contains(t, operationsCode, "soap.Result[")
-	assert.Contains(t, operationsCode, "CallAsResult")
-}

@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	gowsdlhttp "github.com/enthus-golang/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +31,7 @@ func TestIntegrationRealWSDLFiles(t *testing.T) {
 		"fixtures/test.wsdl",
 		"fixtures/stock.wsdl",
 		"fixtures/ec2.wsdl",
+		"fixtures/xroad/service.wsdl",
 	}
 
 	for _, fixture := range fixtures {
@@ -45,7 +47,7 @@ func TestIntegrationRealWSDLFiles(t *testing.T) {
 			defer os.RemoveAll(tempDir)
 
 			// Generate code
-			g, err := NewGoWSDL(fixture, "testservice", false, true)
+			g, err := NewGoWSDL(fixture, WithPackage("testservice"), WithExportAllTypes(true), WithServerGeneration(true))
 			require.NoError(t, err)
 
 			code, err := g.Start()
@@ -158,7 +160,7 @@ func TestIntegrationGeneratedCodeSOAPOperations(t *testing.T) {
 	tempFile.Close()
 
 	// Generate code
-	g, err := NewGoWSDL(tempFile.Name(), "calculator", false, true)
+	g, err := NewGoWSDL(tempFile.Name(), WithPackage("calculator"), WithExportAllTypes(true), WithServerGeneration(true))
 	require.NoError(t, err)
 
 	code, err := g.Start()
@@ -243,7 +245,7 @@ func TestIntegrationComplexWSDL(t *testing.T) {
 		t.Skip("vboxweb.wsdl fixture not found")
 	}
 
-	g, err := NewGoWSDL(vboxWSDL, "vbox", false, true)
+	g, err := NewGoWSDL(vboxWSDL, WithPackage("vbox"), WithExportAllTypes(true), WithServerGeneration(true))
 	require.NoError(t, err)
 
 	code, err := g.Start()
@@ -293,7 +295,7 @@ func TestIntegrationHTTPSWSDL(t *testing.T) {
 	config := DefaultHTTPClientConfig()
 	config.Timeout = 10 * time.Second
 	
-	_, err := downloadFile(ctx, testURL, config)
+	_, err := gowsdlhttp.DownloadFile(ctx, testURL, config)
 	if err != nil {
 		t.Skipf("Cannot reach test WSDL URL: %v", err)
 	}
