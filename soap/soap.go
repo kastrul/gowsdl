@@ -216,6 +216,8 @@ type SOAPFault struct {
 	String string     `xml:"faultstring,omitempty"`
 	Actor  string     `xml:"faultactor,omitempty"`
 	Detail FaultError `xml:"detail,omitempty"`
+
+	cause error
 }
 
 // Error returns the fault detail's ErrorString when the detail has data,
@@ -225,6 +227,13 @@ func (f *SOAPFault) Error() string {
 		return f.Detail.ErrorString()
 	}
 	return f.String
+}
+
+// Unwrap returns the transport error behind a fault that the client created
+// for a failed call, such as the "Client.Transport" fault in a Result. It
+// returns nil for a fault received from the server.
+func (f *SOAPFault) Unwrap() error {
+	return f.cause
 }
 
 // HTTPError is returned whenever the HTTP request to the server fails
