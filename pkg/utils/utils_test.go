@@ -76,6 +76,38 @@ func TestMakePublic(t *testing.T) {
 	}
 }
 
+func TestMakeExportedField(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"_this", "This"},
+		{"__x", "X"},
+		{"_1st", "X1st"},
+		{"_", "X"},
+		{"", "X"},
+		{"type_", "Type_"},
+		{"this", "This"},
+		{"Value", "Value"},
+		{"test_name", "Test_name"},
+		{"_ñame", "Ñame"},
+		{"名前", "X名前"},
+		{"123test", "X123test"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			assert.Equal(t, tt.expected, MakeExportedField(tt.input))
+		})
+	}
+}
+
+func TestMakeExportedField_MatchesMakePublicForLetterNames(t *testing.T) {
+	for _, name := range []string{"elementName", "id", "XML", "getElementById", "type_", "a", "émile"} {
+		assert.Equal(t, MakePublic(name), MakeExportedField(name), name)
+	}
+}
+
 func TestMakePublicSpecialCases(t *testing.T) {
 	// Test some real-world scenarios
 	tests := []struct {

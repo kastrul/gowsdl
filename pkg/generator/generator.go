@@ -649,7 +649,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return nil, err
 	}
 
-	return fixStructOmitempty(buf.Bytes()), nil
+	return fixStructOmitempty(dedupeStructFields(buf.Bytes())), nil
 }
 
 // filterSlice returns the elements of items for which keep returns true.
@@ -781,6 +781,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"replaceReservedWords":     g.typeMapper.EscapeReservedWord,
 		"replaceAttrReservedWords": g.typeMapper.EscapeReservedWord,
 		"makePublic":               utils.MakePublic,
+		"makeFieldPublic":          utils.MakeExportedField,
 		"makePrivate":              makePrivate,
 		"comment":                  comment,
 		"removePointerFromType":    removePointerFromType,

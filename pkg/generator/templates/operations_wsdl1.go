@@ -76,7 +76,7 @@ const OperationsWSDL1Template = `
 					{{range $.Messages}}
 						{{if eq .Name $inputMsgName}}
 							{{range .Parts}}
-								{{.Name | replaceReservedWords | makePublic}}: &request.{{.Name | replaceReservedWords | makePublic}},
+								{{.Name | replaceReservedWords | makeFieldPublic}}: &request.{{.Name | replaceReservedWords | makeFieldPublic}},
 							{{end}}
 						{{end}}
 					{{end}}
@@ -95,7 +95,7 @@ const OperationsWSDL1Template = `
 					{{if eq .Name $outputMsgName}}
 						{{if eq (len .Parts) 1}}
 							{{range .Parts}}
-								{{$partName := .Name | replaceReservedWords | makePublic}}
+								{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
 								{{if eq .Name "return"}}
 									if γ.Return == nil {
 										return nil, nil
@@ -118,7 +118,7 @@ const OperationsWSDL1Template = `
 							// Multiple parts - need to handle each field
 							result := &{{$responseType}}{
 								{{range .Parts}}
-									{{$partName := .Name | replaceReservedWords | makePublic}}
+									{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
 									{{$partName}}: γ.{{$partName}},
 								{{end}}
 							}
