@@ -33,19 +33,12 @@ const TypesTemplate = `
 {{end}}
 
 {{/*
-ElementFields emits one struct field per XSD element. It is called with a dict:
-  Elements  the elements
-  Untyped   what to emit for an element that has no ref, no type attribute and
-            no inline complex or simple type. The call sites have always
-            disagreed on this:
-              "drop"    emit nothing
-              "string"  emit a string field
-              "name"    emit a field whose type is named after the element
-An element with an inline simple type always gets the base of its restriction.
+ElementFields emits one struct field per XSD element. An element with an inline
+simple type gets the base of its restriction; an element with no type
+information at all gets a string.
 */}}
 {{define "ElementFields"}}
-	{{$untyped := .Untyped}}
-	{{range .Elements}}
+	{{range .}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
 			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
@@ -68,18 +61,18 @@ An element with an inline simple type always gets the base of its restriction.
 			{{end}}
 		{{else if .SimpleType}}
 			{{template "InlineSimpleField" .}}
-		{{else if eq $untyped "string"}}
-			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-		{{else if eq $untyped "name"}}
-			{{$typeName := .Name}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
+		{{else}}
+			{{template "UntypedField" .}}
 		{{end}}
 	{{end}}
+{{end}}
+
+{{/*
+UntypedField emits the field of an element with no type information at all: no
+ref, no type attribute and no inline type.
+*/}}
+{{define "UntypedField"}}
+	{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 {{end}}
 
 {{/*
@@ -187,10 +180,10 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 
-	{{template "ElementFields" (dict "Elements" $complexType.Sequence "Untyped" "string")}}
-	{{template "ElementFields" (dict "Elements" $complexType.Choice "Untyped" "string")}}
-	{{template "ElementFields" (dict "Elements" $complexType.SequenceChoice "Untyped" "string")}}
-	{{template "ElementFields" (dict "Elements" $complexType.All "Untyped" "string")}}
+	{{template "ElementFields" $complexType.Sequence}}
+	{{template "ElementFields" $complexType.Choice}}
+	{{template "ElementFields" $complexType.SequenceChoice}}
+	{{template "ElementFields" $complexType.All}}
 
 	{{template "AttributeFields" $complexType.Attributes}}
 
@@ -203,10 +196,10 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{with .}}
 	{{template "ExtensionBase" .ComplexContent}}
 
-	{{template "ElementFields" (dict "Elements" .Sequence "Untyped" "name")}}
-	{{template "ElementFields" (dict "Elements" .Choice "Untyped" "drop")}}
-	{{template "ElementFields" (dict "Elements" .SequenceChoice "Untyped" "drop")}}
-	{{template "ElementFields" (dict "Elements" .All "Untyped" "drop")}}
+	{{template "ElementFields" .Sequence}}
+	{{template "ElementFields" .Choice}}
+	{{template "ElementFields" .SequenceChoice}}
+	{{template "ElementFields" .All}}
 
 	{{template "AttributeFields" .Attributes}}
 
@@ -497,6 +490,8 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 					{{template "InlineComplexField" .}}
 				{{else if .SimpleType}}
 					{{template "InlineSimpleField" .}}
+				{{else}}
+					{{template "UntypedField" .}}
 				{{end}}
 			{{else}}
 				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
