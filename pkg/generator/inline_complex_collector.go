@@ -118,6 +118,7 @@ func collectFromComplexType(parentTypeName string, ct *parser.XSDComplexType, in
 
 	collect(ct.Sequence)
 	collect(ct.Choice)
+	collect(ct.SequenceChoice)
 	collect(ct.All)
 	if ct.ComplexContent.Extension.Base != "" {
 		collect(ct.ComplexContent.Extension.Sequence)
