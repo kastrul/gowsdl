@@ -16,6 +16,11 @@ not compile or did not work before.
   received element, `Value` is encoded when sending, and a zero value is
   omitted. Received content is kept as self-contained XML, so namespace
   prefixes the server declared on the SOAP envelope still resolve.
+- `AnyType.Type` and `AnyElement.Type` return the element's `xsi:type` with
+  its prefix resolved, even when the server declared the prefix on the SOAP
+  envelope. `soap.NewDecoder` is the decoder the client uses for this; use it
+  instead of `xml.NewDecoder` to get the same when decoding a message
+  yourself.
 - `soap.AnyElement` holds one element matched by an `xs:any` wildcard. It
   works like `soap.AnyType` and, when encoded, is named by its `XMLName` or by
   its `Value`.

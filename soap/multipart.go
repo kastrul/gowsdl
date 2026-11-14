@@ -69,7 +69,7 @@ func (d *multipartDecoder) decodeParts(v any, isRoot func(contentType string) bo
 		}
 		contentType := p.Header.Get("Content-Type")
 		if isRoot(contentType) {
-			if err := xml.NewDecoder(p).Decode(v); err != nil {
+			if err := NewDecoder(p).Decode(v); err != nil {
 				return err
 			}
 			continue
@@ -145,6 +145,6 @@ func (s *Client) newResponseDecoder(contentType string) (func(io.Reader) SOAPDec
 	case mmaBoundary != "":
 		return func(r io.Reader) SOAPDecoder { return newMmaDecoder(r, mmaBoundary) }, nil
 	default:
-		return func(r io.Reader) SOAPDecoder { return xml.NewDecoder(r) }, nil
+		return func(r io.Reader) SOAPDecoder { return NewDecoder(r) }, nil
 	}
 }

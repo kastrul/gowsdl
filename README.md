@@ -186,8 +186,8 @@ var item Item
 if err := resp.Value.Decode(&item); err != nil {
     // Handle error
 }
-// resp.Value.Attrs holds the element's attributes, such as xsi:type,
-// and resp.Value.InnerXML its content as XML.
+// resp.Value.Type() returns its resolved xsi:type, e.g. {Space: "urn:x", Local: "Item"},
+// resp.Value.Attrs its attributes and resp.Value.InnerXML its content as XML.
 
 // Sending: Value is encoded as the element's content
 req.Value = soap.AnyType{Value: Item{ID: 7}}

@@ -250,7 +250,7 @@ type TypedSOAPDecoder[T any] struct {
 // NewTypedSOAPDecoder creates a new typed decoder
 func NewTypedSOAPDecoder[T any](r io.Reader) *TypedSOAPDecoder[T] {
 	return &TypedSOAPDecoder[T]{
-		decoder: xml.NewDecoder(r),
+		decoder: NewDecoder(r),
 	}
 }
 

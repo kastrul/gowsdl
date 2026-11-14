@@ -31,9 +31,10 @@ type AnyType struct {
 	// XMLName is the name of the received element.
 	XMLName xml.Name `json:"-"`
 	// Attrs are the attributes of the received element, including its
-	// namespace declarations, or the attributes to add when encoding. A
-	// QName value such as xsi:type="ns2:Item" keeps the server's prefix,
-	// which may be declared on an ancestor element and so not be in Attrs.
+	// namespace declarations, or the attributes to add when encoding. When
+	// the response was decoded by Client or NewDecoder, they also declare
+	// the prefix of an xsi:type value, such as ns2 in xsi:type="ns2:Item";
+	// see Type.
 	Attrs []xml.Attr `json:"attrs,omitempty"`
 	// InnerXML is the content of the element as XML. For a received element
 	// it is self-contained: every namespace it uses is declared within it,
@@ -67,6 +68,20 @@ func (a AnyType) encode(e *xml.Encoder, start xml.StartElement) error {
 		return e.EncodeElement(a.Value, start)
 	}
 	return e.EncodeElement(rawInnerXML{Inner: a.InnerXML}, start)
+}
+
+// Type returns the element's xsi:type with its prefix resolved, for example
+// {Space: "urn:example", Local: "Item"} for xsi:type="ns2:Item". ok is false
+// when there is no xsi:type or its prefix is not declared in Attrs. Responses
+// decoded by Client, or by NewDecoder, carry the declaration in Attrs even
+// when the server made it on an ancestor such as the SOAP envelope.
+func (a AnyType) Type() (name xml.Name, ok bool) {
+	for _, attr := range a.Attrs {
+		if attr.Name.Space == XSINamespace && attr.Name.Local == "type" {
+			return resolveQName(attr.Value, a.Attrs)
+		}
+	}
+	return xml.Name{}, false
 }
 
 // UnmarshalXML records the element's name and attributes, and its content as
@@ -134,6 +149,11 @@ func (a AnyElement) IsZero() bool {
 // Decode unmarshals the element into v. See AnyType.Decode.
 func (a AnyElement) Decode(v any) error {
 	return AnyType(a).Decode(v)
+}
+
+// Type returns the element's resolved xsi:type. See AnyType.Type.
+func (a AnyElement) Type() (xml.Name, bool) {
+	return AnyType(a).Type()
 }
 
 // UnmarshalXML records the element. See AnyType.UnmarshalXML.
