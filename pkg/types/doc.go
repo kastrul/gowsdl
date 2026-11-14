@@ -2,6 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// Package types maps XML Schema types to Go types and defines the error
-// types gowsdl returns for WSDL and schema problems.
+// Package types maps XML Schema types to Go types and defines WSDLError and
+// SchemaError, the error types for WSDL and schema problems.
 package types

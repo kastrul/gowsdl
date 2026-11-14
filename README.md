@@ -261,9 +261,9 @@ When working with local WSDL files that reference external schemas:
 
 This implementation addresses all the features requested in [issue #10](https://github.com/kastrul/gowsdl/issues/10), including the original TODOs:
 
-- ✅ **Support for generating namespaces** (main.go:41) - Complete namespace management system
-- ✅ **Resolve XSD element references** (main.go:39) - Full element reference resolution
-- ✅ **Local schema resolution** (main.go:37) - Enhanced local and remote schema handling
+- ✅ **Support for generating namespaces** - Complete namespace management system
+- ✅ **Resolve XSD element references** - Full element reference resolution
+- ✅ **Local schema resolution** - Enhanced local and remote schema handling
 - ✅ **WSDL 2.0 Support** - Complete parsing and code generation
 - ✅ **Better error messages** - Contextual errors with suggestions
 
@@ -283,14 +283,14 @@ gowsdl/
 │   │   └── templates/ # Go templates for code generation
 │   ├── http/          # HTTP client with security features
 │   ├── parser/        # WSDL/XSD parsers (1.1 and 2.0)
-│   ├── soap/          # SOAP protocol implementation
-│   │   ├── auth/      # Authentication mechanisms
-│   │   ├── client/    # SOAP client implementation
-│   │   ├── encoding/  # SOAP encoding utilities
-│   │   └── types/     # SOAP type definitions
+│   ├── testing/       # Fixture runner, request capture and XML comparison for testing generated clients
 │   ├── types/         # Type mapping and conversion
 │   └── utils/         # General utility functions
+├── soap/              # SOAP runtime imported by generated code (client, envelope, faults, MTOM/MMA, XSD types)
+├── gowsdl_facade.go   # Public gowsdl package: facade over pkg/generator (NewGoWSDL and options)
+├── compat.go          # Aliases of pkg/ types and functions kept for older callers
 ├── fixtures/          # Test WSDL/XSD files
+├── test_fixtures/     # WSDL, expected request and test data triples (document_literal/, rpc_literal/)
 ├── example/           # Usage examples
 └── docs/              # Documentation
 ```
@@ -334,13 +334,16 @@ go test -v -race ./...
 go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 go tool cover -html=coverage.out -o coverage.html
 
-# Run integration tests
-go test -tags=integration -v ./...
+# Run only the fast tests (skips those that build and run generated code with the go toolchain)
+go test -short ./...
+
+# Also run the tests that download from the public internet
+GOWSDL_NETWORK_TESTS=1 go test -v ./...
 
 # Run benchmarks
 go test -bench=. -benchmem ./...
 
-# Run linter (install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+# Run linter (install the version pinned in .github/workflows/go.yml: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0)
 golangci-lint run
 
 # Update dependencies
