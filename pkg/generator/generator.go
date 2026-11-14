@@ -555,6 +555,10 @@ func (g *Generator) genTypes() ([]byte, error) {
 	// Add function to check if this should be an optional pointer
 	funcMap["isOptionalType"] = IsOptionalType
 
+	declNamespaces := resolveDeclarationNamespaces(schemas, g.getTargetNamespace())
+	funcMap["elementNamespace"] = declNamespaces.element
+	funcMap["complexTypeNamespace"] = declNamespaces.complexType
+
 	// Add function to check if elements should be qualified
 	funcMap["isElementFormQualified"] = func() bool {
 		// Check if any schema has elementFormDefault="qualified"
@@ -600,14 +604,13 @@ func (g *Generator) genTypes() ([]byte, error) {
 
 	// Merge all schemas into a single data structure
 	data := struct {
-		SimpleType      []*parser.XSDSimpleType
-		ComplexTypes    []*parser.XSDComplexType
-		Elements        []*parser.XSDElement
-		Schemas         []*parser.XSDSchema
-		Messages        []*parser.WSDLMessage
-		PortTypes       []*parser.WSDLPortType
-		InlineTypes     map[string]*InlineComplexType
-		TargetNamespace string
+		SimpleType   []*parser.XSDSimpleType
+		ComplexTypes []*parser.XSDComplexType
+		Elements     []*parser.XSDElement
+		Schemas      []*parser.XSDSchema
+		Messages     []*parser.WSDLMessage
+		PortTypes    []*parser.WSDLPortType
+		InlineTypes  map[string]*InlineComplexType
 	}{}
 
 	// Add RPC-style messages for WSDL 1.1
@@ -619,11 +622,8 @@ func (g *Generator) genTypes() ([]byte, error) {
 	data.Schemas = schemas
 	data.InlineTypes = inlineTypes
 
-	// Merge all schemas and get first non-empty target namespace
+	// Merge all schemas
 	for _, schema := range schemas {
-		if data.TargetNamespace == "" && schema.TargetNamespace != "" {
-			data.TargetNamespace = schema.TargetNamespace
-		}
 		if schema.SimpleType != nil {
 			data.SimpleType = append(data.SimpleType, schema.SimpleType...)
 		}

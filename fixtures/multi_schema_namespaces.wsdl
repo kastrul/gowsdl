@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Global elements declared across several schemas with different target
+  namespaces. The header schemas are listed before the service schema, so the
+  first targetNamespace in the WSDL is not the namespace of most elements.
+-->
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:tns="urn:ms:main"
+             xmlns:hdr="urn:ms:header"
+             xmlns:rep="urn:ms:repr"
+             targetNamespace="urn:ms:main">
+    <types>
+        <xsd:schema targetNamespace="urn:ms:header"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:hdr="urn:ms:header"
+                    elementFormDefault="qualified">
+            <xsd:complexType name="ClientType">
+                <xsd:sequence>
+                    <xsd:element name="memberClass" type="xsd:string"/>
+                    <xsd:element name="memberCode" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:element name="client" type="hdr:ClientType"/>
+            <xsd:element name="requestHash">
+                <xsd:complexType>
+                    <xsd:simpleContent>
+                        <xsd:extension base="xsd:string">
+                            <xsd:attribute name="algorithmId" type="xsd:string"/>
+                        </xsd:extension>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="userId" type="xsd:string"/>
+        </xsd:schema>
+
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   xmlns="urn:ms:repr"
+                   targetNamespace="urn:ms:repr"
+                   elementFormDefault="qualified">
+            <xs:complexType name="RepresentedPartyType">
+                <xs:sequence>
+                    <xs:element name="partyClass" type="xs:string" minOccurs="0"/>
+                    <xs:element name="partyCode" type="xs:string"/>
+                </xs:sequence>
+            </xs:complexType>
+            <xs:element name="representedParty" type="RepresentedPartyType"/>
+        </xs:schema>
+
+        <xsd:schema targetNamespace="urn:ms:main"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:tns="urn:ms:main"
+                    elementFormDefault="qualified">
+            <xsd:element name="GetStatus">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="personCode" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="GetStatusResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="insured" type="xsd:boolean"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:complexType name="Ping">
+                <xsd:sequence>
+                    <xsd:element name="token" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:element name="Ping" type="tns:Ping"/>
+        </xsd:schema>
+    </types>
+
+    <message name="GetStatusRequest">
+        <part name="parameters" element="tns:GetStatus"/>
+        <part name="client" element="hdr:client"/>
+        <part name="requestHash" element="hdr:requestHash"/>
+        <part name="userId" element="hdr:userId"/>
+        <part name="representedParty" element="rep:representedParty"/>
+    </message>
+    <message name="GetStatusResponseMsg">
+        <part name="parameters" element="tns:GetStatusResponse"/>
+    </message>
+    <message name="PingRequest">
+        <part name="parameters" element="tns:Ping"/>
+    </message>
+
+    <portType name="StatusPort">
+        <operation name="GetStatus">
+            <input message="tns:GetStatusRequest"/>
+            <output message="tns:GetStatusResponseMsg"/>
+        </operation>
+        <operation name="Ping">
+            <input message="tns:PingRequest"/>
+            <output message="tns:GetStatusResponseMsg"/>
+        </operation>
+    </portType>
+
+    <binding name="StatusBinding" type="tns:StatusPort">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="GetStatus">
+            <soap:operation soapAction="urn:ms:main/GetStatus"/>
+            <input>
+                <soap:header message="tns:GetStatusRequest" part="client" use="literal"/>
+                <soap:header message="tns:GetStatusRequest" part="requestHash" use="literal"/>
+                <soap:header message="tns:GetStatusRequest" part="userId" use="literal"/>
+                <soap:header message="tns:GetStatusRequest" part="representedParty" use="literal"/>
+                <soap:body parts="parameters" use="literal"/>
+            </input>
+            <output><soap:body use="literal"/></output>
+        </operation>
+        <operation name="Ping">
+            <soap:operation soapAction="urn:ms:main/Ping"/>
+            <input><soap:body use="literal"/></input>
+            <output><soap:body use="literal"/></output>
+        </operation>
+    </binding>
+
+    <service name="StatusService">
+        <port name="StatusPort" binding="tns:StatusBinding">
+            <soap:address location="http://localhost/status"/>
+        </port>
+    </service>
+</definitions>
