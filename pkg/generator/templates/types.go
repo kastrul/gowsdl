@@ -33,8 +33,7 @@ const TypesTemplate = `
 {{end}}
 
 {{define "ChoiceElements"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{range .Elements}}
+	{{range .}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
 			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
@@ -46,7 +45,7 @@ const TypesTemplate = `
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
-			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
+			{{template "InlineComplexField" .}}
 		{{else if .Type}}
 			{{$typeName := .Type | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
@@ -60,8 +59,7 @@ const TypesTemplate = `
 {{end}}
 
 {{define "ChoiceElementsNamed"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{range .Elements}}
+	{{range .}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
 			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
@@ -73,7 +71,7 @@ const TypesTemplate = `
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
-			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
+			{{$inlineTypeName := inlineTypeName .}}
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
@@ -96,8 +94,7 @@ const TypesTemplate = `
 {{end}}
 
 {{define "ComplexTypeInlineNamed"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{$complexType := .ComplexType}}
+	{{$complexType := .}}
 	{{with $complexType.ComplexContent}}
 		{{if ne .Extension.Base ""}}
 			{{if eq .Extension.Base "soap:Header"}}
@@ -108,7 +105,7 @@ const TypesTemplate = `
 				{{toGoType .Extension.Base false}}
 			{{end}}
 		{{end}}
-		{{template "Elements" (dict "ParentTypeName" $parentTypeName "Elements" .Extension.Sequence)}}
+		{{template "Elements" .Extension.Sequence}}
 		{{range .Extension.Attributes}}
 			{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 		{{end}}
@@ -127,7 +124,7 @@ const TypesTemplate = `
 			{{end}}
 		{{else if .ComplexType}}
 			{{/* Handle inline complex types */}}
-			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
+			{{$inlineTypeName := inlineTypeName .}}
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
@@ -148,8 +145,8 @@ const TypesTemplate = `
 		{{end}}
 	{{end}}
 
-	{{template "ChoiceElementsNamed" (dict "ParentTypeName" $parentTypeName "Elements" $complexType.Choice)}}
-	{{template "ChoiceElementsNamed" (dict "ParentTypeName" $parentTypeName "Elements" $complexType.SequenceChoice)}}
+	{{template "ChoiceElementsNamed" $complexType.Choice}}
+	{{template "ChoiceElementsNamed" $complexType.SequenceChoice}}
 
 	{{range $complexType.All}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
@@ -163,7 +160,7 @@ const TypesTemplate = `
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
-			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
+			{{$inlineTypeName := inlineTypeName .}}
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
@@ -201,9 +198,9 @@ const TypesTemplate = `
 {{end}}
 
 {{define "InlineComplexField"}}
-	{{$el := .Element}}
+	{{$el := .}}
 	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
-	{{$inlineTypeName := getInlineTypeName .ParentTypeName $el.Name}}
+	{{$inlineTypeName := inlineTypeName $el}}
 	{{if eq $el.MaxOccurs "unbounded"}}
 		{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 	{{else if eq $el.MinOccurs "0"}}
@@ -214,8 +211,7 @@ const TypesTemplate = `
 {{end}}
 
 {{define "ComplexTypeInline"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{with .ComplexType}}
+	{{with .}}
 	{{with .ComplexContent}}
 		{{if ne .Extension.Base ""}}
 			{{if eq .Extension.Base "soap:Header"}}
@@ -240,7 +236,7 @@ const TypesTemplate = `
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
-			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
+			{{template "InlineComplexField" .}}
 		{{else if eq .Type ""}}
 			{{if .SimpleType}}
 				{{/* Element has inline simple type - use its base type */}}
@@ -277,8 +273,8 @@ const TypesTemplate = `
 		{{end}}
 	{{end}}
 
-	{{template "ChoiceElements" (dict "ParentTypeName" $parentTypeName "Elements" .Choice)}}
-	{{template "ChoiceElements" (dict "ParentTypeName" $parentTypeName "Elements" .SequenceChoice)}}
+	{{template "ChoiceElements" .Choice}}
+	{{template "ChoiceElements" .SequenceChoice}}
 
 	{{range .All}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
@@ -292,7 +288,7 @@ const TypesTemplate = `
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
-			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
+			{{template "InlineComplexField" .}}
 		{{else if .Type}}
 			{{$typeName := .Type | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
@@ -338,9 +334,9 @@ const TypesTemplate = `
 			XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
 			{{end}}
 		{{end}}
-		{{template "ComplexTypeInline" (dict "ParentTypeName" $.Name "ComplexType" .)}}
+		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
-			{{template "Elements" (dict "ParentTypeName" $.Name "Elements" .Extension.Sequence)}}
+			{{template "Elements" .Extension.Sequence}}
 			{{range .Extension.Attributes}}
 				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
 			{{end}}
@@ -387,7 +383,7 @@ const TypesTemplate = `
 			{{end}}
 		{{else}}
 			{{/* Pass the parent type name to handle nested inline types */}}
-			{{template "ComplexTypeInlineNamed" (dict "ParentTypeName" $inline.Scope "ComplexType" $inline.ComplexType)}}
+			{{template "ComplexTypeInlineNamed" $inline.ComplexType}}
 		{{end}}
 	}
 {{end}}
@@ -473,7 +469,7 @@ const TypesTemplate = `
 					{{else}}
 					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
 					{{end}}
-					{{template "ComplexTypeInline" (dict "ParentTypeName" .Name "ComplexType" .ComplexType)}}
+					{{template "ComplexTypeInline" .ComplexType}}
 					{{with .ComplexType.SimpleContent}}
 						{{if ne .Extension.Base ""}}
 							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
@@ -610,14 +606,13 @@ const TypesTemplate = `
 {{end}}
 
 {{define "Elements"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{range .Elements}}
+	{{range .}}
 		{{if ne .Ref ""}}
 			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty"` + "`" + `
 		{{else}}
 			{{if not .Type}}
 				{{if .ComplexType}}
-					{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
+					{{$inlineTypeName := inlineTypeName .}}
 					{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
 				{{end}}
 			{{else}}
