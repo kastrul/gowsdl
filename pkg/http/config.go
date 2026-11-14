@@ -33,6 +33,7 @@ func (c *Config) Build() *http.Client {
 	}
 
 	transport := &http.Transport{
+		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: c.TLSConfig,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
