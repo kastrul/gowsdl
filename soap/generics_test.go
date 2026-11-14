@@ -111,7 +111,7 @@ func TestResult(t *testing.T) {
 
 		assert.True(t, result.IsSuccess())
 		assert.False(t, result.TransportError)
-		
+
 		value, err := result.Unwrap()
 		assert.NoError(t, err)
 		assert.Equal(t, 1, value.ID)
@@ -124,7 +124,7 @@ func TestResult(t *testing.T) {
 
 		assert.False(t, result.IsSuccess())
 		assert.False(t, result.TransportError)
-		
+
 		_, err := result.Unwrap()
 		assert.Error(t, err)
 		assert.Equal(t, "Invalid request", err.Error())
@@ -132,13 +132,13 @@ func TestResult(t *testing.T) {
 
 	t.Run("transport error result", func(t *testing.T) {
 		result := Result[User]{
-			Fault: &SOAPFault{Code: "Client.Transport", String: "connection refused"},
+			Fault:          &SOAPFault{Code: "Client.Transport", String: "connection refused"},
 			TransportError: true,
 		}
 
 		assert.False(t, result.IsSuccess())
 		assert.True(t, result.TransportError)
-		
+
 		_, err := result.Unwrap()
 		assert.Error(t, err)
 		assert.Equal(t, "connection refused", err.Error())
@@ -173,10 +173,10 @@ func TestBatchClient(t *testing.T) {
 				GetUserRequest GetUserRequest `xml:"getUserRequest"`
 			} `xml:"Body"`
 		}
-		
+
 		decoder := xml.NewDecoder(r.Body)
 		_ = decoder.Decode(&req)
-		
+
 		// Return different responses based on user ID
 		var response string
 		if req.Body.GetUserRequest.UserID == 2 {

@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/enthus-golang/gowsdl/pkg/http"
+	"github.com/kastrul/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -9,8 +9,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/enthus-golang/gowsdl/pkg/generator"
-	"github.com/enthus-golang/gowsdl/pkg/utils"
+	"github.com/kastrul/gowsdl/pkg/generator"
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // GoWSDL is the main facade for WSDL code generation
@@ -65,7 +65,7 @@ func NewGoWSDL(file string, opts ...Option) (*GoWSDL, error) {
 
 	// Convert options to generator options
 	genOpts := make([]generator.Option, 0, len(opts))
-	
+
 	// Create generator
 	gen, err := generator.New(file, genOpts...)
 	if err != nil {

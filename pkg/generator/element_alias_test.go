@@ -101,20 +101,20 @@ func TestElementAliasGeneration(t *testing.T) {
 	// Should have struct definitions for CheckV1 and CheckV1Response
 	assert.Contains(t, typesStr, "type CheckV1 struct {")
 	assert.Contains(t, typesStr, "type CheckV1Response struct {")
-	
+
 	// Should NOT have duplicate type aliases like "type CheckV1 checkV1"
 	assert.NotContains(t, typesStr, "type CheckV1 checkV1")
 	assert.NotContains(t, typesStr, "type CheckV1Response checkV1Response")
-	
+
 	// Should have struct with XMLName for the element with different name
 	assert.Contains(t, typesStr, "type DifferentName struct {")
 	assert.Contains(t, typesStr, `XMLName xml.Name`)
 	assert.Contains(t, typesStr, "CheckV1")
-	
+
 	// Count occurrences of type definitions
 	checkV1Count := strings.Count(typesStr, "type CheckV1 ")
 	checkV1ResponseCount := strings.Count(typesStr, "type CheckV1Response ")
-	
+
 	// Each type should be defined exactly once
 	assert.Equal(t, 1, checkV1Count, "CheckV1 should be defined exactly once")
 	assert.Equal(t, 1, checkV1ResponseCount, "CheckV1Response should be defined exactly once")
@@ -174,7 +174,7 @@ func TestElementAliasWithPrimitiveTypes(t *testing.T) {
 	assert.Contains(t, typesStr, "type MyString string")
 	assert.Contains(t, typesStr, "type MyInt int32")
 	assert.Contains(t, typesStr, "type MyDateTime soap.XSDDateTime")
-	
+
 	// Should have marshal/unmarshal functions for XSDDateTime
 	assert.Contains(t, typesStr, "func (xdt MyDateTime) MarshalXML")
 	assert.Contains(t, typesStr, "func (xdt *MyDateTime) UnmarshalXML")

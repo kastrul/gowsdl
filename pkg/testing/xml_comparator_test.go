@@ -18,56 +18,56 @@ func TestXMLComparatorBasic(t *testing.T) {
 
 func TestXMLComparatorCompare(t *testing.T) {
 	comparator := NewXMLComparator()
-	
+
 	tests := []struct {
-		name         string
-		expected     string
-		actual       string
-		shouldMatch  bool
+		name          string
+		expected      string
+		actual        string
+		shouldMatch   bool
 		expectedDiffs int
 	}{
 		{
-			name:         "Identical XML",
-			expected:     `<root><child>value</child></root>`,
-			actual:       `<root><child>value</child></root>`,
-			shouldMatch:  true,
+			name:          "Identical XML",
+			expected:      `<root><child>value</child></root>`,
+			actual:        `<root><child>value</child></root>`,
+			shouldMatch:   true,
 			expectedDiffs: 0,
 		},
 		{
-			name:         "Different values",
-			expected:     `<root><child>value1</child></root>`,
-			actual:       `<root><child>value2</child></root>`,
-			shouldMatch:  false,
+			name:          "Different values",
+			expected:      `<root><child>value1</child></root>`,
+			actual:        `<root><child>value2</child></root>`,
+			shouldMatch:   false,
 			expectedDiffs: 1,
 		},
 		{
-			name: "Whitespace differences (normalized)",
+			name:     "Whitespace differences (normalized)",
 			expected: `<root><child>value</child></root>`,
 			actual: `<root>
 				<child>value</child>
 			</root>`,
-			shouldMatch:  true,
+			shouldMatch:   true,
 			expectedDiffs: 0,
 		},
 		{
-			name:         "Different structure",
-			expected:     `<root><child>value</child></root>`,
-			actual:       `<root><other>value</other></root>`,
-			shouldMatch:  false,
+			name:          "Different structure",
+			expected:      `<root><child>value</child></root>`,
+			actual:        `<root><other>value</other></root>`,
+			shouldMatch:   false,
 			expectedDiffs: 1,
 		},
 		{
-			name:         "Missing element",
-			expected:     `<root><child1>value</child1><child2>value</child2></root>`,
-			actual:       `<root><child1>value</child1></root>`,
-			shouldMatch:  false,
+			name:          "Missing element",
+			expected:      `<root><child1>value</child1><child2>value</child2></root>`,
+			actual:        `<root><child1>value</child1></root>`,
+			shouldMatch:   false,
 			expectedDiffs: 1,
 		},
 		{
-			name:         "Extra element",
-			expected:     `<root><child1>value</child1></root>`,
-			actual:       `<root><child1>value</child1><child2>value</child2></root>`,
-			shouldMatch:  false,
+			name:          "Extra element",
+			expected:      `<root><child1>value</child1></root>`,
+			actual:        `<root><child1>value</child1><child2>value</child2></root>`,
+			shouldMatch:   false,
 			expectedDiffs: 1,
 		},
 	}
@@ -76,10 +76,10 @@ func TestXMLComparatorCompare(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.Compare(tt.expected, tt.actual)
 			require.NoError(t, err)
-			
+
 			assert.Equal(t, tt.shouldMatch, result.Equal, "Match result should be %v", tt.shouldMatch)
 			assert.Len(t, result.Differences, tt.expectedDiffs, "Expected %d differences", tt.expectedDiffs)
-			
+
 			if !tt.shouldMatch {
 				assert.NotEmpty(t, result.Differences, "Should have differences when not matching")
 				for _, diff := range result.Differences {
@@ -93,7 +93,7 @@ func TestXMLComparatorCompare(t *testing.T) {
 
 func TestXMLComparatorCompareSOAPRequests(t *testing.T) {
 	comparator := NewXMLComparator()
-	
+
 	tests := []struct {
 		name        string
 		expected    string
@@ -186,9 +186,9 @@ func TestXMLComparatorCompareSOAPRequests(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.CompareSOAPRequests(tt.expected, tt.actual)
 			require.NoError(t, err)
-			
+
 			assert.Equal(t, tt.shouldMatch, result.Equal, "SOAP requests match result should be %v", tt.shouldMatch)
-			
+
 			if !tt.shouldMatch {
 				assert.NotEmpty(t, result.Differences, "Should have differences when SOAP requests don't match")
 			}
@@ -198,7 +198,7 @@ func TestXMLComparatorCompareSOAPRequests(t *testing.T) {
 
 func TestXMLComparatorInvalidXML(t *testing.T) {
 	comparator := NewXMLComparator()
-	
+
 	tests := []struct {
 		name     string
 		expected string
@@ -234,7 +234,7 @@ func TestXMLComparatorInvalidXML(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.Compare(tt.expected, tt.actual)
-			
+
 			// Should handle invalid XML gracefully
 			if err != nil {
 				assert.Contains(t, err.Error(), "parse", "Error should mention parsing issue")
@@ -248,14 +248,14 @@ func TestXMLComparatorInvalidXML(t *testing.T) {
 
 func TestXMLComparatorAttributeOrder(t *testing.T) {
 	comparator := NewXMLComparator()
-	
+
 	// Attributes in different order should still match
 	expected := `<root attr1="value1" attr2="value2">content</root>`
 	actual := `<root attr2="value2" attr1="value1">content</root>`
-	
+
 	result, err := comparator.Compare(expected, actual)
 	require.NoError(t, err)
-	
+
 	// TODO: Implement semantic XML comparison that ignores attribute order
 	// For now, the simple implementation treats these as different
 	assert.False(t, result.Equal, "Current implementation does not support attribute order normalization")
@@ -264,7 +264,7 @@ func TestXMLComparatorAttributeOrder(t *testing.T) {
 
 func TestXMLComparatorNamespaceHandling(t *testing.T) {
 	comparator := NewXMLComparator()
-	
+
 	tests := []struct {
 		name        string
 		expected    string
@@ -282,15 +282,15 @@ func TestXMLComparatorNamespaceHandling(t *testing.T) {
 			shouldMatch: false, // TODO: Current implementation doesn't support semantic namespace comparison
 		},
 		{
-			name: "Different namespaces",
-			expected: `<root xmlns="http://example.com/ns1">value</root>`,
-			actual:   `<root xmlns="http://example.com/ns2">value</root>`,
+			name:        "Different namespaces",
+			expected:    `<root xmlns="http://example.com/ns1">value</root>`,
+			actual:      `<root xmlns="http://example.com/ns2">value</root>`,
 			shouldMatch: false,
 		},
 		{
-			name: "Namespace vs no namespace",
-			expected: `<root>value</root>`,
-			actual:   `<root xmlns="http://example.com/ns">value</root>`,
+			name:        "Namespace vs no namespace",
+			expected:    `<root>value</root>`,
+			actual:      `<root xmlns="http://example.com/ns">value</root>`,
 			shouldMatch: false,
 		},
 	}
@@ -299,7 +299,7 @@ func TestXMLComparatorNamespaceHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.Compare(tt.expected, tt.actual)
 			require.NoError(t, err)
-			
+
 			assert.Equal(t, tt.shouldMatch, result.Equal, "Namespace handling should match expected result")
 		})
 	}
@@ -307,7 +307,7 @@ func TestXMLComparatorNamespaceHandling(t *testing.T) {
 
 func TestXMLComparatorComplexStructure(t *testing.T) {
 	comparator := NewXMLComparator()
-	
+
 	expected := `<?xml version="1.0"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Header>
@@ -348,14 +348,14 @@ func TestXMLComparatorComplexStructure(t *testing.T) {
 
 	result, err := comparator.Compare(expected, actual)
 	require.NoError(t, err)
-	
+
 	assert.True(t, result.Equal, "Complex identical structures should match")
 	assert.Empty(t, result.Differences, "Should have no differences")
 }
 
 func TestXMLComparatorDifferenceTypes(t *testing.T) {
 	comparator := NewXMLComparator()
-	
+
 	tests := []struct {
 		name         string
 		expected     string
@@ -386,10 +386,10 @@ func TestXMLComparatorDifferenceTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.Compare(tt.expected, tt.actual)
 			require.NoError(t, err)
-			
+
 			assert.False(t, result.Equal, "Should not match")
 			assert.NotEmpty(t, result.Differences, "Should have differences")
-			
+
 			// Check that appropriate difference type is detected
 			found := false
 			for _, diff := range result.Differences {

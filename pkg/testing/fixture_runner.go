@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/enthus-golang/gowsdl/pkg/generator"
+	"github.com/kastrul/gowsdl/pkg/generator"
 )
 
 // FixtureTestCase represents a complete test case from fixtures
@@ -38,9 +38,9 @@ type FixtureRunner struct {
 // NewFixtureRunner creates a new fixture test runner
 func NewFixtureRunner() *FixtureRunner {
 	return &FixtureRunner{
-		fixtures:   make([]FixtureTestCase, 0),
-		capture:    NewSOAPCapture(),
-		comparator: NewXMLComparator(),
+		fixtures:    make([]FixtureTestCase, 0),
+		capture:     NewSOAPCapture(),
+		comparator:  NewXMLComparator(),
 		useRealCode: false, // Default to simulation mode
 	}
 }
@@ -51,7 +51,7 @@ func NewFixtureRunnerWithRealCode() (*FixtureRunner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	
+
 	return &FixtureRunner{
 		fixtures:    make([]FixtureTestCase, 0),
 		capture:     NewSOAPCapture(),
@@ -76,13 +76,13 @@ func (fr *FixtureRunner) LoadFixtures(fixturesDir string) error {
 	if err := fr.loadFixturesFromDir(docDir, "document"); err != nil {
 		return fmt.Errorf("failed to load document fixtures: %w", err)
 	}
-	
-	// Load RPC literal fixtures  
+
+	// Load RPC literal fixtures
 	rpcDir := filepath.Join(fixturesDir, "rpc_literal")
 	if err := fr.loadFixturesFromDir(rpcDir, "rpc"); err != nil {
 		return fmt.Errorf("failed to load RPC fixtures: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -95,33 +95,33 @@ func (fr *FixtureRunner) loadFixturesFromDir(dir, style string) error {
 		}
 		return err
 	}
-	
+
 	// Group files by base name
 	fileGroups := make(map[string][]string)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		
+
 		name := entry.Name()
 		baseName := strings.TrimSuffix(name, filepath.Ext(name))
 		baseName = strings.TrimSuffix(baseName, "_request")
-		baseName = strings.TrimSuffix(baseName, "_response")  
+		baseName = strings.TrimSuffix(baseName, "_response")
 		baseName = strings.TrimSuffix(baseName, "_test_data")
-		
+
 		fileGroups[baseName] = append(fileGroups[baseName], name)
 	}
-	
+
 	// Create test cases for each group
 	for baseName, files := range fileGroups {
 		testCase := FixtureTestCase{
 			Name:  baseName,
 			Style: style,
 		}
-		
+
 		for _, file := range files {
 			fullPath := filepath.Join(dir, file)
-			
+
 			switch {
 			case strings.HasSuffix(file, ".wsdl"):
 				testCase.WSDLPath = fullPath
@@ -141,20 +141,20 @@ func (fr *FixtureRunner) loadFixturesFromDir(dir, style string) error {
 				}
 			}
 		}
-		
+
 		// Only add complete test cases
 		if testCase.WSDLPath != "" && testCase.ExpectedRequest != "" && testCase.TestData != nil {
 			fr.fixtures = append(fr.fixtures, testCase)
 		}
 	}
-	
+
 	return nil
 }
 
 // RunAllTests runs all loaded fixture tests
 func (fr *FixtureRunner) RunAllTests() ([]TestResult, error) {
 	var results []TestResult
-	
+
 	for _, fixture := range fr.fixtures {
 		result, err := fr.runFixtureTest(fixture)
 		if err != nil {
@@ -166,19 +166,19 @@ func (fr *FixtureRunner) RunAllTests() ([]TestResult, error) {
 		}
 		results = append(results, result)
 	}
-	
+
 	return results, nil
 }
 
 // TestResult represents the result of running a fixture test
 type TestResult struct {
-	TestName     string
-	Passed       bool
-	Error        string
-	Differences  []Difference
-	ActualXML    string
-	ExpectedXML  string
-	Style        string
+	TestName    string
+	Passed      bool
+	Error       string
+	Differences []Difference
+	ActualXML   string
+	ExpectedXML string
+	Style       string
 }
 
 // runFixtureTest runs a single fixture test
@@ -188,10 +188,10 @@ func (fr *FixtureRunner) runFixtureTest(fixture FixtureTestCase) (TestResult, er
 		Style:       fixture.Style,
 		ExpectedXML: fixture.ExpectedRequest,
 	}
-	
+
 	var actualXML string
 	var err error
-	
+
 	if fr.useRealCode {
 		// Generate, compile, and execute real Go code
 		actualXML, err = fr.executeRealSOAPRequest(fixture)
@@ -202,18 +202,18 @@ func (fr *FixtureRunner) runFixtureTest(fixture FixtureTestCase) (TestResult, er
 		// Use simulation for basic testing
 		actualXML = fr.simulateSOAPRequest(fixture)
 	}
-	
+
 	result.ActualXML = actualXML
-	
+
 	// Compare XML
 	comparison, err := fr.comparator.CompareSOAPRequests(fixture.ExpectedRequest, actualXML)
 	if err != nil {
 		return result, fmt.Errorf("failed to compare XML: %w", err)
 	}
-	
+
 	result.Passed = comparison.Equal
 	result.Differences = comparison.Differences
-	
+
 	return result, nil
 }
 
@@ -225,7 +225,7 @@ func (fr *FixtureRunner) simulateSOAPRequest(fixture FixtureTestCase) string {
 	if fixture.ExpectedRequest != "" {
 		return fixture.ExpectedRequest
 	}
-	
+
 	// Otherwise, simulate based on fixture data (for unit tests)
 	if fixture.Style == "rpc" {
 		// Simulate RPC-style request with safe type assertion
@@ -233,12 +233,12 @@ func (fr *FixtureRunner) simulateSOAPRequest(fixture FixtureTestCase) string {
 		if !exists {
 			operationNameRaw = "GetUserInfo"
 		}
-		
+
 		operationName, ok := operationNameRaw.(string)
 		if !ok {
 			operationName = "GetUserInfo"
 		}
-		
+
 		return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -249,7 +249,7 @@ func (fr *FixtureRunner) simulateSOAPRequest(fixture FixtureTestCase) string {
   </soap:Body>
 </soap:Envelope>`, operationName, operationName)
 	}
-	
+
 	// Simulate document-style request
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -280,21 +280,21 @@ func (fr *FixtureRunner) executeRealSOAPRequest(fixture FixtureTestCase) (string
 	if err := os.MkdirAll(packageDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create package directory: %w", err)
 	}
-	
+
 	// Generate Go code from WSDL
-	g, err := generator.New(fixture.WSDLPath, 
+	g, err := generator.New(fixture.WSDLPath,
 		generator.WithPackage(packageName),
 		generator.WithExportAllTypes(true))
 	if err != nil {
 		return "", fmt.Errorf("failed to create generator: %w", err)
 	}
-	
+
 	// Generate the code
 	gocode, err := g.Generate(context.Background())
 	if err != nil {
 		return "", fmt.Errorf("failed to generate code: %w", err)
 	}
-	
+
 	// Write generated code to files
 	for filename, content := range gocode {
 		filePath := filepath.Join(packageDir, filename+".go")
@@ -302,18 +302,18 @@ func (fr *FixtureRunner) executeRealSOAPRequest(fixture FixtureTestCase) (string
 			return "", fmt.Errorf("failed to write file %s: %w", filePath, err)
 		}
 	}
-	
+
 	// Create a test file that uses the generated client
 	testCode, err := fr.generateTestCode(packageName, fixture)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate test code: %w", err)
 	}
-	
+
 	testFilePath := filepath.Join(packageDir, "fixture_test.go")
 	if err := os.WriteFile(testFilePath, []byte(testCode), 0644); err != nil {
 		return "", fmt.Errorf("failed to write test file: %w", err)
 	}
-	
+
 	// Execute the test and capture XML
 	return fr.executeTestAndCaptureXML(packageDir)
 }
@@ -325,10 +325,10 @@ func (fr *FixtureRunner) generateTestCode(packageName string, fixture FixtureTes
 	if !ok {
 		operationName = "GetUserInfo" // Default operation
 	}
-	
+
 	// Use operationName in logging for future enhancement
 	_ = operationName
-	
+
 	// Create test code template
 	testCode := fmt.Sprintf(`package %s
 
@@ -341,7 +341,7 @@ import (
 	"strings"
 	"time"
 	
-	"github.com/enthus-golang/gowsdl/soap"
+	"github.com/kastrul/gowsdl/soap"
 )
 
 // CaptureTransport captures SOAP requests
@@ -415,7 +415,7 @@ func (fr *FixtureRunner) executeTestAndCaptureXML(packageDir string) (string, er
 		if err := goModInit.Run(); err != nil {
 			return "", fmt.Errorf("failed to initialize go module: %w", err)
 		}
-		
+
 		// Add required dependencies
 		goModTidy := exec.Command("go", "mod", "tidy")
 		goModTidy.Dir = packageDir
@@ -424,14 +424,14 @@ func (fr *FixtureRunner) executeTestAndCaptureXML(packageDir string) (string, er
 			_ = err // explicitly ignore error for linter
 		}
 	}
-	
+
 	// Build and run the test
 	buildCmd := exec.Command("go", "build", "-o", "fixture_test", ".")
 	buildCmd.Dir = packageDir
 	if err := buildCmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to build test: %w", err)
 	}
-	
+
 	// Execute the test
 	runCmd := exec.Command("./fixture_test")
 	runCmd.Dir = packageDir
@@ -439,6 +439,6 @@ func (fr *FixtureRunner) executeTestAndCaptureXML(packageDir string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to run test: %w", err)
 	}
-	
+
 	return string(output), nil
 }

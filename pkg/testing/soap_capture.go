@@ -29,7 +29,7 @@ type CapturedRequest struct {
 	XMLDoc  *XMLDocument
 }
 
-// CapturedResponse represents a captured SOAP response  
+// CapturedResponse represents a captured SOAP response
 type CapturedResponse struct {
 	StatusCode int
 	Headers    map[string]string
@@ -70,12 +70,12 @@ func (sc *SOAPCapture) RoundTrip(req *http.Request) (*http.Response, error) {
 		URL:     req.URL.String(),
 		Headers: make(map[string]string),
 	}
-	
+
 	// Copy headers
 	for key, values := range req.Header {
 		captured.Headers[key] = strings.Join(values, ", ")
 	}
-	
+
 	// Read and capture request body
 	if req.Body != nil {
 		bodyBytes, err := io.ReadAll(req.Body)
@@ -83,20 +83,20 @@ func (sc *SOAPCapture) RoundTrip(req *http.Request) (*http.Response, error) {
 			return nil, fmt.Errorf("failed to read request body: %w", err)
 		}
 		captured.Body = string(bodyBytes)
-		
+
 		// Parse XML
 		if xmlDoc, err := sc.parseXML(captured.Body); err == nil {
 			captured.XMLDoc = xmlDoc
 		}
-		
+
 		// Restore request body for actual use
 		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	}
-	
+
 	sc.mu.Lock()
 	sc.Requests = append(sc.Requests, captured)
 	sc.mu.Unlock()
-	
+
 	// Return mock response for testing
 	mockResponse := &http.Response{
 		StatusCode: 200,
@@ -104,7 +104,7 @@ func (sc *SOAPCapture) RoundTrip(req *http.Request) (*http.Response, error) {
 		Body:       io.NopCloser(strings.NewReader(`<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><response>Mock Response</response></soap:Body></soap:Envelope>`)),
 	}
 	mockResponse.Header.Set("Content-Type", "text/xml; charset=utf-8")
-	
+
 	return mockResponse, nil
 }
 
@@ -114,7 +114,7 @@ func (sc *SOAPCapture) parseXML(xmlData string) (*XMLDocument, error) {
 	if err := xml.Unmarshal([]byte(xmlData), &envelope); err != nil {
 		return nil, fmt.Errorf("failed to parse XML: %w", err)
 	}
-	
+
 	return &XMLDocument{
 		Envelope: &envelope,
 		Raw:      xmlData,
@@ -125,7 +125,7 @@ func (sc *SOAPCapture) parseXML(xmlData string) (*XMLDocument, error) {
 func (sc *SOAPCapture) GetLastRequest() *CapturedRequest {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
-	
+
 	if len(sc.Requests) == 0 {
 		return nil
 	}

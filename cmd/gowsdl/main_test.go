@@ -228,7 +228,7 @@ func TestWriteData(t *testing.T) {
 				t.Logf("Failed to remove temp file: %v", err)
 			}
 		}()
-		
+
 		// Close the file before writing
 		err = tmpFile.Close()
 		assert.NoError(t, err)
@@ -372,10 +372,10 @@ func TestRunSuccessOutput(t *testing.T) {
 			// Simulate what the run function does for output
 			pkgDir := filepath.Join(tmpDir, tt.pkgName)
 			outputPath := filepath.Join(pkgDir, tt.outFile)
-			
+
 			// Generate the output messages (same as in real run function)
 			log.Printf("Generated %s (package %s) from %s", outputPath, tt.pkgName, wsdlFile)
-			
+
 			if tt.generateServer {
 				serverFileName := "server" + tt.outFile
 				serverFilePath := filepath.Join(pkgDir, serverFileName)
@@ -438,11 +438,11 @@ func TestServerFilePathCalculation(t *testing.T) {
 			expectedServerPath: filepath.Join(tmpDir, "complex_service", "serversoap_client.go"),
 		},
 		{
-			name:           "no server file when flag is false",
-			pkg:            "myservice",
-			outFile:        "client.go",
-			dir:            tmpDir,
-			generateServer: false,
+			name:               "no server file when flag is false",
+			pkg:                "myservice",
+			outFile:            "client.go",
+			dir:                tmpDir,
+			generateServer:     false,
 			expectedServerPath: "",
 		},
 	}
@@ -454,16 +454,16 @@ func TestServerFilePathCalculation(t *testing.T) {
 			testOutFile := tt.outFile
 			testDir := tt.dir
 			testGenerateServer := tt.generateServer
-			
+
 			// Calculate paths as done in the main function
 			pkgDir := filepath.Join(testDir, testPkg)
-			
+
 			var serverFilePath string
 			if testGenerateServer {
 				serverFileName := "server" + testOutFile
 				serverFilePath = filepath.Join(pkgDir, serverFileName)
 			}
-			
+
 			if tt.generateServer {
 				assert.Equal(t, tt.expectedServerPath, serverFilePath, "Server file path should match expected")
 			} else {

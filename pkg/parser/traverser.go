@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-
 type traverseMode int32
 
 const (
@@ -42,7 +41,6 @@ func (t *traverser) Traverse() {
 	}
 }
 
-
 func (t *traverser) traverseElements(ct []*XSDElement) {
 	for _, elm := range ct {
 		t.traverseElement(elm)
@@ -75,7 +73,6 @@ func (t *traverser) traverseElement(elm *XSDElement) {
 		}
 	}
 
-
 	if elm.ComplexType != nil {
 		t.traverseComplexType(elm.ComplexType)
 	}
@@ -83,7 +80,6 @@ func (t *traverser) traverseElement(elm *XSDElement) {
 		t.traverseSimpleType(elm.SimpleType)
 	}
 }
-
 
 func (t *traverser) traverseSimpleType(st *XSDSimpleType) {
 }

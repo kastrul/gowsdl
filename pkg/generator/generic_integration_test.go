@@ -140,7 +140,7 @@ func TestGenericCodeGeneration(t *testing.T) {
 			if tt.useGenerics {
 				pkgName = "testpkggen"
 			}
-			
+
 			// Generate code
 			args := []string{
 				"run", "cmd/gowsdl/main.go",
@@ -152,23 +152,23 @@ func TestGenericCodeGeneration(t *testing.T) {
 				args = append(args, "-use-generics")
 			}
 			args = append(args, wsdlPath)
-			
+
 			cmd := exec.Command("go", args...)
 			output, err := cmd.CombinedOutput()
 			require.NoError(t, err, "Failed to generate code: %s", string(output))
-			
+
 			// Read generated file
 			generatedPath := filepath.Join(pkgName, "generated.go")
 			content, err := os.ReadFile(generatedPath)
 			require.NoError(t, err)
 			defer os.RemoveAll(pkgName) // Clean up generated package directory
-			
+
 			// Check content
 			contentStr := string(content)
 			for _, check := range tt.checkContent {
 				assert.Contains(t, contentStr, check, "Expected content not found: %s", check)
 			}
-			
+
 			// Verify it compiles
 			cmd = exec.Command("go", "build", ".")
 			cmd.Dir = pkgName
@@ -181,14 +181,14 @@ func TestGenericCodeGeneration(t *testing.T) {
 func TestGenericClientUsage(t *testing.T) {
 	// Test that demonstrates how to use the generic client
 	httpConfig := DefaultHTTPClientConfig()
-	
+
 	// Generate code with generics
 	g, err := NewGoWSDLWithOptions("test_generic.wsdl", "testgen", httpConfig, true, true)
 	require.NoError(t, err)
-	
+
 	code, err := g.StartWithContext(context.Background())
 	require.NoError(t, err)
-	
+
 	// Verify generic-specific content
 	operationsCode := string(code["operations"])
 	assert.Contains(t, operationsCode, "soap.GenericClient")

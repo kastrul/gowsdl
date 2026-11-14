@@ -16,12 +16,12 @@ func TestXMLComparatorSemanticComparison(t *testing.T) {
 	comparator := NewXMLComparator()
 
 	tests := []struct {
-		name         string
-		expected     string
-		actual       string
-		shouldEqual  bool
+		name          string
+		expected      string
+		actual        string
+		shouldEqual   bool
 		expectedDiffs int
-		description  string
+		description   string
 	}{
 		{
 			name: "Identical XML",
@@ -33,83 +33,83 @@ func TestXMLComparatorSemanticComparison(t *testing.T) {
 <root xmlns="http://example.com">
   <child attr="value">content</child>
 </root>`,
-			shouldEqual:  true,
+			shouldEqual:   true,
 			expectedDiffs: 0,
-			description:  "Identical XML should be equal",
+			description:   "Identical XML should be equal",
 		},
 		{
-			name: "Different whitespace (ignored by default)",
+			name:     "Different whitespace (ignored by default)",
 			expected: `<root><child>content</child></root>`,
 			actual: `<root>
   <child>content</child>
 </root>`,
-			shouldEqual:  true,
+			shouldEqual:   true,
 			expectedDiffs: 0,
-			description:  "Whitespace differences should be ignored",
+			description:   "Whitespace differences should be ignored",
 		},
 		{
-			name: "Different element names",
-			expected: `<root><child>content</child></root>`,
-			actual:   `<root><other>content</other></root>`,
-			shouldEqual:  false,
+			name:          "Different element names",
+			expected:      `<root><child>content</child></root>`,
+			actual:        `<root><other>content</other></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Different element names should be detected",
+			description:   "Different element names should be detected",
 		},
 		{
-			name: "Different text content",
-			expected: `<root><child>expected</child></root>`,
-			actual:   `<root><child>actual</child></root>`,
-			shouldEqual:  false,
+			name:          "Different text content",
+			expected:      `<root><child>expected</child></root>`,
+			actual:        `<root><child>actual</child></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Different text content should be detected",
+			description:   "Different text content should be detected",
 		},
 		{
-			name: "Missing attribute",
-			expected: `<root><child attr="value">content</child></root>`,
-			actual:   `<root><child>content</child></root>`,
-			shouldEqual:  false,
+			name:          "Missing attribute",
+			expected:      `<root><child attr="value">content</child></root>`,
+			actual:        `<root><child>content</child></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Missing attributes should be detected",
+			description:   "Missing attributes should be detected",
 		},
 		{
-			name: "Extra attribute",
-			expected: `<root><child>content</child></root>`,
-			actual:   `<root><child extra="value">content</child></root>`,
-			shouldEqual:  false,
+			name:          "Extra attribute",
+			expected:      `<root><child>content</child></root>`,
+			actual:        `<root><child extra="value">content</child></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Extra attributes should be detected",
+			description:   "Extra attributes should be detected",
 		},
 		{
-			name: "Different attribute values",
-			expected: `<root><child attr="expected">content</child></root>`,
-			actual:   `<root><child attr="actual">content</child></root>`,
-			shouldEqual:  false,
+			name:          "Different attribute values",
+			expected:      `<root><child attr="expected">content</child></root>`,
+			actual:        `<root><child attr="actual">content</child></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Different attribute values should be detected",
+			description:   "Different attribute values should be detected",
 		},
 		{
-			name: "Missing child element",
-			expected: `<root><child1/><child2/></root>`,
-			actual:   `<root><child1/></root>`,
-			shouldEqual:  false,
+			name:          "Missing child element",
+			expected:      `<root><child1/><child2/></root>`,
+			actual:        `<root><child1/></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Missing child elements should be detected",
+			description:   "Missing child elements should be detected",
 		},
 		{
-			name: "Extra child element",
-			expected: `<root><child1/></root>`,
-			actual:   `<root><child1/><child2/></root>`,
-			shouldEqual:  false,
+			name:          "Extra child element",
+			expected:      `<root><child1/></root>`,
+			actual:        `<root><child1/><child2/></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Extra child elements should be detected",
+			description:   "Extra child elements should be detected",
 		},
 		{
-			name: "Namespace differences",
-			expected: `<root xmlns="http://example.com"><child>content</child></root>`,
-			actual:   `<root xmlns="http://other.com"><child>content</child></root>`,
-			shouldEqual:  false,
+			name:          "Namespace differences",
+			expected:      `<root xmlns="http://example.com"><child>content</child></root>`,
+			actual:        `<root xmlns="http://other.com"><child>content</child></root>`,
+			shouldEqual:   false,
 			expectedDiffs: 3, // Root element namespace, xmlns attribute, and child element namespace
-			description:  "Namespace differences should be detected",
+			description:   "Namespace differences should be detected",
 		},
 	}
 
@@ -117,15 +117,15 @@ func TestXMLComparatorSemanticComparison(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.Compare(tt.expected, tt.actual)
 			require.NoError(t, err, "Comparison should not error")
-			
+
 			assert.Equal(t, tt.shouldEqual, result.Equal, tt.description)
 			assert.Len(t, result.Differences, tt.expectedDiffs, "Expected %d differences, got %d", tt.expectedDiffs, len(result.Differences))
-			
+
 			// Log differences for debugging
 			if len(result.Differences) > 0 {
 				t.Logf("Differences found:")
 				for i, diff := range result.Differences {
-					t.Logf("  %d. Type: %s, Path: %s, Expected: %q, Actual: %q, Description: %s", 
+					t.Logf("  %d. Type: %s, Path: %s, Expected: %q, Actual: %q, Description: %s",
 						i+1, diff.Type, diff.Path, diff.Expected, diff.Actual, diff.Description)
 				}
 			}
@@ -135,14 +135,14 @@ func TestXMLComparatorSemanticComparison(t *testing.T) {
 
 func TestXMLComparatorWithIgnoreOptions(t *testing.T) {
 	tests := []struct {
-		name                 string
-		ignoreWhitespace     bool
-		ignoreOrder          bool
-		ignoreNamespaces     bool
-		expected             string
-		actual               string
-		shouldEqual          bool
-		description          string
+		name             string
+		ignoreWhitespace bool
+		ignoreOrder      bool
+		ignoreNamespaces bool
+		expected         string
+		actual           string
+		shouldEqual      bool
+		description      string
 	}{
 		{
 			name:             "Ignore namespaces",
@@ -179,10 +179,10 @@ func TestXMLComparatorWithIgnoreOptions(t *testing.T) {
 				IgnoreOrder:      tt.ignoreOrder,
 				IgnoreNamespaces: tt.ignoreNamespaces,
 			}
-			
+
 			result, err := comparator.Compare(tt.expected, tt.actual)
 			require.NoError(t, err, "Comparison should not error")
-			
+
 			assert.Equal(t, tt.shouldEqual, result.Equal, tt.description)
 		})
 	}
@@ -192,12 +192,12 @@ func TestXMLComparatorSOAPComparison(t *testing.T) {
 	comparator := NewXMLComparator()
 
 	tests := []struct {
-		name         string
-		expected     string
-		actual       string
-		shouldEqual  bool
+		name          string
+		expected      string
+		actual        string
+		shouldEqual   bool
 		expectedDiffs int
-		description  string
+		description   string
 	}{
 		{
 			name: "Identical SOAP requests",
@@ -217,9 +217,9 @@ func TestXMLComparatorSOAPComparison(t *testing.T) {
     </getUser>
   </soap:Body>
 </soap:Envelope>`,
-			shouldEqual:  true,
+			shouldEqual:   true,
 			expectedDiffs: 0,
-			description:  "Identical SOAP requests should be equal",
+			description:   "Identical SOAP requests should be equal",
 		},
 		{
 			name: "Different operation names",
@@ -239,9 +239,9 @@ func TestXMLComparatorSOAPComparison(t *testing.T) {
     </getUserInfo>
   </soap:Body>
 </soap:Envelope>`,
-			shouldEqual:  false,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Different operation names should be detected",
+			description:   "Different operation names should be detected",
 		},
 		{
 			name: "Different parameter values",
@@ -261,9 +261,9 @@ func TestXMLComparatorSOAPComparison(t *testing.T) {
     </getUser>
   </soap:Body>
 </soap:Envelope>`,
-			shouldEqual:  false,
+			shouldEqual:   false,
 			expectedDiffs: 1,
-			description:  "Different parameter values should be detected",
+			description:   "Different parameter values should be detected",
 		},
 		{
 			name: "RPC vs Document style namespace handling",
@@ -283,9 +283,9 @@ func TestXMLComparatorSOAPComparison(t *testing.T) {
     </tns:information>
   </soap:Body>
 </soap:Envelope>`,
-			shouldEqual:  false,
+			shouldEqual:   false,
 			expectedDiffs: 4, // Realistic: attribute order, missing xmlns, extra xmlns:tns, element name
-			description:  "Should detect the RPC namespace issue (tns: vs xmlns)",
+			description:   "Should detect the RPC namespace issue (tns: vs xmlns)",
 		},
 	}
 
@@ -293,15 +293,15 @@ func TestXMLComparatorSOAPComparison(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.CompareSOAPRequests(tt.expected, tt.actual)
 			require.NoError(t, err, "SOAP comparison should not error")
-			
+
 			assert.Equal(t, tt.shouldEqual, result.Equal, tt.description)
 			assert.Len(t, result.Differences, tt.expectedDiffs, "Expected %d differences, got %d", tt.expectedDiffs, len(result.Differences))
-			
+
 			// Log differences for debugging
 			if len(result.Differences) > 0 {
 				t.Logf("SOAP Differences found:")
 				for i, diff := range result.Differences {
-					t.Logf("  %d. Type: %s, Path: %s, Expected: %q, Actual: %q, Description: %s", 
+					t.Logf("  %d. Type: %s, Path: %s, Expected: %q, Actual: %q, Description: %s",
 						i+1, diff.Type, diff.Path, diff.Expected, diff.Actual, diff.Description)
 				}
 			}
@@ -348,10 +348,10 @@ func TestXMLComparatorComplexStructures(t *testing.T) {
 
 	result, err := comparator.CompareSOAPRequests(expected, actual)
 	require.NoError(t, err)
-	
+
 	assert.False(t, result.Equal, "Should detect differences in complex structure")
 	assert.Equal(t, 2, len(result.Differences), "Should find 2 differences (userId and format)")
-	
+
 	// Verify specific differences
 	var userIdDiff, formatDiff *Difference
 	for i := range result.Differences {
@@ -362,11 +362,11 @@ func TestXMLComparatorComplexStructures(t *testing.T) {
 			formatDiff = diff
 		}
 	}
-	
+
 	require.NotNil(t, userIdDiff, "Should detect userId difference")
 	assert.Equal(t, "123", userIdDiff.Expected)
 	assert.Equal(t, "456", userIdDiff.Actual)
-	
+
 	require.NotNil(t, formatDiff, "Should detect format difference")
 	assert.Equal(t, "json", formatDiff.Expected)
 	assert.Equal(t, "xml", formatDiff.Actual)
@@ -408,7 +408,7 @@ func TestXMLComparatorErrorHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := comparator.Compare(tt.expected, tt.actual)
-			
+
 			if tt.expectError {
 				assert.Error(t, err, tt.description)
 				assert.Nil(t, result, "Result should be nil on error")
