@@ -72,3 +72,34 @@ func TestTypesTemplate_SharedBlocksKeepPerSiteBehaviour(t *testing.T) {
 	assert.NotContains(t, derived, "DUntyped", "an extension sequence drops an untyped element")
 	assert.Regexp(t, `Id string .xml:"Id,attr,omitempty".`, derived, "extension attributes of a named type are not renamed and carry no json tag")
 }
+
+func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreNameIsExported(t *testing.T) {
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:element name="Response">
+                <xsd:complexType>
+                    <xsd:simpleContent>
+                        <xsd:extension base="xsd:string">
+                            <xsd:attribute name="_under" type="xsd:string"/>
+                            <xsd:attribute name="lang" type="xsd:string"/>
+                        </xsd:extension>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+
+	response := structBody(t, string(formatted), "Response")
+	assert.Regexp(t, `\sUnder string .xml:"_under,attr,omitempty" json:"_under,omitempty"`, response,
+		"an unexported field would be ignored by encoding/xml")
+	assert.NotRegexp(t, `\s_under string`, response)
+	assert.Regexp(t, `\sLang string .xml:"lang,attr,omitempty" json:"lang,omitempty"`, response)
+}

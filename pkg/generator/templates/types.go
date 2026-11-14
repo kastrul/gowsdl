@@ -324,9 +324,7 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 						{{if ne .Extension.Base ""}}
 							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
 						{{end}}
-						{{range .Extension.Attributes}}
-							{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-						{{end}}
+						{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false "JSON" true)}}
 					{{end}}
 				}
 
