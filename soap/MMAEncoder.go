@@ -108,6 +108,7 @@ func getMmaHeader(contentType string) (string, error) {
 func (d *mmaDecoder) Decode(v interface{}) error {
 	soapEnvResp := v.(*SOAPEnvelopeResponse)
 	attachments := make([]MIMEMultipartAttachment, 0)
+	rootDecoded := false
 	for {
 		p, err := d.reader.NextPart()
 		if err != nil {
@@ -116,13 +117,14 @@ func (d *mmaDecoder) Decode(v interface{}) error {
 			}
 			return err
 		}
-		contentType := p.Header.Get("Content-Type")
-		if contentType == "text/xml;charset=UTF-8" {
+		mediaType, _, _ := mime.ParseMediaType(p.Header.Get("Content-Type"))
+		if !rootDecoded && mediaType == "text/xml" {
 			// decode SOAP part
 			err := xml.NewDecoder(p).Decode(v)
 			if err != nil {
 				return err
 			}
+			rootDecoded = true
 		} else {
 			// decode attachment parts
 			contentID := p.Header.Get("Content-Id")
