@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/kastrul/gowsdl/pkg/http"
+	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/kastrul/gowsdl/pkg/types"
 )
@@ -80,7 +80,7 @@ func (g *Generator) resolveSchemaExternals(ctx context.Context) {
 	}
 }
 
-func (g *Generator) resolveXSDExternals(ctx context.Context, schema *parser.XSDSchema, base *http.Location, resolved map[string]bool, depth int) {
+func (g *Generator) resolveXSDExternals(ctx context.Context, schema *parser.XSDSchema, base *gowsdlhttp.Location, resolved map[string]bool, depth int) {
 	if depth >= maxSchemaImportDepth {
 		log.Printf("[WARN] schema import depth limit (%d) reached at %s", maxSchemaImportDepth, base)
 		return
@@ -137,9 +137,9 @@ func (g *Generator) appendSchema(schema *parser.XSDSchema) {
 	}
 }
 
-func (g *Generator) fetchFile(ctx context.Context, loc *http.Location) ([]byte, error) {
+func (g *Generator) fetchFile(ctx context.Context, loc *gowsdlhttp.Location) ([]byte, error) {
 	if loc.IsLocal() {
 		return loc.ReadFile()
 	}
-	return http.DownloadFile(ctx, loc.URL(), g.httpConfig)
+	return gowsdlhttp.DownloadFile(ctx, loc.URL(), g.httpConfig)
 }

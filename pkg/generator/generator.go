@@ -10,19 +10,19 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kastrul/gowsdl/pkg/http"
+	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/kastrul/gowsdl/pkg/types"
 )
 
 // Generator handles WSDL code generation
 type Generator struct {
-	loc             *http.Location
+	loc             *gowsdlhttp.Location
 	pkg             string
 	wsdl            *parser.WSDL
 	wsdl2           *parser.WSDL2
 	wsdlVersion     string // "1.1" or "2.0"
-	httpConfig      http.HTTPConfig
+	httpConfig      gowsdlhttp.HTTPConfig
 	useGenerics     bool
 	genericsOnly    bool
 	generateServer  bool
@@ -49,11 +49,11 @@ func WithPackage(pkg string) Option {
 }
 
 // WithHTTPConfig sets the HTTP configuration. A nil config, including a nil
-// *http.HTTPClientConfig, selects http.DefaultHTTPClientConfig.
-func WithHTTPConfig(config http.HTTPConfig) Option {
+// *gowsdlhttp.HTTPClientConfig, selects gowsdlhttp.DefaultHTTPClientConfig.
+func WithHTTPConfig(config gowsdlhttp.HTTPConfig) Option {
 	return func(g *Generator) error {
-		if c, ok := config.(*http.HTTPClientConfig); config == nil || (ok && c == nil) {
-			config = http.DefaultHTTPClientConfig()
+		if c, ok := config.(*gowsdlhttp.HTTPClientConfig); config == nil || (ok && c == nil) {
+			config = gowsdlhttp.DefaultHTTPClientConfig()
 		}
 		g.httpConfig = config
 		return nil
@@ -98,7 +98,7 @@ func WithServerGeneration(generate bool) Option {
 
 // New creates a new Generator instance
 func New(file string, opts ...Option) (*Generator, error) {
-	loc, err := http.ParseLocation(file)
+	loc, err := gowsdlhttp.ParseLocation(file)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func New(file string, opts ...Option) (*Generator, error) {
 	g := &Generator{
 		loc:        loc,
 		pkg:        "myservice",
-		httpConfig: http.DefaultHTTPClientConfig(),
+		httpConfig: gowsdlhttp.DefaultHTTPClientConfig(),
 		typeMapper: types.NewTypeMapper(),
 	}
 

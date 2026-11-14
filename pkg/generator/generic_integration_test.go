@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kastrul/gowsdl/pkg/http"
+	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,7 +129,7 @@ func TestGenericClientUsage(t *testing.T) {
 
 	g, err := New(wsdlPath,
 		WithPackage("testgen"),
-		WithHTTPConfig(http.DefaultHTTPClientConfig()),
+		WithHTTPConfig(gowsdlhttp.DefaultHTTPClientConfig()),
 		WithExportAllTypes(true),
 		WithServerGeneration(true),
 		WithGenerics(),

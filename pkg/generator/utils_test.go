@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kastrul/gowsdl/pkg/http"
+	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 	"github.com/kastrul/gowsdl/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +29,7 @@ func TestGeneratorOptions(t *testing.T) {
 	}{
 		{
 			name:   "WithHTTPConfig",
-			option: WithHTTPConfig(&http.HTTPClientConfig{}),
+			option: WithHTTPConfig(&gowsdlhttp.HTTPClientConfig{}),
 		},
 		{
 			name:   "WithGenerics",
