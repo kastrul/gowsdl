@@ -49,9 +49,11 @@ const OperationsWSDL2Template = `
 		}
 	}
 
+	{{$interfaceName := .Name}}
 	{{range .Operations}}
 		{{$requestType := ""}}
 		{{$responseType := ""}}
+		{{$soapAction := findWSDL2SOAPAction .Name $interfaceName}}
 		
 		{{if .Input}}
 			{{$requestType = findType .Input.Element | replaceReservedWords | makePublic}}
@@ -62,7 +64,7 @@ const OperationsWSDL2Template = `
 
 		func (service *{{$interface | makePrivate}}) {{.Name | makePublic}}Context(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
 			response := new({{$responseType}})
-			err := service.client.CallContext(ctx, "", request, response)
+			err := service.client.CallContext(ctx, {{printf "%q" $soapAction}}, request, response)
 			if err != nil {
 				return nil, err
 			}

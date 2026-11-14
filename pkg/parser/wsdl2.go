@@ -64,9 +64,12 @@ type WSDL2InterfaceFault struct {
 
 // WSDL2Binding represents a binding in WSDL 2.0
 type WSDL2Binding struct {
-	Name       string                   `xml:"name,attr"`
-	Interface  string                   `xml:"interface,attr"`
-	Type       string                   `xml:"type,attr"`
+	Name      string `xml:"name,attr"`
+	Interface string `xml:"interface,attr"`
+	Type      string `xml:"type,attr"`
+	// MEPDefault is the wsoap:mepDefault attribute: the SOAP MEP used by
+	// operations of this binding that do not set wsoap:mep themselves.
+	MEPDefault string                   `xml:"http://www.w3.org/ns/wsdl/soap mepDefault,attr"`
 	Operations []*WSDL2BindingOperation `xml:"operation"`
 	Faults     []*WSDL2BindingFault     `xml:"fault"`
 	Doc        string                   `xml:"documentation"`
@@ -74,13 +77,45 @@ type WSDL2Binding struct {
 
 // WSDL2BindingOperation represents binding details for an operation
 type WSDL2BindingOperation struct {
-	Ref            string                        `xml:"ref,attr"`
-	SOAPAction     string                        `xml:"http://www.w3.org/ns/wsdl/soap soapAction,attr"`
+	Ref string `xml:"ref,attr"`
+	// Action is the wsoap:action attribute defined by the WSDL 2.0 SOAP binding.
+	Action string `xml:"http://www.w3.org/ns/wsdl/soap action,attr"`
+	// MEP is the wsoap:mep attribute defined by the WSDL 2.0 SOAP binding.
+	MEP string `xml:"http://www.w3.org/ns/wsdl/soap mep,attr"`
+	// SOAPAction holds the non-standard wsoap:soapAction attribute.
+	//
+	// Deprecated: the WSDL 2.0 SOAP binding names this attribute wsoap:action.
+	// Use Action, or ResolvedSOAPAction to honour both names.
+	SOAPAction string `xml:"http://www.w3.org/ns/wsdl/soap soapAction,attr"`
+	// SOAPMEPDefault holds a wsoap:mepDefault attribute found on an operation.
+	//
+	// Deprecated: the WSDL 2.0 SOAP binding defines wsoap:mepDefault on the
+	// binding element and wsoap:mep on the operation. Use MEP, or
+	// ResolvedSOAPMEP to honour both names.
 	SOAPMEPDefault string                        `xml:"http://www.w3.org/ns/wsdl/soap mepDefault,attr"`
 	Input          *WSDL2BindingOperationMessage `xml:"input"`
 	Output         *WSDL2BindingOperationMessage `xml:"output"`
 	InFault        []*WSDL2BindingOperationFault `xml:"infault"`
 	OutFault       []*WSDL2BindingOperationFault `xml:"outfault"`
+}
+
+// ResolvedSOAPAction returns the operation's SOAP action, preferring the
+// spec-defined wsoap:action over the legacy wsoap:soapAction attribute.
+func (op *WSDL2BindingOperation) ResolvedSOAPAction() string {
+	if op.Action != "" {
+		return op.Action
+	}
+	return op.SOAPAction
+}
+
+// ResolvedSOAPMEP returns the operation's SOAP MEP, preferring the
+// spec-defined wsoap:mep over a legacy wsoap:mepDefault on the operation.
+// It does not fall back to the binding's MEPDefault.
+func (op *WSDL2BindingOperation) ResolvedSOAPMEP() string {
+	if op.MEP != "" {
+		return op.MEP
+	}
+	return op.SOAPMEPDefault
 }
 
 // WSDL2BindingOperationMessage represents input/output binding details
