@@ -43,6 +43,10 @@ const TypesTemplate = `
 				{{toGoType .Extension.Base false}}
 			{{end}}
 		{{end}}
+		{{template "Elements" (dict "ParentTypeName" $parentTypeName "Elements" .Extension.Sequence)}}
+		{{range .Extension.Attributes}}
+			{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{end}}
 	{{end}}
 
 	{{range $complexType.Sequence}}
@@ -161,7 +165,22 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
+{{define "InlineComplexField"}}
+	{{$el := .Element}}
+	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
+	{{$inlineTypeName := getInlineTypeName .ParentTypeName $el.Name}}
+	{{if eq $el.MaxOccurs "unbounded"}}
+		{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
+	{{else if eq $el.MinOccurs "0"}}
+		{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
+	{{else}}
+		{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
+	{{end}}
+{{end}}
+
 {{define "ComplexTypeInline"}}
+	{{$parentTypeName := .ParentTypeName}}
+	{{with .ComplexType}}
 	{{with .ComplexContent}}
 		{{if ne .Extension.Base ""}}
 			{{if eq .Extension.Base "soap:Header"}}
@@ -184,41 +203,7 @@ const TypesTemplate = `
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
-			{{/* Handle inline complex types */}}
-			{{if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
-				{{/* Optional complex type - use pointer to named type */}}
-				{{$inlineTypeName := getInlineTypeName $.Name .Name}}
-				{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else if .ComplexType.SimpleContent.Extension.Base}}
-				{{/* Simple content with attributes - use named type */}}
-				{{$inlineTypeName := getInlineTypeName $.Name .Name}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
-					{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{else if or .ComplexType.Sequence .ComplexType.Choice .ComplexType.All}}
-				{{/* Complex type with sequence/choice/all - use named type */}}
-				{{$inlineTypeName := getInlineTypeName $.Name .Name}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
-					{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{else}}
-				{{/* Regular complex type without sequence - fallback to using element name as type */}}
-				{{$typeName := .Name}}
-				{{$memberType := toGoType $typeName .Nillable}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{end}}
+			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
 		{{else if eq .Type ""}}
 			{{if .SimpleType}}
 				{{/* Element has inline simple type - use its base type */}}
@@ -266,6 +251,8 @@ const TypesTemplate = `
 			{{else}}
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
+		{{else if .ComplexType}}
+			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
 		{{else if .Type}}
 			{{$typeName := .Type | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
@@ -288,6 +275,8 @@ const TypesTemplate = `
 			{{else}}
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
+		{{else if .ComplexType}}
+			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
 		{{else if .Type}}
 			{{$typeName := .Type | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
@@ -314,6 +303,7 @@ const TypesTemplate = `
 	{{if ne (len .Any) 0}}
 		Items []string ` + "`" + `xml:",any"` + "`" + `
 	{{end}}
+	{{end}}
 {{end}}
 
 {{define "ComplexType"}}
@@ -332,7 +322,7 @@ const TypesTemplate = `
 			XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
 			{{end}}
 		{{end}}
-		{{template "ComplexTypeInline" .}}
+		{{template "ComplexTypeInline" (dict "ParentTypeName" $.Name "ComplexType" .)}}
 		{{with .ComplexContent}}
 			{{template "Elements" (dict "ParentTypeName" $.Name "Elements" .Extension.Sequence)}}
 			{{range .Extension.Attributes}}
@@ -381,7 +371,7 @@ const TypesTemplate = `
 			{{end}}
 		{{else}}
 			{{/* Pass the parent type name to handle nested inline types */}}
-			{{template "ComplexTypeInlineNamed" (dict "ParentTypeName" $inline.GeneratedName "ComplexType" $inline.ComplexType)}}
+			{{template "ComplexTypeInlineNamed" (dict "ParentTypeName" $inline.Scope "ComplexType" $inline.ComplexType)}}
 		{{end}}
 	}
 {{end}}
@@ -467,7 +457,7 @@ const TypesTemplate = `
 					{{else}}
 					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
 					{{end}}
-					{{template "ComplexTypeInline" .ComplexType}}
+					{{template "ComplexTypeInline" (dict "ParentTypeName" .Name "ComplexType" .ComplexType)}}
 				}
 				
 				{{if not isElementFormQualified}}
