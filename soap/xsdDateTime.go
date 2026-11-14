@@ -342,13 +342,13 @@ func (xt XSDTime) Location() *time.Location {
 }
 
 // CreateXsdTime creates an object representing xsd:time in Golang
-func CreateXsdTime(hour int, min int, sec int, nsec int, loc *time.Location) XSDTime {
+func CreateXsdTime(hour int, minute int, sec int, nsec int, loc *time.Location) XSDTime {
 	realLoc := loc
 	if loc == nil {
 		realLoc = time.Local
 	}
 	return XSDTime{
-		innerTime: time.Date(1951, 10, 22, hour, min, sec, nsec, realLoc),
+		innerTime: time.Date(1951, 10, 22, hour, minute, sec, nsec, realLoc),
 		hasTz:     loc != nil,
 	}
 }

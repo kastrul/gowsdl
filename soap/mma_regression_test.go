@@ -26,7 +26,7 @@ func mmaResponseServer(rootContentType string) *httptest.Server {
 		"payload\r\n"+
 		"--%[1]s--\r\n", boundary, rootContentType)
 
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", fmt.Sprintf(mmaContentType, boundary))
 		_, _ = w.Write([]byte(body))
 	}))
@@ -127,7 +127,7 @@ func TestClient_MMA_ResponseWithOtherStartParameter(t *testing.T) {
 		"NoStart":    `multipart/related; type="text/xml"; boundary=` + boundary,
 	} {
 		t.Run(name, func(t *testing.T) {
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", contentType)
 				_, _ = w.Write([]byte(body))
 			}))

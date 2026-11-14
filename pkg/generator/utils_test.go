@@ -149,7 +149,7 @@ func TestUtilityFunctions(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			result := makeValidXmlTag(tt.xmlName, tt.goName)
+			result := makeValidXMLTag(tt.xmlName, tt.goName)
 			assert.Equal(t, tt.expected, result)
 		}
 	})
