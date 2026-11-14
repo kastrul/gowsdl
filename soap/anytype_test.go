@@ -155,3 +155,81 @@ func TestAnyType_JSON(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"innerXML":"<id>7</id>"}`, string(out))
 }
+
+type wildcardDoc struct {
+	XMLName xml.Name     `xml:"doc"`
+	Known   string       `xml:"known"`
+	Items   []AnyElement `xml:",any"`
+}
+
+func TestAnyType_WildcardItemsKeepEachUnknownElement(t *testing.T) {
+	in := `<doc xmlns:e="urn:e"><known>1</known><e:a k="v">x</e:a><b><c>2</c></b></doc>`
+	var doc wildcardDoc
+	require.NoError(t, xml.Unmarshal([]byte(in), &doc))
+
+	assert.Equal(t, "1", doc.Known)
+	require.Len(t, doc.Items, 2)
+	assert.Equal(t, xml.Name{Space: "urn:e", Local: "a"}, doc.Items[0].XMLName)
+	assert.Equal(t, []xml.Attr{{Name: xml.Name{Local: "k"}, Value: "v"}}, doc.Items[0].Attrs)
+	assert.Equal(t, xml.Name{Local: "b"}, doc.Items[1].XMLName)
+
+	var text string
+	require.NoError(t, doc.Items[0].Decode(&text))
+	assert.Equal(t, "x", text)
+	var b struct {
+		C int `xml:"c"`
+	}
+	require.NoError(t, doc.Items[1].Decode(&b))
+	assert.Equal(t, 2, b.C)
+
+	out, err := xml.Marshal(doc)
+	require.NoError(t, err)
+	var again wildcardDoc
+	require.NoError(t, xml.Unmarshal(out, &again), "output: %s", out)
+	require.Len(t, again.Items, 2, "output: %s", out)
+	assert.Equal(t, doc.Items[0].XMLName, again.Items[0].XMLName)
+	assert.Equal(t, doc.Items[1].XMLName, again.Items[1].XMLName)
+	require.NoError(t, again.Items[1].Decode(&b))
+	assert.Equal(t, 2, b.C)
+}
+
+type extension struct {
+	XMLName xml.Name `xml:"urn:e ext"`
+	N       int      `xml:"n"`
+}
+
+func TestAnyType_WildcardItemNaming(t *testing.T) {
+	doc := wildcardDoc{Items: []AnyElement{
+		{Value: extension{N: 1}},
+		{Value: extension{N: 2}, Attrs: []xml.Attr{{Name: xml.Name{Local: "k"}, Value: "v"}}},
+		{XMLName: xml.Name{Local: "raw"}, InnerXML: "<z></z>"},
+		{XMLName: xml.Name{Space: "urn:x", Local: "named"}, Value: plainItem{ID: 3}},
+	}}
+
+	out, err := xml.Marshal(doc)
+	require.NoError(t, err)
+
+	var back struct {
+		Ext []struct {
+			K string `xml:"k,attr"`
+			N int    `xml:"n"`
+		} `xml:"urn:e ext"`
+		Raw   string `xml:"raw>z"`
+		Named struct {
+			ID int `xml:"id"`
+		} `xml:"urn:x named"`
+	}
+	require.NoError(t, xml.Unmarshal(out, &back), "output: %s", out)
+	require.Len(t, back.Ext, 2, "output: %s", out)
+	assert.Equal(t, 1, back.Ext[0].N)
+	assert.Equal(t, 2, back.Ext[1].N)
+	assert.Equal(t, "v", back.Ext[1].K)
+	assert.NotContains(t, string(out), "<AnyType", "an item must never be named after the Go type")
+	assert.Contains(t, string(out), "<raw><z></z></raw>")
+	assert.Equal(t, 3, back.Named.ID)
+}
+
+func TestAnyElement_NeedsAName(t *testing.T) {
+	_, err := xml.Marshal(wildcardDoc{Items: []AnyElement{{InnerXML: "<z></z>"}}})
+	require.ErrorIs(t, err, errAnyElementName)
+}
