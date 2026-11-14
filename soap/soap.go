@@ -617,7 +617,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		return err
 	}
 
-	if respEnvelope.Attachments != nil {
+	if respEnvelope.Attachments != nil && retAttachments != nil {
 		*retAttachments = respEnvelope.Attachments
 	}
 	return respEnvelope.Body.ErrorFromFault()
