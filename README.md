@@ -11,13 +11,13 @@ Generates idiomatic Go code from WSDL files with support for WSDL 1.1, WSDL 2.0,
 
 ### Requirements
 
-* Go 1.24 or higher
+* Go 1.27 or higher
 
 ### Install
 
 * [Download release](https://github.com/kastrul/gowsdl/releases)
 * Download and build locally
-    * Go 1.24+: `go install github.com/kastrul/gowsdl/cmd/gowsdl@latest`
+    * Go 1.27+: `go install github.com/kastrul/gowsdl/cmd/gowsdl@latest`
 * Install from Homebrew: `brew install gowsdl`
 
 ### Goals
@@ -268,7 +268,7 @@ gowsdl/
 - **Context support** for cancellation and timeouts
 - **Wrapped errors** with contextual information
 - **Custom error types** for better error handling
-- **Go 1.24+ compatibility** with latest Go idioms
+- **Go 1.27+ compatibility** with latest Go idioms
 
 #### HTTP Client Configuration
 - Configurable timeouts and retries
