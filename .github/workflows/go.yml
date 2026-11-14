@@ -48,7 +48,8 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           only-new-issues: false
-          version: latest
+          version: v2.15.0
+          install-mode: goinstall
           skip-cache: false  # Disable built-in cache to use our custom cache
           problem-matchers: true
 
