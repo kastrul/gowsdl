@@ -6,6 +6,7 @@ package soap
 
 import (
 	"encoding/xml"
+	"errors"
 	"slices"
 	"strconv"
 	"strings"
@@ -21,7 +22,9 @@ import (
 // unmarshal it into a concrete type, or inspect Attrs first to find its
 // xsi:type.
 //
-// A zero AnyType is omitted when encoded, like a nil interface value.
+// A zero AnyType is omitted when encoded, like a nil interface value. The
+// element is named by the field it is in; see AnyElement for the items of
+// an xs:any wildcard.
 type AnyType struct {
 	// Value is encoded as the element's content. Decoding does not set it.
 	Value any `json:"value,omitempty"`
@@ -55,6 +58,10 @@ func (a AnyType) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	if a.IsZero() {
 		return nil
 	}
+	return a.encode(e, start)
+}
+
+func (a AnyType) encode(e *xml.Encoder, start xml.StartElement) error {
 	start.Attr = append(start.Attr, encodableAttrs(a.Attrs)...)
 	if a.Value != nil {
 		return e.EncodeElement(a.Value, start)
@@ -109,6 +116,69 @@ func (a AnyType) Decode(v any) error {
 	w.raw(a.InnerXML)
 	w.end()
 	return xml.Unmarshal([]byte(w.String()), v)
+}
+
+// AnyElement is an element matched by an xs:any wildcard, generated as
+// Items []AnyElement `xml:",any"`. Each unknown element is received into one
+// item, with the same fields and Decode method as AnyType.
+//
+// Unlike AnyType, an item names itself when encoded: by XMLName when set,
+// otherwise by Value, through Value's own XMLName field or type name.
+type AnyElement AnyType
+
+// IsZero reports whether a holds no value, attributes or content.
+func (a AnyElement) IsZero() bool {
+	return AnyType(a).IsZero()
+}
+
+// Decode unmarshals the element into v. See AnyType.Decode.
+func (a AnyElement) Decode(v any) error {
+	return AnyType(a).Decode(v)
+}
+
+// UnmarshalXML records the element. See AnyType.UnmarshalXML.
+func (a *AnyElement) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	return (*AnyType)(a).UnmarshalXML(d, start)
+}
+
+// MarshalXML encodes the element under its own name, ignoring start, whose
+// name is only the Go field name of the wildcard. It writes nothing for a
+// zero AnyElement.
+func (a AnyElement) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+	t := AnyType(a)
+	switch {
+	case t.IsZero():
+		return nil
+	case t.XMLName.Local != "":
+		return t.encode(e, xml.StartElement{Name: t.XMLName})
+	case t.Value == nil:
+		return errAnyElementName
+	}
+	start, err := valueStart(t.Value)
+	if err != nil {
+		return err
+	}
+	return t.encode(e, start)
+}
+
+var errAnyElementName = errors.New("soap: AnyElement needs XMLName or Value to name the element")
+
+// valueStart returns the start element v is encoded with on its own.
+func valueStart(v any) (xml.StartElement, error) {
+	var buf strings.Builder
+	if err := xml.NewEncoder(&buf).Encode(v); err != nil {
+		return xml.StartElement{}, err
+	}
+	d := xml.NewDecoder(strings.NewReader(buf.String()))
+	for {
+		tok, err := d.Token()
+		if err != nil {
+			return xml.StartElement{}, err
+		}
+		if start, ok := tok.(xml.StartElement); ok {
+			return xml.StartElement{Name: start.Name}, nil
+		}
+	}
 }
 
 // encodableAttrs prepares attributes for xml.Encoder. Prefixed namespace

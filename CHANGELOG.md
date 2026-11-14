@@ -12,6 +12,13 @@ not compile or did not work before.
 
 ### Added
 
+- `soap.AnyType` holds an `xsd:anyType` element: `Decode(&v)` unmarshals a
+  received element, `Value` is encoded when sending, and a zero value is
+  omitted. Received content is kept as self-contained XML, so namespace
+  prefixes the server declared on the SOAP envelope still resolve.
+- `soap.AnyElement` holds one element matched by an `xs:any` wildcard. It
+  works like `soap.AnyType` and, when encoded, is named by its `XMLName` or by
+  its `Value`.
 - `soap.Result.Err` holds the error a call failed with: the `*SOAPFault` for a
   SOAP fault, the original error for a transport error. `SOAPFault.Unwrap`
   exposes the cause of a synthetic transport fault, so `errors.Is` and
@@ -36,6 +43,16 @@ not compile or did not work before.
   union nor a restriction base (an empty one, or an `xs:list`) is now declared
   as `string` instead of `any`. `encoding/xml` silently left the `any` value
   nil when decoding, so the element's text was lost.
+- **Regenerate.** `xsd:anyType` fields are `soap.AnyType` instead of `any`,
+  and a global element of type `anyType` is a defined type over it.
+  `encoding/xml` silently left `any` fields nil when decoding, so their
+  content was lost. Assign values as `soap.AnyType{Value: v}`.
+- **Regenerate.** `xsd:anySimpleType` fields are `string` instead of `any`,
+  for the same reason.
+- **Regenerate.** The `Items` field of a type with an `xs:any` wildcard is
+  `[]soap.AnyElement` instead of `[]string`. Each item keeps the unknown
+  element's name, attributes and full content; before, only its text was
+  kept, and items could not be sent with a name.
 - Every generated `TargetNamespace` method has a doc comment.
 - The library uses the Go 1.26/1.27 idioms suggested by `go fix`. Exported
   signatures are unchanged.

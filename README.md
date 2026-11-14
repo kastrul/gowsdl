@@ -176,7 +176,7 @@ type UserServicePortType interface {
 
 Operations that cannot use the generic client keep their standard methods: RPC-style port types, WSDL 2.0 files, and operations without a request or response type.
 
-### xsd:anyType Fields
+### xsd:anyType and xs:any Fields
 
 Elements declared as `xsd:anyType` are generated as `soap.AnyType`. A received element keeps its content as self-contained XML, so you can decode it once you know its type:
 
@@ -194,6 +194,20 @@ req.Value = soap.AnyType{Value: Item{ID: 7}}
 ```
 
 An unset `soap.AnyType` field is left out of the request. `xsd:anySimpleType` is generated as `string`.
+
+A type with an `xs:any` wildcard gets an `Items []soap.AnyElement` field holding every element the schema doesn't name. Each item works like `soap.AnyType`, and names itself when sent:
+
+```go
+for _, item := range resp.Items {
+    if item.XMLName.Space == "urn:example:ext" && item.XMLName.Local == "flag" {
+        var flag Flag
+        _ = item.Decode(&flag)
+    }
+}
+
+// Sending: named by XMLName, or else by Value's own XMLName or type name
+req.Items = []soap.AnyElement{{Value: Flag{On: true}}}
+```
 
 ### New Features
 

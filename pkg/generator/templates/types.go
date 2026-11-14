@@ -190,7 +190,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{template "AttributeFields" $complexType.Attributes}}
 
 	{{if ne (len $complexType.Any) 0}}
-		Items []string ` + "`" + `xml:",any"` + "`" + `
+		Items []soap.AnyElement ` + "`" + `xml:",any"` + "`" + `
 	{{end}}
 {{end}}
 
@@ -206,7 +206,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{template "AttributeFields" .Attributes}}
 
 	{{if ne (len .Any) 0}}
-		Items []string ` + "`" + `xml:",any"` + "`" + `
+		Items []soap.AnyElement ` + "`" + `xml:",any"` + "`" + `
 	{{end}}
 	{{end}}
 {{end}}
