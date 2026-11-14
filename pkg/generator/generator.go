@@ -16,12 +16,12 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/enthus-golang/gowsdl/pkg/core"
-	"github.com/enthus-golang/gowsdl/pkg/generator/templates"
-	"github.com/enthus-golang/gowsdl/pkg/http"
-	"github.com/enthus-golang/gowsdl/pkg/parser"
-	"github.com/enthus-golang/gowsdl/pkg/types"
-	"github.com/enthus-golang/gowsdl/pkg/utils"
+	"github.com/kastrul/gowsdl/pkg/core"
+	"github.com/kastrul/gowsdl/pkg/generator/templates"
+	"github.com/kastrul/gowsdl/pkg/http"
+	"github.com/kastrul/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/types"
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // Generator handles WSDL code generation

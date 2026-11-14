@@ -10,7 +10,7 @@ import (
 	
 	// Import your generated package
 	// "your-module/generated"
-	"github.com/enthus-golang/gowsdl/soap"
+	"github.com/kastrul/gowsdl/soap"
 )
 
 // DemonstrateNamespaceFix demonstrates the fix for namespace handling when elementFormDefault is unqualified

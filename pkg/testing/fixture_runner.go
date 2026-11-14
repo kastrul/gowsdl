@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/enthus-golang/gowsdl/pkg/generator"
+	"github.com/kastrul/gowsdl/pkg/generator"
 )
 
 // FixtureTestCase represents a complete test case from fixtures
@@ -341,7 +341,7 @@ import (
 	"strings"
 	"time"
 	
-	"github.com/enthus-golang/gowsdl/soap"
+	"github.com/kastrul/gowsdl/soap"
 )
 
 // CaptureTransport captures SOAP requests

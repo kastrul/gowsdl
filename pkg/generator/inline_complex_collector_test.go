@@ -7,7 +7,7 @@ package generator
 import (
 	"testing"
 
-	"github.com/enthus-golang/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

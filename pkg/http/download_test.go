@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/enthus-golang/gowsdl/pkg/types"
+	"github.com/kastrul/gowsdl/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

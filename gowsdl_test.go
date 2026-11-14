@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/enthus-golang/gowsdl/pkg/generator"
+	"github.com/kastrul/gowsdl/pkg/generator"
 )
 
 func TestElementGenerationDoesntCommentOutStructProperty(t *testing.T) {

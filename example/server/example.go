@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/enthus-golang/gowsdl/example/server/gen"
-	"github.com/enthus-golang/gowsdl/soap"
+	"github.com/kastrul/gowsdl/example/server/gen"
+	"github.com/kastrul/gowsdl/soap"
 )
 
 var done = make(chan struct{})
