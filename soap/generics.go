@@ -194,12 +194,6 @@ func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TRe
 		case <-ctx.Done():
 			// Context cancelled, create error results for remaining requests
 			cancel() // Cancel all pending requests
-			// Drain any remaining results to prevent goroutine leaks
-			go func() {
-				for range ch {
-					// Drain channel
-				}
-			}()
 			// Fill remaining results with context error
 			for j := 0; j < len(requests); j++ {
 				// Check if this result hasn't been received yet
