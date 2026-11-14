@@ -66,4 +66,3 @@ func TestHTTPClientConfigBuild(t *testing.T) {
 		t.Errorf("Expected client timeout %v, got %v", config.Timeout, client.Timeout)
 	}
 }
-

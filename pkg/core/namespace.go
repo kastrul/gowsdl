@@ -35,13 +35,13 @@ func NewNamespaceManager() *NamespaceManager {
 func (nm *NamespaceManager) AddNamespace(prefix, uri string) {
 	nm.mu.Lock()
 	defer nm.mu.Unlock()
-	
+
 	// Check if URI already has a prefix
 	if existingPrefix, exists := nm.prefixes[uri]; exists && existingPrefix != prefix {
 		// Namespace collision - generate unique prefix
 		prefix = nm.generateUniquePrefix(prefix)
 	}
-	
+
 	nm.namespaces[prefix] = uri
 	nm.prefixes[uri] = prefix
 }
@@ -99,11 +99,11 @@ func (nm *NamespaceManager) GenerateQName(namespace, localName string) string {
 	if namespace == "" {
 		return localName
 	}
-	
+
 	if prefix, ok := nm.GetPrefix(namespace); ok && prefix != "" {
 		return fmt.Sprintf("%s:%s", prefix, localName)
 	}
-	
+
 	return localName
 }
 
@@ -117,20 +117,20 @@ func (nm *NamespaceManager) generateUniquePrefix(base string) string {
 func (nm *NamespaceManager) Clone() *NamespaceManager {
 	nm.mu.RLock()
 	defer nm.mu.RUnlock()
-	
+
 	clone := &NamespaceManager{
 		namespaces: make(map[string]string),
 		prefixes:   make(map[string]string),
 		counter:    nm.counter,
 	}
-	
+
 	for prefix, uri := range nm.namespaces {
 		clone.namespaces[prefix] = uri
 	}
 	for uri, prefix := range nm.prefixes {
 		clone.prefixes[uri] = prefix
 	}
-	
+
 	return clone
 }
 
@@ -138,7 +138,7 @@ func (nm *NamespaceManager) Clone() *NamespaceManager {
 func (nm *NamespaceManager) GetAllNamespaces() map[string]string {
 	nm.mu.RLock()
 	defer nm.mu.RUnlock()
-	
+
 	result := make(map[string]string)
 	for prefix, uri := range nm.namespaces {
 		result[prefix] = uri

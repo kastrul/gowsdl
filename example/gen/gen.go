@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"time"
 
-	"github.com/enthus-golang/gowsdl/soap"
+	"github.com/kastrul/gowsdl/soap"
 )
 
 // against "unused imports"

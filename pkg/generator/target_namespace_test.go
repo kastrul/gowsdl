@@ -12,12 +12,12 @@ import (
 
 func TestTargetNamespaceMethodGeneration(t *testing.T) {
 	tests := []struct {
-		name                   string
-		wsdl                   string
-		expectedInCheckV1      bool
-		expectedInResponse     bool
-		expectedNamespace      string
-		elementFormDefault     string
+		name               string
+		wsdl               string
+		expectedInCheckV1  bool
+		expectedInResponse bool
+		expectedNamespace  string
+		elementFormDefault string
 	}{
 		{
 			name: "unqualified_schema_with_message_elements",
@@ -138,7 +138,7 @@ func TestTargetNamespaceMethodGeneration(t *testing.T) {
         </operation>
     </portType>
 </definitions>`,
-			expectedInCheckV1:  true, // UsedRequestType should have TargetNamespace
+			expectedInCheckV1:  true,  // UsedRequestType should have TargetNamespace
 			expectedInResponse: false, // UnusedType should NOT have TargetNamespace
 			expectedNamespace:  "http://example.com/unused",
 			elementFormDefault: "unqualified",
@@ -154,23 +154,23 @@ func TestTargetNamespaceMethodGeneration(t *testing.T) {
 				_ = tempFile.Close()
 				_ = os.Remove(tempFile.Name())
 			}()
-			
+
 			_, err = tempFile.Write([]byte(tt.wsdl))
 			require.NoError(t, err)
-			
+
 			// Create generator with the temp file
 			g, err := New(tempFile.Name(), WithPackage("test"))
 			require.NoError(t, err)
-			
+
 			files, err := g.Generate(context.Background())
 			require.NoError(t, err)
 			require.NotNil(t, files)
-			
+
 			typesContent, exists := files["types"]
 			require.True(t, exists, "types file should be generated")
-			
+
 			typesStr := string(typesContent)
-			
+
 			// Check for TargetNamespace method based on test expectations
 			if tt.expectedInCheckV1 {
 				// For unqualified schemas, we expect TargetNamespace method
@@ -178,7 +178,7 @@ func TestTargetNamespaceMethodGeneration(t *testing.T) {
 				assert.Contains(t, typesStr, "TargetNamespace() string", "Should contain TargetNamespace method signature")
 				assert.Contains(t, typesStr, "return \""+tt.expectedNamespace+"\"", "Should return correct namespace")
 			}
-			
+
 			// Verify that qualified schemas don't generate TargetNamespace method
 			if tt.elementFormDefault == "qualified" {
 				assert.NotContains(t, typesStr, "TargetNamespace() string", "Qualified schemas should not have TargetNamespace method")
@@ -234,32 +234,32 @@ func TestTargetNamespaceMethodForMessageElements(t *testing.T) {
 		_ = tempFile.Close()
 		_ = os.Remove(tempFile.Name())
 	}()
-	
+
 	_, err = tempFile.Write([]byte(wsdl))
 	require.NoError(t, err)
-	
+
 	// Create generator with the temp file
 	g, err := New(tempFile.Name(), WithPackage("test"))
 	require.NoError(t, err)
-	
+
 	files, err := g.Generate(context.Background())
 	require.NoError(t, err)
-	
+
 	typesContent := string(files["types"])
-	
+
 	// Check that the wrapper types have TargetNamespace method
 	// The generator creates element wrapper types (CheckV1) that embed the complex types (CheckV1Type)
 	assert.Contains(t, typesContent, "type CheckV1 struct")
 	assert.Contains(t, typesContent, "type CheckV1Type struct")
-	
+
 	// Check for the TargetNamespace method on the wrapper type CheckV1
 	assert.Contains(t, typesContent, "func (t CheckV1) TargetNamespace() string", "CheckV1 should have TargetNamespace method")
 	assert.Contains(t, typesContent, `return "http://b2b.also.com/ActWebServices.PriceAvailability"`, "Should return correct namespace")
-	
+
 	// Check that CheckV1Response also has TargetNamespace method
 	assert.Contains(t, typesContent, "type CheckV1Response struct")
 	assert.Contains(t, typesContent, "func (t CheckV1Response) TargetNamespace() string", "CheckV1Response should have TargetNamespace method")
-	
+
 	// Verify XMLName is set correctly on wrapper types
 	assert.Contains(t, typesContent, `XMLName xml.Name `+"`"+`xml:"tns:checkV1"`+"`", "CheckV1 should have XMLName with tns: prefix")
 	assert.Contains(t, typesContent, `XMLName xml.Name `+"`"+`xml:"checkV1Response"`+"`", "CheckV1Response should have XMLName without prefix")
@@ -328,26 +328,26 @@ func TestTargetNamespaceIntegrationWithSOAPClient(t *testing.T) {
 		_ = tempFile.Close()
 		_ = os.Remove(tempFile.Name())
 	}()
-	
+
 	_, err = tempFile.Write([]byte(wsdl))
 	require.NoError(t, err)
-	
+
 	// Create generator with the temp file
 	g, err := New(tempFile.Name(), WithPackage("test"))
 	require.NoError(t, err)
-	
+
 	files, err := g.Generate(context.Background())
 	require.NoError(t, err)
-	
+
 	// Verify types file contains TargetNamespace method
 	typesContent := string(files["types"])
 	// The TargetNamespace method is on the wrapper type Echo, not EchoType
 	assert.Contains(t, typesContent, "func (t Echo) TargetNamespace() string")
 	assert.Contains(t, typesContent, `return "http://integration.test/soap"`)
-	
+
 	// Verify XMLName is generated with proper namespace prefix
 	assert.Contains(t, typesContent, `XMLName xml.Name `+"`"+`xml:"tns:Echo"`+"`")
-	
+
 	// Verify response uses local name for flexibility
 	assert.Contains(t, typesContent, `XMLName xml.Name `+"`"+`xml:"EchoResponse"`+"`")
 }
@@ -403,30 +403,30 @@ func TestTargetNamespaceNotGeneratedForNonMessageTypes(t *testing.T) {
 		_ = tempFile.Close()
 		_ = os.Remove(tempFile.Name())
 	}()
-	
+
 	_, err = tempFile.Write([]byte(wsdl))
 	require.NoError(t, err)
-	
+
 	// Create generator with the temp file
 	g, err := New(tempFile.Name(), WithPackage("test"))
 	require.NoError(t, err)
-	
+
 	files, err := g.Generate(context.Background())
 	require.NoError(t, err)
-	
+
 	typesContent := string(files["types"])
-	
+
 	// The wrapper type UsedElement (created from the element) should have TargetNamespace method
 	assert.Contains(t, typesContent, "type UsedElement struct")
 	assert.Contains(t, typesContent, "func (t UsedElement) TargetNamespace() string", "UsedElement should have TargetNamespace")
-	
+
 	// Check that UnusedType does NOT have TargetNamespace method
 	unusedTypeIdx := strings.Index(typesContent, "type UnusedType struct")
 	require.Greater(t, unusedTypeIdx, -1)
-	
+
 	// Find the next type or func definition after UnusedType to limit our search
 	afterUnusedType := typesContent[unusedTypeIdx:]
-	
+
 	// Look for the closing brace of the struct
 	braceIdx := strings.Index(afterUnusedType, "}")
 	if braceIdx > 0 && braceIdx < 500 { // Reasonable limit for a struct definition

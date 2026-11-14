@@ -1,23 +1,23 @@
 # WSDL to Go
 
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hooklift/gowsdl?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![GoDoc](https://godoc.org/github.com/enthus-golang/gowsdl?status.svg)](https://godoc.org/github.com/enthus-golang/gowsdl)
-[![Build Status](https://github.com/enthus-golang/gowsdl/workflows/Go/badge.svg)](https://github.com/enthus-golang/gowsdl/actions)
-[![codecov](https://codecov.io/gh/enthus-golang/gowsdl/branch/main/graph/badge.svg)](https://codecov.io/gh/enthus-golang/gowsdl)
-[![Go Report Card](https://goreportcard.com/badge/github.com/enthus-golang/gowsdl)](https://goreportcard.com/report/github.com/enthus-golang/gowsdl)
+[![GoDoc](https://godoc.org/github.com/kastrul/gowsdl?status.svg)](https://godoc.org/github.com/kastrul/gowsdl)
+[![Build Status](https://github.com/kastrul/gowsdl/workflows/Go/badge.svg)](https://github.com/kastrul/gowsdl/actions)
+[![codecov](https://codecov.io/gh/kastrul/gowsdl/branch/main/graph/badge.svg)](https://codecov.io/gh/kastrul/gowsdl)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kastrul/gowsdl)](https://goreportcard.com/report/github.com/kastrul/gowsdl)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
 Generates idiomatic Go code from WSDL files with support for WSDL 1.1, WSDL 2.0, and modern Go features including generics.
 
 ### Requirements
 
-* Go 1.21 or higher
+* Go 1.24 or higher
 
 ### Install
 
-* [Download release](https://github.com/enthus-golang/gowsdl/releases)
+* [Download release](https://github.com/kastrul/gowsdl/releases)
 * Download and build locally
-    * Go 1.21+: `go install github.com/enthus-golang/gowsdl/cmd/gowsdl@latest`
+    * Go 1.24+: `go install github.com/kastrul/gowsdl/cmd/gowsdl@latest`
 * Install from Homebrew: `brew install gowsdl`
 
 ### Goals
@@ -161,7 +161,7 @@ When working with local WSDL files that reference external schemas:
 
 ### Implementation Status
 
-This implementation addresses all the features requested in [issue #10](https://github.com/enthus-golang/gowsdl/issues/10), including the original TODOs:
+This implementation addresses all the features requested in [issue #10](https://github.com/kastrul/gowsdl/issues/10), including the original TODOs:
 
 - ✅ **Support for generating namespaces** (main.go:41) - Complete namespace management system
 - ✅ **Resolve XSD element references** (main.go:39) - Full element reference resolution
@@ -210,7 +210,7 @@ gowsdl/
 - **Context support** for cancellation and timeouts
 - **Wrapped errors** with contextual information
 - **Custom error types** for better error handling
-- **Go 1.21+ compatibility** with latest Go idioms
+- **Go 1.24+ compatibility** with latest Go idioms
 
 #### HTTP Client Configuration
 - Configurable timeouts and retries

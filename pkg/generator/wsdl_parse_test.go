@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/enthus-golang/gowsdl/pkg/types"
+	"github.com/kastrul/gowsdl/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +24,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 		check       func(t *testing.T, g *Generator)
 	}{
 		{
-			name: "empty WSDL",
+			name:        "empty WSDL",
 			wsdlContent: `<?xml version="1.0" encoding="UTF-8"?>`,
 			wantErr:     true,
 			errContains: "unable to determine WSDL version",
@@ -319,7 +319,7 @@ func BenchmarkWSDLParsing(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		// Generate will call unmarshal internally
 		_, err = g.Generate(context.Background())
 		if err != nil {

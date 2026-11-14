@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package testing
@@ -115,7 +116,7 @@ func TestFixtureRunnerWithRealCode(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`
 
-	requestPath := filepath.Join(fixtureDir, "simple_request.xml") 
+	requestPath := filepath.Join(fixtureDir, "simple_request.xml")
 	require.NoError(t, ioutil.WriteFile(requestPath, []byte(expectedRequest), 0644))
 
 	// Create test data

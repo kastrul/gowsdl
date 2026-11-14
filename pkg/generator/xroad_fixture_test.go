@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/enthus-golang/gowsdl/pkg/parser"
-	"github.com/enthus-golang/gowsdl/pkg/types"
+	"github.com/kastrul/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/types"
 )
 
 func generateXRoadFixture(t *testing.T) string {
@@ -54,7 +54,7 @@ func TestGenerator_XRoad_GeneratedCodeCompiles(t *testing.T) {
 	dir := t.TempDir()
 	client := string(out["header"]) + string(out["types"]) + string(out["operations"])
 	server := string(out["server_header"]) + string(out["server_wsdl"]) + string(out["server"])
-	goMod := "module xroad\n\ngo 1.21\n\nrequire github.com/enthus-golang/gowsdl v0.0.0\n\nreplace github.com/enthus-golang/gowsdl => " + root + "\n"
+	goMod := "module xroad\n\ngo 1.21\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
 	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
 	require.NoError(t, err)
 

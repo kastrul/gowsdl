@@ -14,9 +14,9 @@ func TestElementReferenceResolution(t *testing.T) {
 		},
 		Elements: []*XSDElement{
 			{
-				Name:     "GlobalElement",
-				Type:     "xsd:string",
-				Nillable: true,
+				Name:      "GlobalElement",
+				Type:      "xsd:string",
+				Nillable:  true,
 				MinOccurs: "0",
 				MaxOccurs: "1",
 			},
@@ -36,7 +36,7 @@ func TestElementReferenceResolution(t *testing.T) {
 	schema2 := &XSDSchema{
 		TargetNamespace: "http://example.com/schema2",
 		Xmlns: map[string]string{
-			"s1": "http://example.com/schema1",
+			"s1":  "http://example.com/schema1",
 			"xsd": "http://www.w3.org/2001/XMLSchema",
 		},
 		ComplexTypes: []*XSDComplexType{
@@ -52,16 +52,16 @@ func TestElementReferenceResolution(t *testing.T) {
 	}
 
 	schemas := []*XSDSchema{schema1, schema2}
-	
+
 	// Test element reference resolution
 	t.Run("ResolveElementReference", func(t *testing.T) {
 		traverser := NewTraverser(schema1, schemas)
 		traverser.Traverse()
-		
+
 		// Check if the reference was resolved
 		complexType := schema1.ComplexTypes[0]
 		element := complexType.Sequence[0]
-		
+
 		if element.Name != "GlobalElement" {
 			t.Errorf("Expected element name to be 'GlobalElement', got '%s'", element.Name)
 		}
@@ -76,11 +76,11 @@ func TestElementReferenceResolution(t *testing.T) {
 	t.Run("CrossSchemaElementReference", func(t *testing.T) {
 		traverser := NewTraverser(schema2, schemas)
 		traverser.Traverse()
-		
+
 		// Check if the cross-schema reference was resolved
 		complexType := schema2.ComplexTypes[0]
 		element := complexType.Sequence[0]
-		
+
 		if element.Name != "GlobalElement" {
 			t.Errorf("Expected element name to be 'GlobalElement', got '%s'", element.Name)
 		}
@@ -118,14 +118,14 @@ func TestElementReferenceResolution(t *testing.T) {
 				},
 			},
 		}
-		
+
 		traverser := NewTraverser(schema3, []*XSDSchema{schema3})
 		traverser.Traverse()
-		
+
 		// Check if complex type was copied
 		complexType := schema3.ComplexTypes[0]
 		element := complexType.Sequence[0]
-		
+
 		if element.ComplexType == nil {
 			t.Error("Expected element to have ComplexType")
 		}

@@ -51,9 +51,9 @@ func TestManager_GetOperationsTemplate(t *testing.T) {
 	}
 
 	manager := NewManager(funcMap)
-	
+
 	// Since UnifiedOperationsTemplate requires specific functions,
-	// we can only test template creation when the actual template 
+	// we can only test template creation when the actual template
 	// functions are available
 	tmpl, err := manager.GetOperationsTemplate()
 
@@ -182,7 +182,7 @@ func TestManager_GetGenericOperationsTemplate(t *testing.T) {
 func TestManager_TemplateExecution(t *testing.T) {
 	// Test that templates can be executed when they have actual content
 	// This test uses the actual UnifiedOperationsTemplate if it exists
-	
+
 	funcMap := template.FuncMap{
 		"replaceReservedWords": func(s string) string {
 			// Simple implementation for testing
@@ -208,10 +208,10 @@ func TestManager_TemplateExecution(t *testing.T) {
 	}
 
 	manager := NewManager(funcMap)
-	
+
 	t.Run("operations template with functions", func(t *testing.T) {
 		tmpl, err := manager.GetOperationsTemplate()
-		
+
 		// Since UnifiedOperationsTemplate requires specific functions,
 		// we expect an error in test environment
 		if err != nil {
@@ -283,7 +283,7 @@ func TestManager_MultipleFunctionMaps(t *testing.T) {
 	for _, tt := range templates {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpl, err := tt.getter()
-			
+
 			// Some templates may require specific functions we don't have in tests
 			if err != nil && (tt.name == "operations" || tt.name == "generic_operations") {
 				assert.Contains(t, err.Error(), "function")

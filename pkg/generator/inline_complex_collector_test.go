@@ -7,7 +7,7 @@ package generator
 import (
 	"testing"
 
-	"github.com/enthus-golang/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -127,11 +127,11 @@ func TestCollectFromComplexType(t *testing.T) {
 				},
 			},
 			expectedTypes: map[string]string{
-				"RootType_level1":            "RootTypeLevel1Type",
+				"RootType_level1":           "RootTypeLevel1Type",
 				"RootTypeLevel1Type_level2": "RootTypeLevel1TypeLevel2Type",
 			},
 			expectedOptional: map[string]bool{
-				"RootType_level1":            false,
+				"RootType_level1":           false,
 				"RootTypeLevel1Type_level2": true,
 			},
 		},
@@ -147,11 +147,11 @@ func TestCollectFromComplexType(t *testing.T) {
 				it, ok := inlineTypes[key]
 				require.True(t, ok, "Expected inline type with key %s", key)
 				assert.Equal(t, expectedName, it.GeneratedName)
-				
+
 				// Check optional status
 				if expectedOptional, hasOptional := tt.expectedOptional[key]; hasOptional {
 					isOptional := IsOptionalType(it.MinOccurs, it.MaxOccurs)
-					assert.Equal(t, expectedOptional, isOptional, 
+					assert.Equal(t, expectedOptional, isOptional,
 						"Type %s optional status mismatch", key)
 				}
 			}
@@ -308,7 +308,7 @@ func TestCollectInlineComplexTypesWithSimpleContent(t *testing.T) {
 	}
 
 	inlineTypes := CollectInlineComplexTypes(schemas)
-	
+
 	// Should find the inline simple content type
 	key := "PriceType_amount"
 	it, ok := inlineTypes[key]
@@ -343,7 +343,7 @@ func TestCollectInlineComplexTypesFromElements(t *testing.T) {
 	}
 
 	inlineTypes := CollectInlineComplexTypes(schemas)
-	
+
 	// Should find the inline type within the element
 	key := "CreateOrderRequest_orderDetails"
 	it, ok := inlineTypes[key]

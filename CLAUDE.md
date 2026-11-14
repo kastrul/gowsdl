@@ -161,7 +161,7 @@ if err != nil {
 
 ## Dependencies
 
-- Go 1.21+ required
+- Go 1.24+ required
 - Minimal external dependencies
 - Main testing dependency: `github.com/stretchr/testify`
 

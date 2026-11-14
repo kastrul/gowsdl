@@ -53,7 +53,7 @@ func (c *GenericClient[TReq, TResp]) Call(ctx context.Context, request TReq) (*T
 func (c *GenericClient[TReq, TResp]) CallWithFault(ctx context.Context, request TReq) (*TResp, *SOAPFault, error) {
 	var response TResp
 	err := c.client.CallContext(ctx, c.action, request, &response)
-	
+
 	// Check if error is a SOAP fault
 	if err != nil {
 		if fault, ok := err.(*SOAPFault); ok {
@@ -61,7 +61,7 @@ func (c *GenericClient[TReq, TResp]) CallWithFault(ctx context.Context, request 
 		}
 		return nil, nil, err
 	}
-	
+
 	return &response, nil, nil
 }
 
@@ -169,11 +169,11 @@ func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TRe
 	results := make([]BatchResult[TResp], len(requests))
 	received := make([]bool, len(requests))
 	ch := make(chan BatchResult[TResp], len(requests))
-	
+
 	// Create a context that we can cancel to stop all goroutines
 	batchCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	
+
 	for i, req := range requests {
 		go func(index int, request TReq) {
 			result := b.client.CallAsResult(batchCtx, request)
@@ -184,7 +184,7 @@ func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TRe
 			}
 		}(i, req)
 	}
-	
+
 	// Collect results with context awareness
 	for i := 0; i < len(requests); i++ {
 		select {
@@ -219,7 +219,7 @@ func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TRe
 			return results
 		}
 	}
-	
+
 	return results
 }
 
@@ -241,10 +241,10 @@ func (d *TypedSOAPDecoder[T]) Decode() (*T, error) {
 	if err := d.decoder.Decode(&envelope); err != nil {
 		return nil, err
 	}
-	
+
 	if envelope.Body.Fault != nil {
 		return nil, envelope.Body.Fault
 	}
-	
+
 	return &envelope.Body.Content, nil
 }
