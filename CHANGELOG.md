@@ -32,6 +32,10 @@ not compile or did not work before.
   when it repeats. Before, it got an undeclared type named after the element,
   a `string`, or no field at all, depending on where it stood.
 - Generated code spells `interface{}` as `any`. The types are identical.
+- **Regenerate.** A global element whose inline `simpleType` has neither a
+  union nor a restriction base (an empty one, or an `xs:list`) is now declared
+  as `string` instead of `any`. `encoding/xml` silently left the `any` value
+  nil when decoding, so the element's text was lost.
 - Every generated `TargetNamespace` method has a doc comment.
 - The library uses the Go 1.26/1.27 idioms suggested by `go fix`. Exported
   signatures are unchanged.

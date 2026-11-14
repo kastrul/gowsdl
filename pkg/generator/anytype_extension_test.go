@@ -85,7 +85,7 @@ func TestGenerator_AnyTypeFieldsUseAny(t *testing.T) {
 	assert.Regexp(t, `Value\s+any\s`, payload)
 	assert.Regexp(t, `Maybe\s+any\s`, payload, "nillable anyType must not become *any")
 	assert.Regexp(t, `Simple\s+any\s`, payload)
-	assert.Regexp(t, `(?m)^type Tags any$`, code)
+	assert.Regexp(t, `(?m)^type Tags string$`, code)
 	assert.NotContains(t, code, "interface{}")
 
 	assertGeneratedCodeBuilds(t, "anyfield", out)

@@ -363,7 +363,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 							type {{$type}} {{toGoType .Restriction.Base false}}
 						{{end}}
 					{{else}}
-						type {{$type}} any
+						type {{$type}} string
 					{{end}}
 				{{end}}
 			{{end}}
