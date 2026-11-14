@@ -103,3 +103,78 @@ func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreNameIsExported(
 	assert.NotRegexp(t, `\s_under string`, response)
 	assert.Regexp(t, `\sLang string .xml:"lang,attr,omitempty" json:"lang,omitempty"`, response)
 }
+
+func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T) {
+	const simple = `<xsd:simpleType><xsd:restriction base="xsd:int"/></xsd:simpleType>`
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Base"><xsd:sequence><xsd:element name="baseId" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:complexType name="Seq">
+                <xsd:sequence>
+                    <xsd:element name="s">`+simple+`</xsd:element>
+                    <xsd:element name="sMany" maxOccurs="unbounded">`+simple+`</xsd:element>
+                    <xsd:element name="sList"><xsd:simpleType><xsd:list itemType="xsd:int"/></xsd:simpleType></xsd:element>
+                    <xsd:element name="inl">
+                        <xsd:complexType>
+                            <xsd:sequence><xsd:element name="i">`+simple+`</xsd:element></xsd:sequence>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="inlChoice">
+                        <xsd:complexType>
+                            <xsd:choice><xsd:element name="ic">`+simple+`</xsd:element></xsd:choice>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="inlAll">
+                        <xsd:complexType>
+                            <xsd:all><xsd:element name="ia">`+simple+`</xsd:element></xsd:all>
+                        </xsd:complexType>
+                    </xsd:element>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:complexType name="Chooser">
+                <xsd:choice><xsd:element name="c">`+simple+`</xsd:element><xsd:element name="cUntyped"/></xsd:choice>
+            </xsd:complexType>
+            <xsd:complexType name="Everything">
+                <xsd:all><xsd:element name="a">`+simple+`</xsd:element></xsd:all>
+            </xsd:complexType>
+            <xsd:complexType name="Derived">
+                <xsd:complexContent>
+                    <xsd:extension base="tns:Base">
+                        <xsd:sequence>
+                            <xsd:element name="d">`+simple+`</xsd:element>
+                            <xsd:element name="dMany" maxOccurs="unbounded">`+simple+`</xsd:element>
+                        </xsd:sequence>
+                    </xsd:extension>
+                </xsd:complexContent>
+            </xsd:complexType>
+        </xsd:schema>
+    </types>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+	types := string(formatted)
+
+	seq := structBody(t, types, "Seq")
+	assert.Regexp(t, `\sS int32 .xml:"s,omitempty" json:"s,omitempty"`, seq)
+	assert.Regexp(t, `\sSMany \[\]int32 .xml:"sMany,omitempty" json:"sMany,omitempty"`, seq)
+	assert.Regexp(t, `\sSList string `, seq, "a simple type without a restriction base stays a string")
+
+	assert.Regexp(t, `\sI int32 .xml:"i,omitempty" json:"i,omitempty"`, structBody(t, types, "SeqInlType"))
+	assert.Regexp(t, `\sIc int32 `, structBody(t, types, "SeqInlChoiceType"))
+	assert.Regexp(t, `\sIa int32 `, structBody(t, types, "SeqInlAllType"))
+
+	chooser := structBody(t, types, "Chooser")
+	assert.Regexp(t, `\sC int32 .xml:"c,omitempty" json:"c,omitempty"`, chooser)
+	assert.NotContains(t, chooser, "CUntyped", "an element with no type at all is still dropped in a choice")
+
+	assert.Regexp(t, `\sA int32 `, structBody(t, types, "Everything"))
+
+	derived := structBody(t, types, "Derived")
+	assert.Regexp(t, `\sD int32 .xml:"d,omitempty".`, derived)
+	assert.Regexp(t, `\sDMany \[\]int32 .xml:"dMany,omitempty".`, derived)
+}

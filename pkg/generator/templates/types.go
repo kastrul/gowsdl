@@ -35,12 +35,13 @@ const TypesTemplate = `
 {{/*
 ElementFields emits one struct field per XSD element. It is called with a dict:
   Elements  the elements
-  Untyped   what to emit for an element that has no ref, no inline complex type
-            and no type attribute. The call sites have always disagreed on this:
+  Untyped   what to emit for an element that has no ref, no type attribute and
+            no inline complex or simple type. The call sites have always
+            disagreed on this:
               "drop"    emit nothing
               "string"  emit a string field
-              "simple"  use the base of an inline simple type, else a type named
-                        after the element
+              "name"    emit a field whose type is named after the element
+An element with an inline simple type always gets the base of its restriction.
 */}}
 {{define "ElementFields"}}
 	{{$untyped := .Untyped}}
@@ -65,35 +66,39 @@ ElementFields emits one struct field per XSD element. It is called with a dict:
 			{{else}}
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
+		{{else if .SimpleType}}
+			{{template "InlineSimpleField" (dict "Element" . "JSON" true)}}
 		{{else if eq $untyped "string"}}
 			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-		{{else if eq $untyped "simple"}}
-			{{if .SimpleType}}
-				{{/* Element has inline simple type - use its base type */}}
-				{{if .SimpleType.Restriction.Base}}
-					{{$baseType := .SimpleType.Restriction.Base | removeNamespacePrefix}}
-					{{$memberType := toGoType $baseType .Nillable}}
-					{{if eq .MaxOccurs "unbounded"}}
-						{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-					{{else}}
-						{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-					{{end}}
-				{{else}}
-					{{/* Fallback if no restriction base */}}
-					{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
+		{{else if eq $untyped "name"}}
+			{{$typeName := .Name}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else}}
-				{{/* No type and no inline simple type - use element name as type */}}
-				{{$typeName := .Name}}
-				{{$memberType := toGoType $typeName .Nillable}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
+{{end}}
+
+{{/*
+InlineSimpleField emits the field of an element with an inline simple type: the
+base of its restriction, or string when it has none (a list or a union). It is
+called with a dict: Element is the element, JSON says whether to emit a json tag.
+*/}}
+{{define "InlineSimpleField"}}
+	{{$el := .Element}}
+	{{$json := .JSON}}
+	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
+	{{$memberType := "string"}}
+	{{if $el.SimpleType.Restriction.Base}}
+		{{$memberType = toGoType ($el.SimpleType.Restriction.Base | removeNamespacePrefix) $el.Nillable}}
+		{{if eq $el.MaxOccurs "unbounded"}}
+			{{$memberType = printf "[]%s" $memberType}}
+		{{end}}
+	{{end}}
+	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}},omitempty"{{if $json}} json:"{{$el.Name}},omitempty"{{end}}` + "`" + `
 {{end}}
 
 {{define "InlineComplexField"}}
@@ -185,7 +190,7 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 	{{with .}}
 	{{template "ExtensionBase" .ComplexContent}}
 
-	{{template "ElementFields" (dict "Elements" .Sequence "Untyped" "simple")}}
+	{{template "ElementFields" (dict "Elements" .Sequence "Untyped" "name")}}
 	{{template "ElementFields" (dict "Elements" .Choice "Untyped" "drop")}}
 	{{template "ElementFields" (dict "Elements" .SequenceChoice "Untyped" "drop")}}
 	{{template "ElementFields" (dict "Elements" .All "Untyped" "drop")}}
@@ -462,6 +467,8 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 				{{if .ComplexType}}
 					{{$inlineTypeName := inlineTypeName .}}
 					{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+				{{else if .SimpleType}}
+					{{template "InlineSimpleField" (dict "Element" . "JSON" false)}}
 				{{end}}
 			{{else}}
 				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
