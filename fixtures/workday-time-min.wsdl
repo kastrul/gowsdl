@@ -17,6 +17,13 @@
           </xsd:extension>
         </xsd:simpleContent>
       </xsd:complexType>
+      <xsd:simpleType name="WorkerReferenceEnumeration">
+        <xsd:restriction base="xsd:string">
+          <xsd:enumeration value="WID"/>
+          <xsd:enumeration value="Employee_ID"/>
+          <xsd:enumeration value="Contingent_Worker_ID"/>
+        </xsd:restriction>
+      </xsd:simpleType>
     </xsd:schema>
   </wsdl:types>
 </wsdl:definitions>

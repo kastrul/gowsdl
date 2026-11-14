@@ -19,10 +19,6 @@ import (
 // fails when a fixture listed here starts compiling, so entries must be removed
 // as the underlying bugs are fixed and the table can only shrink.
 var knownNonCompilingFixtures = map[string]string{
-	// Incomplete fixture: the attribute "type" references wd:WorkerReferenceEnumeration,
-	// which is not declared anywhere in the file, so the generated field type is undefined.
-	"fixtures/workday-time-min.wsdl": "references undeclared type wd:WorkerReferenceEnumeration",
-
 	// Incomplete fixture: the WSDL imports core-types.xsd, query-messagetypes.xsd,
 	// reflect-messagetypes.xsd and vim-messagetypes.xsd, which are not in the repository.
 	"fixtures/vim.wsdl": "imported XSDs are missing from the repository",
