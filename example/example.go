@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/enthus-golang/gowsdl/example/gen"
-	"github.com/enthus-golang/gowsdl/soap"
+	"github.com/kastrul/gowsdl/example/gen"
+	"github.com/kastrul/gowsdl/soap"
 )
 
 func ExampleBasicUsage() {

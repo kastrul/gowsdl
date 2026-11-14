@@ -15,7 +15,7 @@ import (
 type OrderType struct {
 	OrderId         string                        `xml:"orderId,omitempty"`
 	ShippingAddress *OrderTypeShippingAddressType `xml:"shippingAddress,omitempty"`
-	BillingAddress  OrderTypeBillingAddressType  `xml:"billingAddress,omitempty"`
+	BillingAddress  OrderTypeBillingAddressType   `xml:"billingAddress,omitempty"`
 	Items           []OrderTypeItemsType          `xml:"items,omitempty"`
 }
 
@@ -90,21 +90,21 @@ func main() {
 	// Example 3: Safely accessing optional fields
 	processOrder := func(order *OrderType) {
 		fmt.Printf("Processing order %s\n", order.OrderId)
-		
+
 		// Safe nil check for optional field
 		if order.ShippingAddress != nil {
-			fmt.Printf("  Ship to: %s, %s %s\n", 
+			fmt.Printf("  Ship to: %s, %s %s\n",
 				order.ShippingAddress.Street,
 				order.ShippingAddress.City,
 				order.ShippingAddress.ZipCode)
 		} else {
 			fmt.Println("  No shipping address (pickup order)")
 		}
-		
-		fmt.Printf("  Bill to: %s, %s\n", 
+
+		fmt.Printf("  Bill to: %s, %s\n",
 			order.BillingAddress.Street,
 			order.BillingAddress.City)
-		
+
 		fmt.Printf("  Items: %d\n", len(order.Items))
 		for _, item := range order.Items {
 			fmt.Printf("    - %s (qty: %d)\n", item.ItemId, item.Quantity)

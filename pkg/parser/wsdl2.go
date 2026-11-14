@@ -24,24 +24,24 @@ type WSDL2 struct {
 
 // WSDL2Interface represents an interface in WSDL 2.0 (equivalent to portType in WSDL 1.1)
 type WSDL2Interface struct {
-	Name       string               `xml:"name,attr"`
-	Extends    string               `xml:"extends,attr"`
-	Operations []*WSDL2Operation    `xml:"operation"`
+	Name       string                 `xml:"name,attr"`
+	Extends    string                 `xml:"extends,attr"`
+	Operations []*WSDL2Operation      `xml:"operation"`
 	Faults     []*WSDL2InterfaceFault `xml:"fault"`
-	Doc        string               `xml:"documentation"`
+	Doc        string                 `xml:"documentation"`
 }
 
 // WSDL2Operation represents an operation in WSDL 2.0
 type WSDL2Operation struct {
-	Name    string              `xml:"name,attr"`
-	Pattern string              `xml:"pattern,attr"`
-	Style   string              `xml:"style,attr"`
-	Safe    bool                `xml:"safe,attr"`
-	Input   *WSDL2OperationMsg  `xml:"input"`
-	Output  *WSDL2OperationMsg  `xml:"output"`
-	InFault []*WSDL2OperationFaultRef `xml:"infault"`
+	Name     string                    `xml:"name,attr"`
+	Pattern  string                    `xml:"pattern,attr"`
+	Style    string                    `xml:"style,attr"`
+	Safe     bool                      `xml:"safe,attr"`
+	Input    *WSDL2OperationMsg        `xml:"input"`
+	Output   *WSDL2OperationMsg        `xml:"output"`
+	InFault  []*WSDL2OperationFaultRef `xml:"infault"`
 	OutFault []*WSDL2OperationFaultRef `xml:"outfault"`
-	Doc     string              `xml:"documentation"`
+	Doc      string                    `xml:"documentation"`
 }
 
 // WSDL2OperationMsg represents input/output messages in WSDL 2.0
@@ -64,23 +64,23 @@ type WSDL2InterfaceFault struct {
 
 // WSDL2Binding represents a binding in WSDL 2.0
 type WSDL2Binding struct {
-	Name            string                    `xml:"name,attr"`
-	Interface       string                    `xml:"interface,attr"`
-	Type            string                    `xml:"type,attr"`
-	Operations      []*WSDL2BindingOperation  `xml:"operation"`
-	Faults          []*WSDL2BindingFault      `xml:"fault"`
-	Doc             string                    `xml:"documentation"`
+	Name       string                   `xml:"name,attr"`
+	Interface  string                   `xml:"interface,attr"`
+	Type       string                   `xml:"type,attr"`
+	Operations []*WSDL2BindingOperation `xml:"operation"`
+	Faults     []*WSDL2BindingFault     `xml:"fault"`
+	Doc        string                   `xml:"documentation"`
 }
 
 // WSDL2BindingOperation represents binding details for an operation
 type WSDL2BindingOperation struct {
-	Ref              string                         `xml:"ref,attr"`
-	SOAPAction       string                         `xml:"http://www.w3.org/ns/wsdl/soap soapAction,attr"`
-	SOAPMEPDefault   string                         `xml:"http://www.w3.org/ns/wsdl/soap mepDefault,attr"`
-	Input            *WSDL2BindingOperationMessage  `xml:"input"`
-	Output           *WSDL2BindingOperationMessage  `xml:"output"`
-	InFault          []*WSDL2BindingOperationFault `xml:"infault"`
-	OutFault         []*WSDL2BindingOperationFault `xml:"outfault"`
+	Ref            string                        `xml:"ref,attr"`
+	SOAPAction     string                        `xml:"http://www.w3.org/ns/wsdl/soap soapAction,attr"`
+	SOAPMEPDefault string                        `xml:"http://www.w3.org/ns/wsdl/soap mepDefault,attr"`
+	Input          *WSDL2BindingOperationMessage `xml:"input"`
+	Output         *WSDL2BindingOperationMessage `xml:"output"`
+	InFault        []*WSDL2BindingOperationFault `xml:"infault"`
+	OutFault       []*WSDL2BindingOperationFault `xml:"outfault"`
 }
 
 // WSDL2BindingOperationMessage represents input/output binding details
@@ -102,10 +102,10 @@ type WSDL2BindingFault struct {
 
 // WSDL2Service represents a service in WSDL 2.0
 type WSDL2Service struct {
-	Name       string            `xml:"name,attr"`
-	Interface  string            `xml:"interface,attr"`
-	Endpoints  []*WSDL2Endpoint  `xml:"endpoint"`
-	Doc        string            `xml:"documentation"`
+	Name      string           `xml:"name,attr"`
+	Interface string           `xml:"interface,attr"`
+	Endpoints []*WSDL2Endpoint `xml:"endpoint"`
+	Doc       string           `xml:"documentation"`
 }
 
 // WSDL2Endpoint represents an endpoint in WSDL 2.0 (equivalent to port in WSDL 1.1)

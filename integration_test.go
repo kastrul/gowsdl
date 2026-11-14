@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	gowsdlhttp "github.com/enthus-golang/gowsdl/pkg/http"
+	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,10 +71,10 @@ func TestIntegrationRealWSDLFiles(t *testing.T) {
 			// Create go.mod file
 			goModContent := `module testservice
 
-go 1.21
+go 1.24
 
-require github.com/enthus-golang/gowsdl v0.0.0
-replace github.com/enthus-golang/gowsdl => ` + getRootDir()
+require github.com/kastrul/gowsdl v0.0.0
+replace github.com/kastrul/gowsdl => ` + getRootDir()
 
 			err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goModContent), 0644)
 			require.NoError(t, err)
@@ -208,14 +208,14 @@ func TestGeneratedTypes(t *testing.T) {
 	// Create go.mod
 	goModContent := `module calculator
 
-go 1.21
+go 1.24
 
 require (
 	github.com/stretchr/testify v1.10.0
-	github.com/enthus-golang/gowsdl v0.0.0
+	github.com/kastrul/gowsdl v0.0.0
 )
 
-replace github.com/enthus-golang/gowsdl => ` + getRootDir()
+replace github.com/kastrul/gowsdl => ` + getRootDir()
 
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
@@ -291,10 +291,10 @@ func TestIntegrationHTTPSWSDL(t *testing.T) {
 	// Skip if no internet connection
 	ctx := context.Background()
 	testURL := "https://www.w3schools.com/xml/tempconvert.asmx?WSDL"
-	
+
 	config := DefaultHTTPClientConfig()
 	config.Timeout = 10 * time.Second
-	
+
 	_, err := gowsdlhttp.DownloadFile(ctx, testURL, config)
 	if err != nil {
 		t.Skipf("Cannot reach test WSDL URL: %v", err)

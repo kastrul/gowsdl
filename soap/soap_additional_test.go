@@ -72,41 +72,41 @@ func TestHTTPError_Error_Simple(t *testing.T) {
 
 func TestNewWSSSecurityHeader_Simple(t *testing.T) {
 	header := NewWSSSecurityHeader("user", "pass", "token1", "1")
-	
+
 	assert.NotNil(t, header)
 	assert.Equal(t, WssNsWSSE, header.XmlNSWsse)
 	assert.Equal(t, "1", header.MustUnderstand)
-	
+
 	assert.NotNil(t, header.Token)
 	assert.Equal(t, "token1", header.Token.Id)
-	
+
 	assert.NotNil(t, header.Token.Username)
 	assert.Equal(t, "user", header.Token.Username.Data)
-	
+
 	assert.NotNil(t, header.Token.Password)
 	assert.Equal(t, "pass", header.Token.Password.Data)
 }
 
 func TestClient_Methods(t *testing.T) {
 	client := NewClient("http://example.com")
-	
+
 	// Test URL
 	assert.Equal(t, "http://example.com", client.URL())
-	
+
 	// Test AddHeader
 	assert.Empty(t, client.headers)
 	client.AddHeader("header1")
 	assert.Len(t, client.headers, 1)
-	
+
 	// Test SetHeaders
 	client.SetHeaders("new1", "new2")
 	assert.Len(t, client.headers, 2)
-	
+
 	// Test HTTP headers
 	headers := map[string]string{"X-Test": "value"}
 	client.SetHttpClientHeaders(headers)
 	assert.Equal(t, headers, client.GetHttpClientHeaders())
-	
+
 	// Test AddMIMEMultipartAttachment
 	attachment := MIMEMultipartAttachment{Name: "test.txt", Data: []byte("data")}
 	client.AddMIMEMultipartAttachment(attachment)
@@ -119,39 +119,39 @@ func TestSOAPBodyResponse_UnmarshalXML_Simple(t *testing.T) {
 	err := xml.Unmarshal([]byte("<Body></Body>"), body)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Body must be a pointer to a struct")
-	
+
 	// Test proper SOAP body unmarshal
 	type TestValue struct {
 		XMLName xml.Name `xml:"TestValue"`
 		Value   string   `xml:"value"`
 	}
-	
+
 	body2 := &SOAPBodyResponse{
-		Body: &TestValue{},
-		Fault:   &SOAPFault{},
+		Body:  &TestValue{},
+		Fault: &SOAPFault{},
 	}
-	
+
 	// Proper SOAP Body structure - UnmarshalXML expects the content element directly
 	xmlData := `<Body><TestValue><value>test</value></TestValue></Body>`
 	err = xml.Unmarshal([]byte(xmlData), body2)
 	assert.NoError(t, err)
-	
+
 	content := body2.Body.(*TestValue)
 	assert.Equal(t, "test", content.Value)
-	
+
 	// Test SOAP fault unmarshal
 	body3 := &SOAPBodyResponse{
-		Body: &TestValue{},
-		Fault:   &SOAPFault{},
+		Body:  &TestValue{},
+		Fault: &SOAPFault{},
 	}
-	
+
 	xmlFault := `<Body xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
 		<soap:Fault>
 			<faultcode>Server</faultcode>
 			<faultstring>Test error</faultstring>
 		</soap:Fault>
 	</Body>`
-	
+
 	err = xml.Unmarshal([]byte(xmlFault), body3)
 	assert.NoError(t, err)
 	assert.True(t, body3.Fault != nil)

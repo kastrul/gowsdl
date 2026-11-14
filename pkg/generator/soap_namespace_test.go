@@ -86,7 +86,7 @@ func TestSOAPNamespaceHandling(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -98,13 +98,13 @@ func TestSOAPNamespaceHandling(t *testing.T) {
 
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	// Check that XMLName includes namespace
 	typesStr := string(types)
 	assert.Contains(t, typesStr, "CreateOrder")
 	assert.Contains(t, typesStr, "XMLName")
 	assert.Contains(t, typesStr, "https://example.com/service")
-	
+
 	// Now test how it marshals
 	testXMLMarshaling(t, typesStr)
 }
@@ -112,45 +112,45 @@ func TestSOAPNamespaceHandling(t *testing.T) {
 func testXMLMarshaling(t *testing.T, generatedTypes string) {
 	// Create a test that shows the current behavior
 	type TestBody struct {
-		XMLName xml.Name `xml:"soap:Body"`
+		XMLName xml.Name    `xml:"soap:Body"`
 		Content interface{} `xml:",any"`
 	}
-	
+
 	type TestEnvelope struct {
 		XMLName xml.Name `xml:"soap:Envelope"`
 		Xmlns   string   `xml:"xmlns:soap,attr"`
 		Body    TestBody
 	}
-	
+
 	// Simulate what the generated type looks like
 	type CreateOrder struct {
 		XMLName    xml.Name `xml:"https://example.com/service CreateOrder"`
 		CustomerID string   `xml:"customerID,omitempty"`
 		OrderDate  string   `xml:"orderDate,omitempty"`
 	}
-	
+
 	order := &CreateOrder{
 		CustomerID: "12345",
 		OrderDate:  "2024-01-01",
 	}
-	
+
 	envelope := TestEnvelope{
 		Xmlns: "http://schemas.xmlsoap.org/soap/envelope/",
 		Body: TestBody{
 			Content: order,
 		},
 	}
-	
+
 	data, err := xml.Marshal(envelope)
 	require.NoError(t, err)
-	
+
 	xmlStr := string(data)
 	t.Logf("Current SOAP envelope:\n%s", xmlStr)
-	
+
 	// The problem: this creates a default namespace on CreateOrder
 	// which makes all child elements qualified
 	assert.Contains(t, xmlStr, `<CreateOrder xmlns="https://example.com/service">`)
-	
+
 	// What we need: namespace prefix usage
 	// This would require changes to how we generate types or marshal XML
 }
@@ -159,10 +159,10 @@ func testXMLMarshaling(t *testing.T, generatedTypes string) {
 func TestDesiredSOAPStructure(t *testing.T) {
 	// Define body type first
 	type EnhancedBody struct {
-		XMLName xml.Name `xml:"soapenv:Body"`
+		XMLName xml.Name    `xml:"soapenv:Body"`
 		Content interface{} `xml:",any"`
 	}
-	
+
 	// Enhanced SOAP envelope that supports target namespace
 	type EnhancedEnvelope struct {
 		XMLName   xml.Name `xml:"soapenv:Envelope"`
@@ -172,19 +172,19 @@ func TestDesiredSOAPStructure(t *testing.T) {
 		XmlnsXsd  string   `xml:"xmlns:xsd,attr,omitempty"`
 		Body      EnhancedBody
 	}
-	
+
 	// Operation type that uses namespace prefix
 	type CreateOrderPrefixed struct {
 		XMLName    xml.Name `xml:"tns:CreateOrder"`
 		CustomerID string   `xml:"customerID,omitempty"`
 		OrderDate  string   `xml:"orderDate,omitempty"`
 	}
-	
+
 	order := &CreateOrderPrefixed{
 		CustomerID: "12345",
 		OrderDate:  "2024-01-01",
 	}
-	
+
 	envelope := EnhancedEnvelope{
 		XmlnsSoap: "http://schemas.xmlsoap.org/soap/envelope/",
 		XmlnsTns:  "https://example.com/service",
@@ -194,22 +194,22 @@ func TestDesiredSOAPStructure(t *testing.T) {
 			Content: order,
 		},
 	}
-	
+
 	var buf bytes.Buffer
 	encoder := xml.NewEncoder(&buf)
 	encoder.Indent("", "  ")
-	
+
 	err := encoder.Encode(envelope)
 	require.NoError(t, err)
-	
+
 	xmlStr := buf.String()
 	t.Logf("Desired SOAP structure:\n%s", xmlStr)
-	
+
 	// This should produce the correct structure
 	assert.Contains(t, xmlStr, `xmlns:tns="https://example.com/service"`)
 	assert.Contains(t, xmlStr, `<tns:CreateOrder>`)
 	assert.Contains(t, xmlStr, `<customerID>`) // Unqualified
-	
+
 	// Should NOT have
 	assert.NotContains(t, xmlStr, `<tns:customerID>`)
 	assert.NotContains(t, xmlStr, `<CreateOrder xmlns=`)
@@ -219,10 +219,10 @@ func TestDesiredSOAPStructure(t *testing.T) {
 func TestRealWorldExample(t *testing.T) {
 	// Define body type first
 	type WorkingBody struct {
-		XMLName xml.Name `xml:"soapenv:Body"`
+		XMLName xml.Name    `xml:"soapenv:Body"`
 		Content interface{} `xml:",any"`
 	}
-	
+
 	// Simulate the user's case
 	type GOWebServiceSendungsErstellung struct {
 		XMLName        xml.Name `xml:"tns:GOWebService_SendungsErstellung"`
@@ -231,7 +231,7 @@ func TestRealWorldExample(t *testing.T) {
 		Status         string   `xml:"Status,omitempty"`
 		Kundenreferenz string   `xml:"Kundenreferenz,omitempty"`
 	}
-	
+
 	type WorkingEnvelope struct {
 		XMLName   xml.Name `xml:"soapenv:Envelope"`
 		XmlnsSoap string   `xml:"xmlns:soapenv,attr"`
@@ -240,14 +240,14 @@ func TestRealWorldExample(t *testing.T) {
 		XmlnsXsi  string   `xml:"xmlns:xsi,attr"`
 		Body      WorkingBody
 	}
-	
+
 	request := &GOWebServiceSendungsErstellung{
 		Versender:      "2611570",
 		Benutzername:   "21480MCL",
 		Status:         "1",
 		Kundenreferenz: "AU201061_LS300999",
 	}
-	
+
 	envelope := WorkingEnvelope{
 		XmlnsSoap: "http://schemas.xmlsoap.org/soap/envelope/",
 		XmlnsTns:  "https://wsdemo.ax4.com/ws/GeneralOvernight",
@@ -257,19 +257,19 @@ func TestRealWorldExample(t *testing.T) {
 			Content: request,
 		},
 	}
-	
+
 	data, err := xml.Marshal(envelope)
 	require.NoError(t, err)
-	
+
 	xmlStr := string(data)
 	t.Logf("Working structure:\n%s", xmlStr)
-	
+
 	// Verify it produces the correct format
 	assert.Contains(t, xmlStr, `<soapenv:Envelope`)
 	assert.Contains(t, xmlStr, `xmlns:tns="https://wsdemo.ax4.com/ws/GeneralOvernight"`)
 	assert.Contains(t, xmlStr, `<tns:GOWebService_SendungsErstellung>`)
 	assert.Contains(t, xmlStr, `<Versender>2611570</Versender>`)
-	
+
 	// Clean output without namespace on child elements
 	// Verify child elements are unqualified
 	assert.Contains(t, xmlStr, "<Versender>2611570</Versender>")

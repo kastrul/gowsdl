@@ -164,7 +164,7 @@ func TestCodeGeneration(t *testing.T) {
 				types := string(code["types"])
 				assert.Contains(t, types, "GetUserRequest")
 				assert.Contains(t, types, "GetUserResponse")
-				
+
 				// Check operations
 				ops := string(code["operations"])
 				// Debug: print the generated operations code
@@ -235,7 +235,7 @@ func TestCodeGeneration(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, code)
-				
+
 				// Check all expected parts are present
 				assert.NotNil(t, code["header"])
 				assert.NotNil(t, code["types"])

@@ -161,7 +161,7 @@ if err != nil {
 
 ## Dependencies
 
-- Go 1.21+ required
+- Go 1.24+ required
 - Minimal external dependencies
 - Main testing dependency: `github.com/stretchr/testify`
 
@@ -199,8 +199,8 @@ Always maintain backward compatibility:
 
 1. Update version in code/tags
 2. Update CHANGELOG
-3. Create git tag
-4. GitHub Actions handles the rest
+3. Push a `v*` tag, or run the Release workflow manually on `main` with the version (e.g. `v0.1.0`); it creates the tag
+4. GitHub Actions builds the binaries and publishes the release
 
 ## Common Issues and Solutions
 

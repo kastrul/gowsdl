@@ -87,13 +87,13 @@ func TestMakePublicSpecialCases(t *testing.T) {
 		{"complexType", "ComplexType"},
 		{"simpleType", "SimpleType"},
 		{"targetNamespace", "TargetNamespace"},
-		
+
 		// Common programming terms
 		{"httpClient", "HttpClient"},
 		{"xmlDocument", "XmlDocument"},
 		{"jsonParser", "JsonParser"},
 		{"soapEnvelope", "SoapEnvelope"},
-		
+
 		// Edge cases from WSDL generation
 		{"id", "Id"},
 		{"url", "Url"},
@@ -115,12 +115,12 @@ func TestMakePublicWithSpecialCharacters(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"test-name", "Test-name"},    // Hyphen preserved
-		{"test_name", "Test_name"},    // Underscore preserved
-		{"test.name", "Test.name"},    // Dot preserved
-		{"test name", "Test name"},    // Space preserved
-		{"test123", "Test123"},        // Numbers preserved
-		{"123test", "123Test"},        // Leading numbers with capitalization
+		{"test-name", "Test-name"}, // Hyphen preserved
+		{"test_name", "Test_name"}, // Underscore preserved
+		{"test.name", "Test.name"}, // Dot preserved
+		{"test name", "Test name"}, // Space preserved
+		{"test123", "Test123"},     // Numbers preserved
+		{"123test", "123Test"},     // Leading numbers with capitalization
 	}
 
 	for _, tt := range tests {
@@ -137,11 +137,11 @@ func TestMakePublicUnicode(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"élément", "Élément"},       // French accented character
-		{"测试", "测试"},                // Chinese characters (no change expected)
-		{"тест", "Тест"},              // Cyrillic characters with capitalization
-		{"münchen", "München"},       // German umlaut
-		{"naïve", "Naïve"},          // Character with diaeresis
+		{"élément", "Élément"}, // French accented character
+		{"测试", "测试"},           // Chinese characters (no change expected)
+		{"тест", "Тест"},       // Cyrillic characters with capitalization
+		{"münchen", "München"}, // German umlaut
+		{"naïve", "Naïve"},     // Character with diaeresis
 	}
 
 	for _, tt := range tests {
@@ -156,7 +156,7 @@ func TestMakePublicPerformance(t *testing.T) {
 	// Test with a longer string to ensure performance is reasonable
 	longString := "thisIsAVeryLongStringWithManyWordsToTestThePerformanceOfTheMakePublicFunction"
 	expected := "ThisIsAVeryLongStringWithManyWordsToTestThePerformanceOfTheMakePublicFunction"
-	
+
 	result := MakePublic(longString)
 	assert.Equal(t, expected, result)
 }

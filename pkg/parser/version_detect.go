@@ -14,7 +14,7 @@ import (
 // DetectWSDLVersion detects whether the WSDL is version 1.1 or 2.0
 func DetectWSDLVersion(data []byte) (string, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
-	
+
 	for {
 		tok, err := decoder.Token()
 		if err == io.EOF {
@@ -23,7 +23,7 @@ func DetectWSDLVersion(data []byte) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("error detecting WSDL version: %w", err)
 		}
-		
+
 		if se, ok := tok.(xml.StartElement); ok {
 			// Check the namespace of the root element
 			if se.Name.Local == "definitions" && se.Name.Space == wsdlNamespace {
@@ -32,7 +32,7 @@ func DetectWSDLVersion(data []byte) (string, error) {
 			if se.Name.Local == "description" && se.Name.Space == wsdl2Namespace {
 				return "2.0", nil
 			}
-			
+
 			// Also check default namespace
 			for _, attr := range se.Attr {
 				if attr.Name.Local == "xmlns" {
@@ -44,11 +44,11 @@ func DetectWSDLVersion(data []byte) (string, error) {
 					}
 				}
 			}
-			
+
 			// If we've processed the root element and didn't find a match
 			return "", fmt.Errorf("unknown WSDL version or invalid WSDL document")
 		}
 	}
-	
+
 	return "", fmt.Errorf("unable to determine WSDL version")
 }

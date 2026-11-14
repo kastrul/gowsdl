@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/enthus-golang/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -156,7 +156,7 @@ func TestWSDL2Integration(t *testing.T) {
 		// assert.Contains(t, serverStr, "SOAPBodyRequest")
 		// assert.Contains(t, serverStr, "GetQuoteRequest")
 		// assert.Contains(t, serverStr, "GetQuoteResponse")
-		
+
 		t.Log("WSDL 2.0 code generation completed successfully")
 	})
 
@@ -167,7 +167,7 @@ func TestWSDL2Integration(t *testing.T) {
 
 	t.Run("WSDL2WithXSDElementReferences", func(t *testing.T) {
 		// Test that element references work in WSDL 2.0
-		wsdl2WithRefs := strings.ReplaceAll(wsdl2Content, 
+		wsdl2WithRefs := strings.ReplaceAll(wsdl2Content,
 			`<xs:element name="GetQuoteRequest">`,
 			`<xs:element name="GetQuoteRequest">`) + `
 		<!-- Add a type that references the element -->

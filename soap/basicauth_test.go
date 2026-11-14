@@ -102,7 +102,7 @@ func TestWithBasicAuth(t *testing.T) {
 			// Make request
 			request := &TestRequest{Value: "test"}
 			response := &TestResponse{}
-			
+
 			err := client.CallContext(context.Background(), "", request, response)
 
 			if tt.expectedError {
@@ -128,11 +128,11 @@ func TestBasicAuthOption(t *testing.T) {
 
 	t.Run("auth is applied to HTTP request", func(t *testing.T) {
 		var capturedAuth string
-		
+
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			auth := r.Header.Get("Authorization")
 			capturedAuth = auth
-			
+
 			// Send minimal valid SOAP response
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
@@ -143,10 +143,10 @@ func TestBasicAuthOption(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, WithBasicAuth("testuser", "testpass"))
-		
+
 		type EmptyRequest struct{}
 		type EmptyResponse struct{}
-		
+
 		err := client.CallContext(context.Background(), "", &EmptyRequest{}, &EmptyResponse{})
 		require.NoError(t, err)
 
@@ -160,11 +160,11 @@ func TestBasicAuthIntegration(t *testing.T) {
 	t.Run("multiple requests use same auth", func(t *testing.T) {
 		requestCount := 0
 		authHeaders := []string{}
-		
+
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestCount++
 			authHeaders = append(authHeaders, r.Header.Get("Authorization"))
-			
+
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 				<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -174,16 +174,16 @@ func TestBasicAuthIntegration(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, WithBasicAuth("user", "pass"))
-		
+
 		type EmptyRequest struct{}
 		type EmptyResponse struct{}
-		
+
 		// Make multiple requests
 		for i := 0; i < 3; i++ {
 			err := client.CallContext(context.Background(), "", &EmptyRequest{}, &EmptyResponse{})
 			require.NoError(t, err)
 		}
-		
+
 		assert.Equal(t, 3, requestCount)
 		// All requests should have the same auth header
 		expectedAuth := "Basic dXNlcjpwYXNz" // base64("user:pass")
@@ -194,13 +194,13 @@ func TestBasicAuthIntegration(t *testing.T) {
 
 	t.Run("auth works with other options", func(t *testing.T) {
 		capturedHeaders := make(map[string]string)
-		
+
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Capture all headers
 			capturedHeaders["Authorization"] = r.Header.Get("Authorization")
 			capturedHeaders["X-Custom-Header"] = r.Header.Get("X-Custom-Header")
 			capturedHeaders["SOAPAction"] = r.Header.Get("SOAPAction")
-			
+
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 				<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -210,16 +210,16 @@ func TestBasicAuthIntegration(t *testing.T) {
 		defer server.Close()
 
 		// Create client with multiple options
-		client := NewClient(server.URL, 
+		client := NewClient(server.URL,
 			WithBasicAuth("myuser", "mypass"),
 			WithHTTPHeaders(map[string]string{
 				"X-Custom-Header": "custom-value",
 			}),
 		)
-		
+
 		type EmptyRequest struct{}
 		type EmptyResponse struct{}
-		
+
 		err := client.CallContext(context.Background(), "testAction", &EmptyRequest{}, &EmptyResponse{})
 		require.NoError(t, err)
 
@@ -272,10 +272,10 @@ func TestBasicAuthWithSpecialCharacters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var capturedAuth string
-			
+
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				capturedAuth = r.Header.Get("Authorization")
-				
+
 				w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 				_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 					<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -285,10 +285,10 @@ func TestBasicAuthWithSpecialCharacters(t *testing.T) {
 			defer server.Close()
 
 			client := NewClient(server.URL, WithBasicAuth(tt.username, tt.password))
-			
+
 			type EmptyRequest struct{}
 			type EmptyResponse struct{}
-			
+
 			err := client.CallContext(context.Background(), "", &EmptyRequest{}, &EmptyResponse{})
 			require.NoError(t, err)
 
@@ -306,10 +306,10 @@ func TestBasicAuthErrorHandling(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, WithBasicAuth("wrong", "creds"))
-		
+
 		type EmptyRequest struct{}
 		type EmptyResponse struct{}
-		
+
 		err := client.CallContext(context.Background(), "", &EmptyRequest{}, &EmptyResponse{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "401")
@@ -318,11 +318,11 @@ func TestBasicAuthErrorHandling(t *testing.T) {
 	t.Run("nil auth not applied", func(t *testing.T) {
 		var capturedAuth string
 		hasAuth := false
-		
+
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			capturedAuth = r.Header.Get("Authorization")
 			hasAuth = capturedAuth != ""
-			
+
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 				<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -333,10 +333,10 @@ func TestBasicAuthErrorHandling(t *testing.T) {
 
 		// Create client without auth
 		client := NewClient(server.URL)
-		
+
 		type EmptyRequest struct{}
 		type EmptyResponse struct{}
-		
+
 		err := client.CallContext(context.Background(), "", &EmptyRequest{}, &EmptyResponse{})
 		require.NoError(t, err)
 

@@ -30,7 +30,7 @@ func TestMapXSDTypeToGoType(t *testing.T) {
 		{"string", "string", false, "string"},
 		{"normalizedString", "normalizedString", false, "string"},
 		{"token", "token", false, "string"},
-		
+
 		// Numeric types
 		{"decimal", "decimal", false, "float64"},
 		{"float", "float", false, "float32"},
@@ -40,36 +40,36 @@ func TestMapXSDTypeToGoType(t *testing.T) {
 		{"short", "short", false, "int16"},
 		{"byte", "byte", false, "int8"},
 		{"long", "long", false, "int64"},
-		
+
 		// Boolean
 		{"boolean", "boolean", false, "bool"},
-		
+
 		// Binary
 		{"base64Binary", "base64Binary", false, "[]byte"},
 		{"hexBinary", "hexBinary", false, "[]byte"},
-		
+
 		// Date/Time
 		{"dateTime", "dateTime", false, "soap.XSDDateTime"},
 		{"date", "date", false, "soap.XSDDate"},
 		{"time", "time", false, "soap.XSDTime"},
-		
+
 		// Other
 		{"any", "any", false, "interface{}"},
 		{"anyType", "anyType", false, "interface{}"},
-		
+
 		// With namespace prefix
 		{"xsd:string", "xsd:string", false, "string"},
 		{"ns:string", "ns:string", false, "string"},
-		
+
 		// Unknown types (user-defined)
 		{"CustomType", "CustomType", false, "CustomType"},
 		{"MyComplexType", "MyComplexType", false, "MyComplexType"},
-		
+
 		// Nillable types
 		{"string", "string", true, "*string"},
 		{"int", "int", true, "*int32"},
 		{"CustomType", "CustomType", true, "*CustomType"},
-		
+
 		// Interface types should not be pointers even when nillable
 		{"any", "any", true, "interface{}"},
 		{"anyType", "anyType", true, "interface{}"},
@@ -120,7 +120,7 @@ func TestIsReservedWord(t *testing.T) {
 		{"switch", true},
 		{"type", true},
 		{"var", true},
-		
+
 		// Built-in types
 		{"string", true},
 		{"int", true},
@@ -130,7 +130,7 @@ func TestIsReservedWord(t *testing.T) {
 		{"rune", true},
 		{"error", true},
 		{"any", true},
-		
+
 		// Non-reserved words
 		{"hello", false},
 		{"CustomType", false},
@@ -159,10 +159,10 @@ func TestEscapeReservedWord(t *testing.T) {
 		{"string", "string_"},
 		{"int", "int_"},
 		{"interface", "interface_"},
-		
+
 		// Special case: "return" maps to "result" for RPC-style WSDLs
 		{"return", "result"},
-		
+
 		// Non-reserved words stay the same
 		{"hello", "hello"},
 		{"CustomType", "CustomType"},
@@ -180,7 +180,7 @@ func TestEscapeReservedWord(t *testing.T) {
 
 func TestInitXSDToGoTypes(t *testing.T) {
 	mapping := initXSDToGoTypes()
-	
+
 	// Test some key mappings
 	assert.Equal(t, "string", mapping["string"])
 	assert.Equal(t, "int32", mapping["int"])
@@ -189,20 +189,20 @@ func TestInitXSDToGoTypes(t *testing.T) {
 	assert.Equal(t, "[]byte", mapping["base64Binary"])
 	assert.Equal(t, "soap.XSDDateTime", mapping["dateTime"])
 	assert.Equal(t, "interface{}", mapping["any"])
-	
+
 	// Ensure we have a reasonable number of mappings
 	assert.Greater(t, len(mapping), 20)
 }
 
 func TestInitReservedWords(t *testing.T) {
 	reserved := initReservedWords()
-	
+
 	// Test some key reserved words
 	assert.Equal(t, "break_", reserved["break"])
 	assert.Equal(t, "string_", reserved["string"])
 	assert.Equal(t, "interface_", reserved["interface"])
 	assert.Equal(t, "type_", reserved["type"])
-	
+
 	// Ensure we have a reasonable number of reserved words
 	assert.Greater(t, len(reserved), 20)
 }

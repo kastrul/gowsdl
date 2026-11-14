@@ -5,7 +5,7 @@
 package generator
 
 import (
-	"github.com/enthus-golang/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/parser"
 )
 
 // ResolveAttributeRefs fills in the name and type of attributes declared with

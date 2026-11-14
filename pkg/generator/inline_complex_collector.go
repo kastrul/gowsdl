@@ -6,10 +6,10 @@ package generator
 
 import (
 	"fmt"
-	
-	"github.com/enthus-golang/gowsdl/pkg/parser"
-	"github.com/enthus-golang/gowsdl/pkg/types"
-	"github.com/enthus-golang/gowsdl/pkg/utils"
+
+	"github.com/kastrul/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/types"
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // InlineComplexType represents an inline complex type that needs to be extracted

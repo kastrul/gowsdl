@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/enthus-golang/gowsdl/example/server/gen"
-	"github.com/enthus-golang/gowsdl/soap"
+	"github.com/kastrul/gowsdl/example/server/gen"
+	"github.com/kastrul/gowsdl/soap"
 )
 
 var done = make(chan struct{})
@@ -27,13 +27,13 @@ func client() {
 func main() {
 	// TODO: Server endpoint generation not implemented yet
 	// http.HandleFunc("/", gen.Endpoint)
-	
+
 	fmt.Println("Example client-only demo")
 	go func() {
 		time.Sleep(time.Second * 1)
 		client()
 	}()
-	
+
 	// Simple echo server for demo purposes
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/xml")
@@ -49,7 +49,7 @@ func main() {
 			log.Printf("Error writing response: %v", err)
 		}
 	})
-	
+
 	go func() {
 		if err := http.ListenAndServe(":8000", nil); err != nil {
 			log.Printf("Server error: %v", err)

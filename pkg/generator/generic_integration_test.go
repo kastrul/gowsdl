@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/enthus-golang/gowsdl/pkg/http"
+	"github.com/kastrul/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,12 +23,10 @@ func TestGenericCodeGeneration(t *testing.T) {
 	rootDir := moduleRoot(t)
 
 	// The generated packages must live inside the module so that they
-	// resolve github.com/enthus-golang/gowsdl/soap without a go.mod.
+	// resolve github.com/kastrul/gowsdl/soap without a go.mod.
 	tmpDir, err := os.MkdirTemp(rootDir, "tmp-generic-test-")
 	require.NoError(t, err)
 	t.Cleanup(func() { os.RemoveAll(tmpDir) })
-
-
 
 	// Write WSDL file
 	wsdlPath := filepath.Join(tmpDir, "test.wsdl")
@@ -68,7 +66,7 @@ func TestGenericCodeGeneration(t *testing.T) {
 			if tt.useGenerics {
 				pkgName = "testpkggen"
 			}
-			
+
 			// Generate code
 			args := []string{
 				"run", "cmd/gowsdl/main.go",
@@ -80,23 +78,23 @@ func TestGenericCodeGeneration(t *testing.T) {
 				args = append(args, "-use-generics")
 			}
 			args = append(args, wsdlPath)
-			
+
 			cmd := exec.Command("go", args...)
 			cmd.Dir = rootDir
 			output, err := cmd.CombinedOutput()
 			require.NoError(t, err, "Failed to generate code: %s", string(output))
-			
+
 			// Read generated file
 			pkgDir := filepath.Join(tmpDir, pkgName)
 			content, err := os.ReadFile(filepath.Join(pkgDir, "generated.go"))
 			require.NoError(t, err)
-			
+
 			// Check content
 			contentStr := string(content)
 			for _, check := range tt.checkContent {
 				assert.Contains(t, contentStr, check, "Expected content not found: %s", check)
 			}
-			
+
 			// Verify it compiles
 			cmd = exec.Command("go", "build", ".")
 			cmd.Dir = pkgDir
