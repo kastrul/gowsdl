@@ -78,7 +78,7 @@ replace github.com/kastrul/gowsdl => ` + getRootDir()
 			require.NoError(t, err)
 
 			// Try to build the generated code
-			cmd := exec.Command("go", "build", ".")
+			cmd := exec.Command("go", "build", "-mod=mod", ".")
 			cmd.Dir = tempDir
 			output, err := cmd.CombinedOutput()
 			assert.NoError(t, err, "Generated code should compile. Output: %s", string(output))
