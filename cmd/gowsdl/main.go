@@ -56,7 +56,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"go/format"
 	"log"
 	"os"
 	"path/filepath"
@@ -64,6 +63,7 @@ import (
 	"time"
 
 	gen "github.com/kastrul/gowsdl"
+	"github.com/kastrul/gowsdl/pkg/generator"
 )
 
 // Version is initialized in compilation time by go build.
@@ -353,7 +353,7 @@ func run() error {
 	data.Write(gocode["operations"])
 
 	// go fmt the generated code
-	source, err := format.Source(data.Bytes())
+	source, err := generator.FormatSource(data.Bytes())
 	if err != nil {
 		// Write unformatted code and return error with context
 		if writeErr := writeData(file, data.Bytes()); writeErr != nil {
@@ -383,7 +383,7 @@ func run() error {
 		serverData.Write(gocode["server_wsdl"])
 		serverData.Write(gocode["server"])
 
-		serverSource, err := format.Source(serverData.Bytes())
+		serverSource, err := generator.FormatSource(serverData.Bytes())
 		if err != nil {
 			// Write unformatted server code and return error with context
 			if writeErr := writeData(serverFile, serverData.Bytes()); writeErr != nil {
