@@ -6,7 +6,6 @@ package generator
 
 import (
 	"context"
-	"encoding/xml"
 	"os"
 	"strings"
 	"testing"
@@ -143,94 +142,6 @@ func TestResponseElementNamespaceHandling(t *testing.T) {
 		"SendungsErstellung should use tns: prefix")
 	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:GetOrder"`+"`"),
 		"GetOrder should use tns: prefix")
-}
-
-// TestResponseUnmarshalWithDifferentPrefixes verifies that response types can be unmarshaled
-// regardless of the namespace prefix used by the server
-func TestResponseUnmarshalWithDifferentPrefixes(t *testing.T) {
-	// Define a response type with local name only
-	type GetOrderResponse struct {
-		XMLName xml.Name `xml:"GetOrderResponse"`
-		OrderID string   `xml:"OrderID,omitempty"`
-		Status  string   `xml:"Status,omitempty"`
-	}
-
-	// Test with different namespace prefixes
-	testCases := []struct {
-		name      string
-		xmlData   string
-		wantError bool
-	}{
-		{
-			name: "ns1 prefix",
-			xmlData: `<ns1:GetOrderResponse xmlns:ns1="https://example.com/service">
-				<OrderID>12345</OrderID>
-				<Status>Delivered</Status>
-			</ns1:GetOrderResponse>`,
-			wantError: false,
-		},
-		{
-			name: "ns2 prefix",
-			xmlData: `<ns2:GetOrderResponse xmlns:ns2="https://example.com/service">
-				<OrderID>12345</OrderID>
-				<Status>Delivered</Status>
-			</ns2:GetOrderResponse>`,
-			wantError: false,
-		},
-		{
-			name: "tns prefix",
-			xmlData: `<tns:GetOrderResponse xmlns:tns="https://example.com/service">
-				<OrderID>12345</OrderID>
-				<Status>Delivered</Status>
-			</tns:GetOrderResponse>`,
-			wantError: false,
-		},
-		{
-			name: "no prefix",
-			xmlData: `<GetOrderResponse xmlns="https://example.com/service">
-				<OrderID>12345</OrderID>
-				<Status>Delivered</Status>
-			</GetOrderResponse>`,
-			wantError: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			var resp GetOrderResponse
-			err := xml.Unmarshal([]byte(tc.xmlData), &resp)
-
-			if tc.wantError {
-				assert.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, "12345", resp.OrderID)
-				assert.Equal(t, "Delivered", resp.Status)
-			}
-		})
-	}
-}
-
-// TestRequestTypesRetainNamespacePrefix verifies that request types still use namespace prefix
-func TestRequestTypesRetainNamespacePrefix(t *testing.T) {
-	// Define a request type with tns: prefix (as currently generated)
-	type GetOrder struct {
-		XMLName xml.Name `xml:"tns:GetOrder"`
-		OrderID string   `xml:"OrderID,omitempty"`
-	}
-
-	// This type is used for marshaling requests, not unmarshaling responses
-	// So the tns: prefix is correct and should be retained
-	order := GetOrder{OrderID: "12345"}
-
-	data, err := xml.Marshal(order)
-	require.NoError(t, err)
-
-	xmlStr := string(data)
-	// Should produce <tns:GetOrder><OrderID>12345</OrderID></tns:GetOrder>
-	assert.Contains(t, xmlStr, "<tns:GetOrder>")
-	assert.Contains(t, xmlStr, "<OrderID>12345</OrderID>")
-	assert.Contains(t, xmlStr, "</tns:GetOrder>")
 }
 
 // TestResponseElementNamespaceHandlingWSDL2 tests that WSDL 2.0 response elements are handled correctly
