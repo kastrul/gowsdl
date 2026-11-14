@@ -154,7 +154,8 @@ func (g *GoWSDL) Start() (map[string][]byte, error) {
 	return g.StartWithContext(context.Background())
 }
 
-// Utility functions exported for backward compatibility
+// MakePublic is exported for backward compatibility. It converts the first
+// letter of a string to uppercase.
 var (
 	MakePublic = utils.MakePublic
 )

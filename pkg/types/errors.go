@@ -13,6 +13,7 @@ type WSDLError struct {
 	Err  error  // underlying error
 }
 
+// Error implements the error interface.
 func (e *WSDLError) Error() string {
 	if e.Path != "" {
 		return fmt.Sprintf("wsdl %s %q: %v", e.Op, e.Path, e.Err)
@@ -20,6 +21,7 @@ func (e *WSDLError) Error() string {
 	return fmt.Sprintf("wsdl %s: %v", e.Op, e.Err)
 }
 
+// Unwrap returns the underlying error.
 func (e *WSDLError) Unwrap() error {
 	return e.Err
 }
@@ -31,6 +33,7 @@ type SchemaError struct {
 	Err    error  // underlying error
 }
 
+// Error implements the error interface.
 func (e *SchemaError) Error() string {
 	if e.Schema != "" {
 		return fmt.Sprintf("schema %s %q: %v", e.Op, e.Schema, e.Err)
@@ -38,6 +41,7 @@ func (e *SchemaError) Error() string {
 	return fmt.Sprintf("schema %s: %v", e.Op, e.Err)
 }
 
+// Unwrap returns the underlying error.
 func (e *SchemaError) Unwrap() error {
 	return e.Err
 }

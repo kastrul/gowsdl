@@ -41,7 +41,7 @@ func (xdt *XSDDateTime) ToGoTime() time.Time {
 		xdt.innerTime.Nanosecond(), time.Local)
 }
 
-// MarshalXML implements xml.MarshalerAttr on XSDDateTime
+// MarshalXML implements xml.Marshaler on XSDDateTime
 func (xdt XSDDateTime) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	xdtString := xdt.string()
 	if xdtString != "" {
@@ -136,7 +136,7 @@ func fromString(content string, format string) (time.Time, bool, error) {
 	return t, hasTz, err
 }
 
-// CreateXsdDateTime creates an object represent xsd:datetime object in Golang
+// CreateXsdDateTime creates an object representing an xsd:dateTime in Golang
 func CreateXsdDateTime(dt time.Time, hasTz bool) XSDDateTime {
 	return XSDDateTime{
 		innerTime: dt,
@@ -165,7 +165,7 @@ func (xd *XSDDate) ToGoTime() time.Time {
 		0, 0, 0, 0, time.Local)
 }
 
-// MarshalXML implementation on XSDDate
+// MarshalXML implements xml.Marshaler on XSDDate
 func (xd XSDDate) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	xdtString := xd.string()
 	if xdtString != "" {
@@ -174,7 +174,7 @@ func (xd XSDDate) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	return nil
 }
 
-// MarshalXMLAttr implementation on XSDDate
+// MarshalXMLAttr implements xml.MarshalerAttr on XSDDate
 func (xd XSDDate) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
 	xdString := xd.string()
 	attr := xml.Attr{}
@@ -222,7 +222,7 @@ func (xd *XSDDate) UnmarshalXMLAttr(attr xml.Attr) error {
 	return err
 }
 
-// CreateXsdDate creates an object represent xsd:datetime object in Golang
+// CreateXsdDate creates an object representing an xsd:date in Golang
 func CreateXsdDate(date time.Time, hasTz bool) XSDDate {
 	return XSDDate{
 		innerDate: date,
@@ -277,7 +277,7 @@ func (xt XSDTime) string() string {
 	return ""
 }
 
-// UnmarshalXML implements xml.Unmarshaler on XSDTime to use dateTimeLayout
+// UnmarshalXML implements xml.Unmarshaler on XSDTime to use timeLayout
 func (xt *XSDTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var err error
 	var content string
@@ -288,7 +288,7 @@ func (xt *XSDTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return xt.fromString(content)
 }
 
-// UnmarshalXMLAttr implements xml.UnmarshalerAttr on XSDTime to use dateTimeLayout
+// UnmarshalXMLAttr implements xml.UnmarshalerAttr on XSDTime to use timeLayout
 func (xt *XSDTime) UnmarshalXMLAttr(attr xml.Attr) error {
 	return xt.fromString(attr.Value)
 }

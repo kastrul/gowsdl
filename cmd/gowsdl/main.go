@@ -94,10 +94,12 @@ type ValidationError struct {
 	Err   error  // underlying error
 }
 
+// Error implements the error interface.
 func (e *ValidationError) Error() string {
 	return fmt.Sprintf("validation failed for %s %q: %v", e.Field, e.Value, e.Err)
 }
 
+// Unwrap returns the underlying error.
 func (e *ValidationError) Unwrap() error {
 	return e.Err
 }

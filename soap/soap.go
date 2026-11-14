@@ -121,7 +121,8 @@ type MIMEMultipartAttachment struct {
 	Data []byte
 }
 
-// UnmarshalXML unmarshals SOAPBody xml
+// UnmarshalXML implements xml.Unmarshaler on SOAPBodyResponse. It decodes a
+// soap:Fault into Fault and any other content into Body.
 func (b *SOAPBodyResponse) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 	if b.Body == nil {
 		return xml.UnmarshalError("Body must be a pointer to a struct")
@@ -334,7 +335,7 @@ var defaultOptions = options{
 	tlshshaketimeout: 15 * time.Second,
 }
 
-// A Option sets options such as credentials, tls, etc.
+// Option sets options such as credentials, tls, etc.
 type Option func(*options)
 
 // WithHTTPClient is an Option to set the HTTP client to use
@@ -407,7 +408,7 @@ func WithMIMEMultipartAttachments() Option {
 	}
 }
 
-// Client is soap client
+// Client is a SOAP client.
 type Client struct {
 	url         string
 	opts        *options
