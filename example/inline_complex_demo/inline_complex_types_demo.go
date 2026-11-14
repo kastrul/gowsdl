@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// Command inline_complex_demo shows the named Go types gowsdl generates for
+// inline (anonymous) complex types and how they marshal to XML.
 package main
 
 import (
@@ -13,7 +15,7 @@ import (
 
 // OrderType represents an order with optional shipping address
 type OrderType struct {
-	OrderId         string                        `xml:"orderId,omitempty"`
+	OrderId         string                        `xml:"orderId,omitempty"` //nolint:revive // matches the field name gowsdl generates
 	ShippingAddress *OrderTypeShippingAddressType `xml:"shippingAddress,omitempty"`
 	BillingAddress  OrderTypeBillingAddressType   `xml:"billingAddress,omitempty"`
 	Items           []OrderTypeItemsType          `xml:"items,omitempty"`
@@ -34,7 +36,7 @@ type OrderTypeBillingAddressType struct {
 
 // OrderTypeItemsType is a named type generated for the inline items complex type
 type OrderTypeItemsType struct {
-	ItemId   string `xml:"itemId,omitempty"`
+	ItemId   string `xml:"itemId,omitempty"` //nolint:revive // matches the field name gowsdl generates
 	Quantity int    `xml:"quantity,omitempty"`
 }
 

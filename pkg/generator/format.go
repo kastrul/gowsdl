@@ -136,13 +136,13 @@ func collapseBlankLines(tokFile *token.File, file *ast.File, src []byte, dropped
 		}
 	}
 
-	list := func(open, close token.Pos, nodes []ast.Node) {
+	list := func(open, end token.Pos, nodes []ast.Node) {
 		prev := open
 		for _, n := range nodes {
 			gap(prev, n.Pos())
 			prev = n.End()
 		}
-		gap(prev, close)
+		gap(prev, end)
 	}
 
 	ast.Inspect(file, func(n ast.Node) bool {

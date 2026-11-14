@@ -59,7 +59,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 	</portType>
 </definitions>`,
 			wantErr: false,
-			check: func(t *testing.T, g *Generator) {
+			check: func(t *testing.T, _ *Generator) {
 				// Skip internal field checks
 				t.Log("WSDL parsed successfully")
 			},
@@ -71,7 +71,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 	<types/>
 </definitions>`,
 			wantErr: false,
-			check: func(t *testing.T, g *Generator) {
+			check: func(t *testing.T, _ *Generator) {
 				// Skip internal field checks
 				t.Log("Empty types parsed successfully")
 			},
@@ -91,7 +91,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 	</types>
 </definitions>`,
 			wantErr: false,
-			check: func(t *testing.T, g *Generator) {
+			check: func(t *testing.T, _ *Generator) {
 				// Skip internal field checks
 				t.Log("Multiple schemas parsed successfully")
 			},
@@ -113,7 +113,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 	</types>
 </definitions>`,
 			wantErr: false,
-			check: func(t *testing.T, g *Generator) {
+			check: func(t *testing.T, _ *Generator) {
 				// Skip internal field checks
 				t.Log("Special characters in names handled successfully")
 			},

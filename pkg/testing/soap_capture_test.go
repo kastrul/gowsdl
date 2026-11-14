@@ -343,7 +343,7 @@ func TestSOAPCaptureReadError(t *testing.T) {
 // errorReader is a test helper that always returns an error on Read
 type errorReader struct{}
 
-func (e *errorReader) Read(p []byte) (n int, err error) {
+func (e *errorReader) Read(_ []byte) (n int, err error) {
 	return 0, io.ErrUnexpectedEOF
 }
 

@@ -92,7 +92,7 @@ func TestMTOMDecoder_InlineBinaryWithoutXOPInclude(t *testing.T) {
 		"</soap:Body></soap:Envelope>\r\n"+
 		"--%[1]s--\r\n", boundary)
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", fmt.Sprintf(
 			`multipart/related; type="application/xop+xml"; start-info="text/xml"; boundary=%s`, boundary))
 		_, _ = w.Write([]byte(body))
