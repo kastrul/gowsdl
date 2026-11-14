@@ -68,9 +68,9 @@ func TestTypesTemplate_SharedBlocksKeepPerSiteBehaviour(t *testing.T) {
 	assert.NotContains(t, chooser, "CUntyped", "a choice of a named type drops an untyped element")
 
 	derived := structBody(t, types, "Derived")
-	assert.Regexp(t, `D1 string .xml:"d1,omitempty".`, derived, "extension elements carry no json tag")
+	assert.Regexp(t, `D1 string .xml:"d1,omitempty" json:"d1,omitempty".`, derived)
 	assert.NotContains(t, derived, "DUntyped", "an extension sequence drops an untyped element")
-	assert.Regexp(t, `Id string .xml:"Id,attr,omitempty" json:"Id,omitempty".`, derived, "extension attributes of a named type are not renamed")
+	assert.Regexp(t, `IdAttr string .xml:"Id,attr,omitempty" json:"Id,omitempty".`, derived)
 }
 
 func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreNameIsExported(t *testing.T) {
@@ -175,8 +175,8 @@ func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T)
 	assert.Regexp(t, `\sA int32 `, structBody(t, types, "Everything"))
 
 	derived := structBody(t, types, "Derived")
-	assert.Regexp(t, `\sD int32 .xml:"d,omitempty".`, derived)
-	assert.Regexp(t, `\sDMany \[\]int32 .xml:"dMany,omitempty".`, derived)
+	assert.Regexp(t, `\sD int32 .xml:"d,omitempty" json:"d,omitempty".`, derived)
+	assert.Regexp(t, `\sDMany \[\]int32 .xml:"dMany,omitempty" json:"dMany,omitempty".`, derived)
 }
 
 func TestGenerator_ExtensionAttributesOfNamedTypes_HaveJSONTags(t *testing.T) {
@@ -211,4 +211,147 @@ func TestGenerator_ExtensionAttributesOfNamedTypes_HaveJSONTags(t *testing.T) {
 
 	assert.Regexp(t, `\sVersion int32 .xml:"version,attr,omitempty" json:"version,omitempty".`, structBody(t, types, "Derived"))
 	assert.Regexp(t, `\sCurrency string .xml:"currency,attr,omitempty" json:"currency,omitempty".`, structBody(t, types, "Money"))
+}
+
+func TestGenerator_ExtensionSequenceElements_HaveJSONTags(t *testing.T) {
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:element name="Shared" type="xsd:string"/>
+            <xsd:complexType name="Base"><xsd:sequence><xsd:element name="baseId" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:complexType name="Derived">
+                <xsd:complexContent>
+                    <xsd:extension base="tns:Base">
+                        <xsd:sequence>
+                            <xsd:element name="typed" type="xsd:string"/>
+                            <xsd:element name="many" type="xsd:int" maxOccurs="unbounded"/>
+                            <xsd:element ref="tns:Shared"/>
+                            <xsd:element name="opt" minOccurs="0">
+                                <xsd:complexType><xsd:sequence><xsd:element name="z" type="xsd:string"/></xsd:sequence></xsd:complexType>
+                            </xsd:element>
+                            <xsd:element name="list" maxOccurs="unbounded">
+                                <xsd:complexType><xsd:sequence><xsd:element name="z" type="xsd:string"/></xsd:sequence></xsd:complexType>
+                            </xsd:element>
+                        </xsd:sequence>
+                    </xsd:extension>
+                </xsd:complexContent>
+            </xsd:complexType>
+        </xsd:schema>
+    </types>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+
+	derived := structBody(t, string(formatted), "Derived")
+	assert.Regexp(t, `\sTyped string .xml:"typed,omitempty" json:"typed,omitempty".`, derived)
+	assert.Regexp(t, `\sMany \[\]int32 .xml:"many,omitempty" json:"many,omitempty".`, derived)
+	assert.Regexp(t, `\sShared Shared .xml:"Shared,omitempty" json:"Shared,omitempty".`, derived)
+	assert.Regexp(t, `\sOpt \*DerivedOptType .xml:"opt,omitempty" json:"opt,omitempty".`, derived)
+	assert.Regexp(t, `\sList \[\]DerivedListType .xml:"list,omitempty" json:"list,omitempty".`, derived)
+}
+
+func TestGenerator_IDAttribute_IsRenamedAtEverySite(t *testing.T) {
+	const idAttrs = `<xsd:attribute name="Id" type="xsd:string"/><xsd:attribute name="lang" type="xsd:string"/>`
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Base"><xsd:sequence><xsd:element name="Id" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:complexType name="Direct"><xsd:sequence><xsd:element name="v" type="xsd:string"/></xsd:sequence>`+idAttrs+`</xsd:complexType>
+            <xsd:complexType name="Derived">
+                <xsd:complexContent><xsd:extension base="tns:Base">`+idAttrs+`</xsd:extension></xsd:complexContent>
+            </xsd:complexType>
+            <xsd:complexType name="Money">
+                <xsd:simpleContent><xsd:extension base="xsd:decimal">`+idAttrs+`</xsd:extension></xsd:simpleContent>
+            </xsd:complexType>
+            <xsd:complexType name="Holder">
+                <xsd:sequence>
+                    <xsd:element name="sc">
+                        <xsd:complexType><xsd:simpleContent><xsd:extension base="xsd:string">`+idAttrs+`</xsd:extension></xsd:simpleContent></xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="ext">
+                        <xsd:complexType><xsd:complexContent><xsd:extension base="tns:Base">`+idAttrs+`</xsd:extension></xsd:complexContent></xsd:complexType>
+                    </xsd:element>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:element name="Response">
+                <xsd:complexType><xsd:simpleContent><xsd:extension base="xsd:string">`+idAttrs+`</xsd:extension></xsd:simpleContent></xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+	types := string(formatted)
+
+	for _, name := range []string{"Direct", "Derived", "Money", "HolderScType", "HolderExtType", "Response"} {
+		body := structBody(t, types, name)
+		assert.Regexp(t, `\sIdAttr string .xml:"Id,attr,omitempty" json:"Id,omitempty".`, body, name)
+		assert.NotRegexp(t, `\sId string .xml:"Id,attr`, body, name)
+		assert.Regexp(t, `\sLang string .xml:"lang,attr,omitempty"`, body, name)
+	}
+}
+
+func TestGenerator_SimpleContentValueField_HasJSONTagAtEverySite(t *testing.T) {
+	const simpleContent = `<xsd:simpleContent><xsd:extension base="xsd:decimal"><xsd:attribute name="currency" type="xsd:string"/></xsd:extension></xsd:simpleContent>`
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Money">`+simpleContent+`</xsd:complexType>
+            <xsd:complexType name="Holder">
+                <xsd:sequence><xsd:element name="amount"><xsd:complexType>`+simpleContent+`</xsd:complexType></xsd:element></xsd:sequence>
+            </xsd:complexType>
+            <xsd:element name="Price"><xsd:complexType>`+simpleContent+`</xsd:complexType></xsd:element>
+        </xsd:schema>
+    </types>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+	types := string(formatted)
+
+	for _, name := range []string{"Money", "HolderAmountType", "Price"} {
+		assert.Contains(t, structBody(t, types, name), "Value float64 `xml:\",chardata\" json:\"value\"`", name)
+	}
+}
+
+func TestGenerator_TargetNamespaceMethod_IsDocumentedAtEverySite(t *testing.T) {
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Payload"><xsd:sequence><xsd:element name="v" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:element name="Payload" type="tns:Payload"/>
+            <xsd:element name="Aliased" type="tns:Payload"/>
+            <xsd:element name="Anonymous">
+                <xsd:complexType><xsd:sequence><xsd:element name="v" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+    <message name="PayloadIn"><part name="parameters" element="tns:Payload"/></message>
+    <message name="AliasedIn"><part name="parameters" element="tns:Aliased"/></message>
+    <message name="AnonymousIn"><part name="parameters" element="tns:Anonymous"/></message>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+	types := string(formatted)
+
+	for _, name := range []string{"Payload", "Aliased", "Anonymous"} {
+		assert.Contains(t, types,
+			"// TargetNamespace returns the target namespace for SOAP envelope configuration\n"+
+				"func (t "+name+") TargetNamespace() string {\n\treturn \"http://example.com/x\"\n}", name)
+	}
 }

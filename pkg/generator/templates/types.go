@@ -67,7 +67,7 @@ An element with an inline simple type always gets the base of its restriction.
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .SimpleType}}
-			{{template "InlineSimpleField" (dict "Element" . "JSON" true)}}
+			{{template "InlineSimpleField" .}}
 		{{else if eq $untyped "string"}}
 			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 		{{else if eq $untyped "name"}}
@@ -84,12 +84,10 @@ An element with an inline simple type always gets the base of its restriction.
 
 {{/*
 InlineSimpleField emits the field of an element with an inline simple type: the
-base of its restriction, or string when it has none (a list or a union). It is
-called with a dict: Element is the element, JSON says whether to emit a json tag.
+base of its restriction, or string when it has none (a list or a union).
 */}}
 {{define "InlineSimpleField"}}
-	{{$el := .Element}}
-	{{$json := .JSON}}
+	{{$el := .}}
 	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
 	{{$memberType := "string"}}
 	{{if $el.SimpleType.Restriction.Base}}
@@ -98,7 +96,7 @@ called with a dict: Element is the element, JSON says whether to emit a json tag
 			{{$memberType = printf "[]%s" $memberType}}
 		{{end}}
 	{{end}}
-	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}},omitempty"{{if $json}} json:"{{$el.Name}},omitempty"{{end}}` + "`" + `
+	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 {{end}}
 
 {{define "InlineComplexField"}}
@@ -115,25 +113,41 @@ called with a dict: Element is the element, JSON says whether to emit a json tag
 {{end}}
 
 {{/*
-AttributeFields emits one struct field per XSD attribute. It is called with a dict:
-  Attributes  the attributes
-  RenameID    name the field of an attribute called "Id" or "id" IdAttr; the
-              call sites have always disagreed on this
+AttributeFields emits one struct field per XSD attribute. The field of an
+attribute called "Id" or "id" is named IdAttr so that it cannot clash with the
+field of an element of that name.
 */}}
 {{define "AttributeFields"}}
-	{{$renameID := .RenameID}}
-	{{range .Attributes}}
+	{{range .}}
 		{{$name := .Name}}
-		{{if $renameID}}
-			{{if eq .Name "Id"}}
-				{{$name = "IdAttr"}}
-			{{end}}
-			{{if eq .Name "id"}}
-				{{$name = "idAttr"}}
-			{{end}}
+		{{if eq .Name "Id"}}
+			{{$name = "IdAttr"}}
+		{{end}}
+		{{if eq .Name "id"}}
+			{{$name = "idAttr"}}
 		{{end}}
 		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
+{{end}}
+
+{{/*
+TargetNamespaceMethod emits the TargetNamespace method of a message type. It is
+called with a dict: Type is the Go type, Namespace the target namespace of its
+declaration.
+*/}}
+{{define "TargetNamespaceMethod"}}
+	// TargetNamespace returns the target namespace for SOAP envelope configuration
+	func (t {{.Type}}) TargetNamespace() string {
+		return "{{.Namespace}}"
+	}
+{{end}}
+
+{{/*
+ValueField emits the field holding the text of a simpleContent extension. It is
+called with the extension's base type.
+*/}}
+{{define "ValueField"}}
+	Value {{toGoType . false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
 {{end}}
 
 {{/* ExtensionBase embeds the base type of a complexContent extension. */}}
@@ -170,7 +184,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{with $complexType.ComplexContent}}
 		{{template "ExtensionBase" .}}
 		{{template "Elements" .Extension.Sequence}}
-		{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
+		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 
 	{{template "ElementFields" (dict "Elements" $complexType.Sequence "Untyped" "string")}}
@@ -178,7 +192,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{template "ElementFields" (dict "Elements" $complexType.SequenceChoice "Untyped" "string")}}
 	{{template "ElementFields" (dict "Elements" $complexType.All "Untyped" "string")}}
 
-	{{template "AttributeFields" (dict "Attributes" $complexType.Attributes "RenameID" true)}}
+	{{template "AttributeFields" $complexType.Attributes}}
 
 	{{if ne (len $complexType.Any) 0}}
 		Items []string ` + "`" + `xml:",any"` + "`" + `
@@ -194,7 +208,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{template "ElementFields" (dict "Elements" .SequenceChoice "Untyped" "drop")}}
 	{{template "ElementFields" (dict "Elements" .All "Untyped" "drop")}}
 
-	{{template "AttributeFields" (dict "Attributes" .Attributes "RenameID" true)}}
+	{{template "AttributeFields" .Attributes}}
 
 	{{if ne (len .Any) 0}}
 		Items []string ` + "`" + `xml:",any"` + "`" + `
@@ -214,22 +228,19 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
 			{{template "Elements" .Extension.Sequence}}
-			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
+			{{template "AttributeFields" .Extension.Attributes}}
 		{{end}}
 		{{with .SimpleContent}}
 			{{if ne .Extension.Base ""}}
-				Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata"` + "`" + `
+				{{template "ValueField" .Extension.Base}}
 			{{end}}
-			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
+			{{template "AttributeFields" .Extension.Attributes}}
 		{{end}}
 	}
 	
 	{{if isMessageElement .Name}}
 		{{if not (isQualified .)}}
-		// TargetNamespace returns the target namespace for SOAP envelope configuration
-		func (t {{$type}}) TargetNamespace() string {
-			return "{{complexTypeNamespace .}}"
-		}
+		{{template "TargetNamespaceMethod" (dict "Type" $type "Namespace" (complexTypeNamespace .))}}
 		{{end}}
 	{{end}}
 {{end}}
@@ -248,8 +259,8 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	type {{$type}} struct {
 		{{if $inline.ComplexType.SimpleContent.Extension.Base}}
 			{{/* Simple content with attributes */}}
-			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
-			{{template "AttributeFields" (dict "Attributes" $inline.ComplexType.SimpleContent.Extension.Attributes "RenameID" false)}}
+			{{template "ValueField" $inline.ComplexType.SimpleContent.Extension.Base}}
+			{{template "AttributeFields" $inline.ComplexType.SimpleContent.Extension.Attributes}}
 		{{else}}
 			{{template "ComplexTypeInlineNamed" $inline.ComplexType}}
 		{{end}}
@@ -277,9 +288,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				}
 				
 				{{if not (isQualified .)}}
-				func (t {{$type}}) TargetNamespace() string {
-					return "{{elementNamespace .}}"
-				}
+				{{template "TargetNamespaceMethod" (dict "Type" $type "Namespace" (elementNamespace .))}}
 				{{end}}
 			{{else}}
 				type {{$type}} {{$goType}}
@@ -326,16 +335,14 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 					{{template "ComplexTypeInline" .ComplexType}}
 					{{with .ComplexType.SimpleContent}}
 						{{if ne .Extension.Base ""}}
-							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
+							{{template "ValueField" .Extension.Base}}
 						{{end}}
-						{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
+						{{template "AttributeFields" .Extension.Attributes}}
 					{{end}}
 				}
 
 				{{if not (isQualified .)}}
-				func (t {{$outerType}}) TargetNamespace() string {
-					return "{{elementNamespace .}}"
-				}
+				{{template "TargetNamespaceMethod" (dict "Type" $outerType "Namespace" (elementNamespace .))}}
 				{{end}}
 			{{end}}
 		{{else}}
@@ -483,17 +490,16 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 {{define "Elements"}}
 	{{range .}}
 		{{if ne .Ref ""}}
-			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty"` + "`" + `
+			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 		{{else}}
 			{{if not .Type}}
 				{{if .ComplexType}}
-					{{$inlineTypeName := inlineTypeName .}}
-					{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+					{{template "InlineComplexField" .}}
 				{{else if .SimpleType}}
-					{{template "InlineSimpleField" (dict "Element" . "JSON" false)}}
+					{{template "InlineSimpleField" .}}
 				{{end}}
 			{{else}}
-				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
