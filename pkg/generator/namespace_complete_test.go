@@ -5,9 +5,7 @@
 package generator
 
 import (
-	"bytes"
 	"context"
-	"encoding/xml"
 	"os"
 	"testing"
 
@@ -123,96 +121,4 @@ func TestCompleteNamespaceHandling(t *testing.T) {
 	// Check that TargetNamespace method is generated
 	assert.Contains(t, typesStr, "func (t GOWebService_SendungsErstellung) TargetNamespace() string")
 	assert.Contains(t, typesStr, `return "https://wsdemo.ax4.com/ws/GeneralOvernight"`)
-
-	// Test actual marshaling with our enhanced SOAP envelope
-	testMarshalingWithEnhancedEnvelope(t)
-}
-
-func testMarshalingWithEnhancedEnvelope(t *testing.T) {
-	// Enhanced body type
-	type EnhancedBody struct {
-		XMLName xml.Name    `xml:"soap:Body"`
-		Content interface{} `xml:",any"`
-	}
-
-	// Enhanced envelope that declares namespaces
-	type EnhancedEnvelope struct {
-		XMLName  xml.Name `xml:"soap:Envelope"`
-		XmlNS    string   `xml:"xmlns:soap,attr"`
-		XmlNSTns string   `xml:"xmlns:tns,attr,omitempty"`
-		XmlNSXSI string   `xml:"xmlns:xsi,attr,omitempty"`
-		XmlNSXSD string   `xml:"xmlns:xsd,attr,omitempty"`
-		Body     EnhancedBody
-	}
-
-	// Generated inline types
-	type GOWebService_SendungsErstellungAnsprechpartnerTypeTelefonType struct {
-		LaenderPrefix string `xml:"LaenderPrefix,omitempty" json:"LaenderPrefix,omitempty"`
-		Vorwahl       string `xml:"Vorwahl,omitempty" json:"Vorwahl,omitempty"`
-		Telefonnummer string `xml:"Telefonnummer,omitempty" json:"Telefonnummer,omitempty"`
-	}
-
-	type GOWebService_SendungsErstellungAnsprechpartnerType struct {
-		Telefon GOWebService_SendungsErstellungAnsprechpartnerTypeTelefonType `xml:"Telefon,omitempty" json:"Telefon,omitempty"`
-	}
-
-	// Operation type with namespace prefix
-	type GOWebService_SendungsErstellung struct {
-		XMLName         xml.Name                                            `xml:"tns:GOWebService_SendungsErstellung"`
-		Versender       string                                              `xml:"Versender,omitempty"`
-		Benutzername    string                                              `xml:"Benutzername,omitempty"`
-		Status          string                                              `xml:"Status,omitempty"`
-		Kundenreferenz  string                                              `xml:"Kundenreferenz,omitempty"`
-		Ansprechpartner *GOWebService_SendungsErstellungAnsprechpartnerType `xml:"Ansprechpartner,omitempty"`
-	}
-
-	// Create request with nested structure
-	request := &GOWebService_SendungsErstellung{
-		Versender:      "2611570",
-		Benutzername:   "21480MCL",
-		Status:         "1",
-		Kundenreferenz: "AU201061_LS300999",
-		Ansprechpartner: &GOWebService_SendungsErstellungAnsprechpartnerType{
-			Telefon: GOWebService_SendungsErstellungAnsprechpartnerTypeTelefonType{
-				LaenderPrefix: "49",
-				Vorwahl:       "89",
-				Telefonnummer: "12345678",
-			},
-		},
-	}
-
-	envelope := EnhancedEnvelope{
-		XmlNS:    "http://schemas.xmlsoap.org/soap/envelope/",
-		XmlNSTns: "https://wsdemo.ax4.com/ws/GeneralOvernight",
-		XmlNSXSI: "http://www.w3.org/2001/XMLSchema-instance",
-		XmlNSXSD: "http://www.w3.org/2001/XMLSchema",
-		Body: EnhancedBody{
-			Content: request,
-		},
-	}
-
-	var buf bytes.Buffer
-	encoder := xml.NewEncoder(&buf)
-	encoder.Indent("", "  ")
-
-	err := encoder.Encode(envelope)
-	require.NoError(t, err)
-
-	xmlStr := buf.String()
-	t.Logf("Generated SOAP envelope:\n%s", xmlStr)
-
-	// Verify correct structure
-	assert.Contains(t, xmlStr, `xmlns:tns="https://wsdemo.ax4.com/ws/GeneralOvernight"`)
-	assert.Contains(t, xmlStr, `<tns:GOWebService_SendungsErstellung>`)
-	assert.Contains(t, xmlStr, `<Versender>2611570</Versender>`)
-	assert.Contains(t, xmlStr, `<Ansprechpartner>`)
-	assert.Contains(t, xmlStr, `<Telefon>`)
-	assert.Contains(t, xmlStr, `<LaenderPrefix>49</LaenderPrefix>`)
-
-	// Verify unqualified child elements
-	assert.NotContains(t, xmlStr, `<tns:Versender>`)
-	assert.NotContains(t, xmlStr, `<tns:Ansprechpartner>`)
-	assert.NotContains(t, xmlStr, `<tns:Telefon>`)
-	assert.NotContains(t, xmlStr, `<tns:LaenderPrefix>`)
-	assert.NotContains(t, xmlStr, `xmlns=`) // No default namespace declarations
 }

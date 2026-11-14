@@ -155,8 +155,3 @@ func TestErrorsAs(t *testing.T) {
 		t.Errorf("extracted error has wrong Schema: got %v, want types.xsd", targetSchemaErr.Schema)
 	}
 }
-
-func TestMultipleErrorsInStartWithContext(t *testing.T) {
-	t.Log("Integration test for StartWithContext error aggregation")
-	t.Skip("TODO: Implement this test after GoWSDL is properly refactored")
-}

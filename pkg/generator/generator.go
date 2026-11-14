@@ -16,7 +16,6 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/kastrul/gowsdl/pkg/core"
 	"github.com/kastrul/gowsdl/pkg/generator/templates"
 	"github.com/kastrul/gowsdl/pkg/http"
 	"github.com/kastrul/gowsdl/pkg/parser"
@@ -26,22 +25,19 @@ import (
 
 // Generator handles WSDL code generation
 type Generator struct {
-	loc              *http.Location
-	rawWSDL          []byte
-	pkg              string
-	makePublicFn     func(string) string
-	wsdl             *parser.WSDL
-	wsdl2            *parser.WSDL2
-	wsdlVersion      string // "1.1" or "2.0"
-	httpConfig       http.HTTPConfig
-	useGenerics      bool
-	genericsOnly     bool
-	generateServer   bool
-	operations       map[string]bool
-	keepUnusedTypes  bool
-	namespaceManager *core.NamespaceManager
-	typeMapper       *types.TypeMapper
-	refNamespaces    map[*parser.XSDElement]string
+	loc             *http.Location
+	pkg             string
+	wsdl            *parser.WSDL
+	wsdl2           *parser.WSDL2
+	wsdlVersion     string // "1.1" or "2.0"
+	httpConfig      http.HTTPConfig
+	useGenerics     bool
+	genericsOnly    bool
+	generateServer  bool
+	operations      map[string]bool
+	keepUnusedTypes bool
+	typeMapper      *types.TypeMapper
+	refNamespaces   map[*parser.XSDElement]string
 }
 
 // Option defines a function that configures Generator
@@ -87,14 +83,10 @@ func WithGenericsOnly() Option {
 	}
 }
 
-// WithExportAllTypes controls type visibility
-func WithExportAllTypes(export bool) Option {
-	return func(g *Generator) error {
-		if export {
-			g.makePublicFn = utils.MakePublic
-		} else {
-			g.makePublicFn = func(id string) string { return id }
-		}
+// WithExportAllTypes is accepted for API compatibility. It currently has no
+// effect on generated output.
+func WithExportAllTypes(_ bool) Option {
+	return func(_ *Generator) error {
 		return nil
 	}
 }
@@ -115,11 +107,9 @@ func New(file string, opts ...Option) (*Generator, error) {
 	}
 
 	g := &Generator{
-		loc:              loc,
-		pkg:              "myservice",
-		makePublicFn:     func(id string) string { return id },
-		namespaceManager: core.NewNamespaceManager(),
-		typeMapper:       types.NewTypeMapper(),
+		loc:        loc,
+		pkg:        "myservice",
+		typeMapper: types.NewTypeMapper(),
 	}
 
 	for _, opt := range opts {
@@ -268,7 +258,6 @@ func (g *Generator) unmarshal(ctx context.Context) error {
 			Err:  err,
 		}
 	}
-	g.rawWSDL = data
 
 	// Detect WSDL version
 	version, err := parser.DetectWSDLVersion(data)

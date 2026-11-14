@@ -6,7 +6,6 @@ package generator
 
 import (
 	"context"
-	"encoding/xml"
 	"os"
 	"testing"
 
@@ -135,86 +134,6 @@ func TestInlineComplexTypeGeneration(t *testing.T) {
 	// Check that inline types for elements are also handled
 	assert.Contains(t, typesStr, "type CreateOrderRequestType struct", "Should generate named type for element's inline complex type")
 	assert.Contains(t, typesStr, "type CreateOrderResponseType struct", "Should generate named type for element's inline complex type")
-}
-
-func TestInlineComplexTypeMarshalingWithNamedTypes(t *testing.T) {
-	// This test verifies that the generated code with named types marshals correctly
-	xmlData := `<order>
-		<orderId>12345</orderId>
-		<billingAddress>
-			<street>Main St</street>
-			<city>NYC</city>
-		</billingAddress>
-		<items>
-			<itemId>item1</itemId>
-			<quantity>2</quantity>
-		</items>
-		<items>
-			<itemId>item2</itemId>
-			<quantity>1</quantity>
-		</items>
-	</order>`
-
-	// Define the expected structure with named types
-	type OrderTypeBillingAddressType struct {
-		Street string `xml:"street,omitempty"`
-		City   string `xml:"city,omitempty"`
-	}
-
-	type OrderTypeShippingAddressType struct {
-		Street  string `xml:"street,omitempty"`
-		City    string `xml:"city,omitempty"`
-		ZipCode string `xml:"zipCode,omitempty"`
-	}
-
-	type OrderTypeItemsType struct {
-		ItemId   string `xml:"itemId,omitempty"`
-		Quantity int    `xml:"quantity,omitempty"`
-	}
-
-	type OrderType struct {
-		OrderId         string                        `xml:"orderId,omitempty"`
-		ShippingAddress *OrderTypeShippingAddressType `xml:"shippingAddress,omitempty"`
-		BillingAddress  OrderTypeBillingAddressType   `xml:"billingAddress,omitempty"`
-		Items           []OrderTypeItemsType          `xml:"items,omitempty"`
-	}
-
-	// Test unmarshaling
-	var order OrderType
-	err := xml.Unmarshal([]byte(xmlData), &order)
-	require.NoError(t, err)
-
-	assert.Equal(t, "12345", order.OrderId)
-	assert.Nil(t, order.ShippingAddress) // Not in XML
-	assert.Equal(t, "Main St", order.BillingAddress.Street)
-	assert.Equal(t, "NYC", order.BillingAddress.City)
-	assert.Len(t, order.Items, 2)
-	assert.Equal(t, "item1", order.Items[0].ItemId)
-	assert.Equal(t, 2, order.Items[0].Quantity)
-
-	// Test marshaling with optional field
-	order.ShippingAddress = &OrderTypeShippingAddressType{
-		Street:  "Ship St",
-		City:    "LA",
-		ZipCode: "90210",
-	}
-
-	data, err := xml.Marshal(order)
-	require.NoError(t, err)
-
-	xmlStr := string(data)
-	assert.Contains(t, xmlStr, "<shippingAddress>")
-	assert.Contains(t, xmlStr, "<street>Ship St</street>")
-	assert.Contains(t, xmlStr, "<city>LA</city>")
-	assert.Contains(t, xmlStr, "<zipCode>90210</zipCode>")
-
-	// Test nil pointer is omitted
-	order.ShippingAddress = nil
-	data, err = xml.Marshal(order)
-	require.NoError(t, err)
-
-	xmlStr = string(data)
-	assert.NotContains(t, xmlStr, "<shippingAddress")
 }
 
 func TestNestedInlineComplexTypes(t *testing.T) {

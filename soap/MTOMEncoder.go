@@ -1,6 +1,7 @@
 package soap
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -77,7 +78,7 @@ func (b *Binary) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
 			},
 		}, start)
 	}
-	return enc.EncodeElement(b.Bytes, start)
+	return enc.EncodeElement(base64.StdEncoding.EncodeToString(b.Bytes()), start)
 }
 
 // UnmarshalXML implements the xml.Unmarshaler interface to decode a Binary form XML
@@ -162,8 +163,10 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 				continue
 			}
 			f := v.Field(i)
-			if _, ok := f.Interface().(*Binary); ok {
-				*fields = append(*fields, f)
+			if b, ok := f.Interface().(*Binary); ok {
+				if b != nil {
+					*fields = append(*fields, f)
+				}
 			} else {
 				getBinaryFields(f.Interface(), fields)
 			}
@@ -174,8 +177,10 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 			if !e.CanInterface() {
 				continue
 			}
-			if _, ok := e.Interface().(*Binary); ok {
-				*fields = append(*fields, v)
+			if b, ok := e.Interface().(*Binary); ok {
+				if b != nil {
+					*fields = append(*fields, e)
+				}
 			} else {
 				getBinaryFields(e.Interface(), fields)
 			}
@@ -273,8 +278,15 @@ func (d *mtomDecoder) Decode(v interface{}) error {
 	// Set binary fields with correct content
 	for _, f := range fields {
 		b := f.Interface().(*Binary)
-		b.content = packages[b.packageID].content
-		b.contentType = packages[b.packageID].contentType
+		if !b.useMTOM {
+			continue
+		}
+		pkg, ok := packages[b.packageID]
+		if !ok {
+			return fmt.Errorf("missing MTOM part for content ID %q", b.packageID)
+		}
+		b.content = pkg.content
+		b.contentType = pkg.contentType
 	}
 	return nil
 }

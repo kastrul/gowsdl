@@ -129,7 +129,6 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 			String: "Invalid content type for SOAP 1.1; expected 'text/xml'",
 			Detail: "Invalid content type for SOAP 1.1; expected 'text/xml'",
 		}
-		xml.NewEncoder(w).Encode(resp)
 		return
 	}
 
@@ -292,7 +291,7 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 		field = val.Field(i)
 		name = val.Type().Field(i).Name
 
-		if !field.IsNil() {
+		if field.Kind() == reflect.Ptr && !field.IsNil() {
 			find = true
 			break
 		}

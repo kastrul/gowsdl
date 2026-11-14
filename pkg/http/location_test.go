@@ -145,3 +145,13 @@ func TestLocation_Parse_FileToURL(t *testing.T) {
 		}
 	}
 }
+
+func TestLocation_ParseLocation_InvalidEscape(t *testing.T) {
+	r, err := ParseLocation("fixtures/100%zz.wsdl")
+	if err == nil {
+		t.Fatalf("expected an error, got location %v", r)
+	}
+	if r != nil {
+		t.Errorf("expected nil location, got %v", r)
+	}
+}

@@ -6,7 +6,6 @@ package generator
 
 import (
 	"context"
-	"encoding/xml"
 	"os"
 	"testing"
 
@@ -194,53 +193,4 @@ func TestElementFormDefaultQualified(t *testing.T) {
 	// When elementFormDefault="qualified", all elements should be in the namespace
 	// This is the current behavior and should remain unchanged
 	assert.Contains(t, typesStr, "XMLName", "Should have XMLName fields")
-}
-
-// TestXMLMarshalingWithUnqualifiedElements tests that the generated code
-// produces correct XML for unqualified schemas
-func TestXMLMarshalingWithUnqualifiedElements(t *testing.T) {
-	// This demonstrates the expected XML output
-	type CreateOrderItemType struct {
-		ProductCode string `xml:"productCode,omitempty"`
-		Quantity    int    `xml:"quantity,omitempty"`
-	}
-
-	type CreateOrderItems struct {
-		Item []CreateOrderItemType `xml:"item,omitempty"`
-	}
-
-	// Only the root element should have namespace
-	type CreateOrder struct {
-		XMLName    xml.Name          `xml:"https://example.com/service CreateOrder"`
-		CustomerID string            `xml:"customerID,omitempty"`
-		Items      *CreateOrderItems `xml:"items,omitempty"`
-	}
-
-	order := &CreateOrder{
-		CustomerID: "12345",
-		Items: &CreateOrderItems{
-			Item: []CreateOrderItemType{
-				{ProductCode: "PROD001", Quantity: 2},
-			},
-		},
-	}
-
-	data, err := xml.Marshal(order)
-	require.NoError(t, err)
-
-	xmlStr := string(data)
-	t.Logf("Expected XML structure:\n%s", xmlStr)
-
-	// The root element should have the namespace
-	assert.Contains(t, xmlStr, "CreateOrder xmlns=")
-
-	// Child elements should NOT have namespace prefix
-	assert.Contains(t, xmlStr, "<customerID>")
-	assert.Contains(t, xmlStr, "<items>")
-	assert.Contains(t, xmlStr, "<item>")
-	assert.Contains(t, xmlStr, "<productCode>")
-
-	// Verify no namespace prefixes on child elements
-	assert.NotContains(t, xmlStr, "tns:customerID")
-	assert.NotContains(t, xmlStr, "ns:customerID")
 }

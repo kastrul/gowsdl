@@ -45,7 +45,13 @@ func DownloadFile(ctx context.Context, url string, httpConfig HTTPConfig) ([]byt
 	// Retry logic
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			time.Sleep(retryDelay)
+			timer := time.NewTimer(retryDelay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
 		}
 
 		resp, err = client.Do(req)
@@ -53,10 +59,10 @@ func DownloadFile(ctx context.Context, url string, httpConfig HTTPConfig) ([]byt
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		lastErr = err
 		if err == nil && resp.StatusCode < 500 {
 			break
 		}
-		lastErr = err
 		if resp != nil {
 			_ = resp.Body.Close()
 		}

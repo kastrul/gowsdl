@@ -193,12 +193,6 @@ func TestGenerator_isMessageElement(t *testing.T) {
 	}
 }
 
-func TestGenerator_isMessageElement_WSDL2(t *testing.T) {
-	// Skip this test for now as WSDL 2.0 support is limited
-	// The function correctly returns false for WSDL 2.0 as implemented
-	t.Skip("WSDL 2.0 support is limited, test covers WSDL 1.1 extensively")
-}
-
 func TestGenerator_isMessageElement_EmptyWSDL(t *testing.T) {
 	// Test with empty WSDL data
 	gen := &Generator{
