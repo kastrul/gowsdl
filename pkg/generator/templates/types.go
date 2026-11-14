@@ -447,7 +447,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				{{if eq .Name $inputMsgName}}
 					// Operation wrapper for {{$opName | makePublic}}.
 					type Operation{{$opName | makePublic}}In struct {
-						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}"` + "`" + `
+						XMLName xml.Name ` + "`" + `xml:"{{rpcOperationNamespace $opName $portType.Name false}} {{$opName}}"` + "`" + `
 						
 						{{range .Parts}}
 							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
@@ -465,7 +465,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 					// accessor element in no namespace, as WS-I Basic Profile R2735
 					// requires, rather than in the operation's namespace.
 					func (w Operation{{$opName | makePublic}}In) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
-						start := xml.StartElement{Name: xml.Name{Space: "{{getTargetNamespace}}", Local: "{{$opName}}"}}
+						start := xml.StartElement{Name: xml.Name{Space: "{{rpcOperationNamespace $opName $portType.Name false}}", Local: "{{$opName}}"}}
 						if err := e.EncodeToken(start); err != nil {
 							return err
 						}
@@ -499,7 +499,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				{{if eq .Name $outputMsgName}}
 					// Operation wrapper for {{$opName | makePublic}}.
 					type Operation{{$opName | makePublic}}Out struct {
-						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}Response"` + "`" + `
+						XMLName xml.Name ` + "`" + `xml:"{{rpcOperationNamespace $opName $portType.Name true}} {{$opName}}Response"` + "`" + `
 						
 						{{range .Parts}}
 							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}

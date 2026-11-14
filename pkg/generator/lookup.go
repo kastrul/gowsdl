@@ -189,6 +189,32 @@ func (g *Generator) findType(message string) string {
 // findSOAPAction returns the SOAP action declared for the named operation by
 // the first binding of the named port type that has the operation, or "" if
 // none does.
+// rpcOperationNamespace returns the namespace of the element that wraps the
+// input, or with output the output, of an RPC-style operation: the
+// namespace of the operation's soap:body in the port type's binding (WSDL
+// 1.1 section 3.5), or the WSDL targetNamespace when the binding declares
+// none.
+func (g *Generator) rpcOperationNamespace(operation, portType string, output bool) string {
+	for _, binding := range g.bindingsForPortType(portType) {
+		for _, op := range binding.Operations {
+			if op.Name != operation {
+				continue
+			}
+			ns := op.Input.SOAPBody.Namespace
+			if output {
+				ns = op.Output.SOAPBody.Namespace
+			}
+			if ns != "" {
+				return ns
+			}
+		}
+	}
+	if g.wsdl != nil && g.wsdl.TargetNamespace != "" {
+		return g.wsdl.TargetNamespace
+	}
+	return g.getTargetNamespace()
+}
+
 func (g *Generator) findSOAPAction(operation, portType string) string {
 	for _, binding := range g.bindingsForPortType(portType) {
 		for _, op := range binding.Operations {

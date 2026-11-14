@@ -259,3 +259,87 @@ func TestGenerator_RPCTypeParts(t *testing.T) {
 		})
 	}
 }
+
+// rpcWrapperNamespaceWSDL is an RPC-style service whose schema, WSDL and
+// operation namespaces all differ. The %[1]s verb is the binding's
+// namespace prefix and %[2]s and %[3]s the attributes of its input and
+// output body.
+const rpcWrapperNamespaceWSDL = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/"
+             xmlns:tns="urn:defs"
+             xmlns:t="urn:types"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="urn:defs">
+    <types>
+        <xsd:schema targetNamespace="urn:types">
+            <xsd:complexType name="Item"><xsd:sequence><xsd:element name="text" type="xsd:string"/></xsd:sequence></xsd:complexType>
+        </xsd:schema>
+    </types>
+    <message name="EchoIn"><part name="item" type="t:Item"/><part name="count" type="xsd:int"/></message>
+    <message name="EchoOut"><part name="item" type="t:Item"/></message>
+    <portType name="EchoPort">
+        <operation name="Echo"><input message="tns:EchoIn"/><output message="tns:EchoOut"/></operation>
+    </portType>
+    <binding name="EchoBinding" type="tns:EchoPort">
+        <%[1]s:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="Echo">
+            <%[1]s:operation soapAction="urn:echo"/>
+            <input><%[1]s:body use="literal"%[2]s/></input>
+            <output><%[1]s:body use="literal"%[3]s/></output>
+        </operation>
+    </binding>
+    <service name="EchoService">
+        <port name="EchoPort" binding="tns:EchoBinding"><%[1]s:address location="http://localhost/echo"/></port>
+    </service>
+</definitions>`
+
+func TestGenerator_RPCWrapperNamespace(t *testing.T) {
+	tests := []struct {
+		name, binding, inputAttrs, outputAttrs string
+		// wantIn and wantOut are the namespaces of the request and response
+		// operation wrappers.
+		wantIn, wantOut string
+	}{
+		{
+			name:        "soap:body namespace",
+			binding:     "soap",
+			inputAttrs:  ` namespace="urn:op-in"`,
+			outputAttrs: ` namespace="urn:op-out"`,
+			wantIn:      "urn:op-in",
+			wantOut:     "urn:op-out",
+		},
+		{
+			name:    "no body namespace falls back to the WSDL targetNamespace",
+			binding: "soap",
+			wantIn:  "urn:defs",
+			wantOut: "urn:defs",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wsdl := fmt.Sprintf(rpcWrapperNamespaceWSDL, tt.binding, tt.inputAttrs, tt.outputAttrs)
+			out := generate(t, writeWSDL(t, wsdl), WithPackage("svc"), WithServerGeneration(true))
+			assert.Contains(t, out.decl(t, "OperationEchoIn"), "`xml:\""+tt.wantIn+" Echo\"`")
+			assert.Contains(t, out.decl(t, "OperationEchoOut"), "`xml:\""+tt.wantOut+" EchoResponse\"`")
+			assertGeneratedCodeBuilds(t, "rpcel", out)
+
+			response := `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>` +
+				`<EchoResponse xmlns="` + tt.wantOut + `"><item xmlns=""><text>pong</text></item></EchoResponse>` +
+				`</soap:Body></soap:Envelope>`
+			driver := fmt.Sprintf(rpcElementPartDriver, response, `&svc.EchoIn{Item: svc.Item{Text: "ping"}, Count: 3}`, "resp.Item.Text")
+			dir := goModule(t, "rpcel", map[string]string{"svc/client.go": out.client(t), "main.go": driver})
+			output := runGo(t, dir, "run", ".")
+
+			request, resp, ok := strings.Cut(strings.TrimSpace(output), "\nRESPONSE ")
+			require.True(t, ok, "driver output:\n%s", output)
+			assert.Equal(t, []string{
+				"{http://schemas.xmlsoap.org/soap/envelope/}Envelope", "{http://schemas.xmlsoap.org/soap/envelope/}Body",
+				"{" + tt.wantIn + "}Echo", "{}item", "{}text", "{}count",
+			}, xmlNodes(t, request), "request:\n%s", request)
+			assert.Equal(t, "pong", resp)
+		})
+	}
+}

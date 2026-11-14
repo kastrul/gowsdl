@@ -68,6 +68,13 @@ not compile or did not work before.
 
 ### Fixed
 
+- **Regenerate.** The element wrapping an RPC-style operation's request or
+  response is now in the namespace of that input's or output's `soap:body`,
+  falling back to the WSDL `targetNamespace` when the binding declares none.
+  It used to be in the target namespace of the first schema, so requests were
+  sent in the wrong namespace, and responses failed to decode, whenever the
+  two differed. SOAP 1.2 bindings (`soap12:binding style="rpc"`) are still not
+  recognised as RPC-style.
 - **Regenerate.** In RPC-style requests, the accessor element of each message
   part is now in no namespace, as WS-I Basic Profile R2735 requires, and the
   content of a part declared with a type follows its schema's

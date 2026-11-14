@@ -33,6 +33,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"goString":                 goString,
 		"sanitizeEnumValue":        sanitizeEnumValue,
 		"getTargetNamespace":       g.getTargetNamespace,
+		"rpcOperationNamespace":    g.rpcOperationNamespace,
 		"isRPCStyleMessage":        g.isRPCStyleMessage,
 		"isRPCPortType":            g.isRPCPortType,
 		"findNameByType":           g.findNameByType,
