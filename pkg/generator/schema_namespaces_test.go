@@ -218,6 +218,8 @@ const incomingClient = ` + "`" + `<h:client xmlns:h="urn:ms:header"><h:memberCla
 
 const incomingParty = ` + "`" + `<representedParty xmlns="urn:ms:repr"><partyClass>COM</partyClass><partyCode>70000000</partyCode></representedParty>` + "`" + `
 
+const incomingHash = ` + "`" + `<requestHash xmlns="urn:ms:header" algorithmId="SHA-512">abc==</requestHash>` + "`" + `
+
 const wrongNamespaceClient = ` + "`" + `<client xmlns="urn:ms:main"><memberClass>COM</memberClass></client>` + "`" + `
 
 func roundTrip(v, back any) (string, error) {
@@ -267,6 +269,20 @@ func main() {
 	}
 	result["pingXML"] = marshaled
 	result["pingBack"] = pingBack.Token
+
+	hash := ms.RequestHash{Value: "abc==", AlgorithmId: "SHA-512"}
+	var hashBack ms.RequestHash
+	if marshaled, err = roundTrip(hash, &hashBack); err != nil {
+		fail(err)
+	}
+	result["hashXML"] = marshaled
+	result["hashBack"] = map[string]string{"value": hashBack.Value, "algorithmId": hashBack.AlgorithmId}
+
+	var incomingH ms.RequestHash
+	if err := xml.Unmarshal([]byte(incomingHash), &incomingH); err != nil {
+		fail(err)
+	}
+	result["incomingHash"] = map[string]string{"value": incomingH.Value, "algorithmId": incomingH.AlgorithmId}
 
 	var incoming ms.Client
 	if err := xml.Unmarshal([]byte(incomingClient), &incoming); err != nil {
@@ -324,6 +340,7 @@ func TestGenerator_MultiSchema_RoundTrip(t *testing.T) {
 		assert.Contains(t, result["partyXML"], `<representedParty xmlns="urn:ms:repr">`)
 		assert.Contains(t, result["statusXML"], `<GetStatus xmlns="urn:ms:main">`)
 		assert.Contains(t, result["pingXML"], `<Ping xmlns="urn:ms:main">`)
+		assert.Contains(t, result["hashXML"], `<requestHash xmlns="urn:ms:header" algorithmId="SHA-512">abc==</requestHash>`)
 	})
 
 	t.Run("marshal then unmarshal preserves values", func(t *testing.T) {
@@ -331,14 +348,24 @@ func TestGenerator_MultiSchema_RoundTrip(t *testing.T) {
 		assert.Equal(t, map[string]any{"partyClass": "COM", "partyCode": "70000000"}, result["partyBack"])
 		assert.Equal(t, "38001010000", result["statusBack"])
 		assert.Equal(t, "t-1", result["pingBack"])
+		assert.Equal(t, map[string]any{"value": "abc==", "algorithmId": "SHA-512"}, result["hashBack"])
 	})
 
 	t.Run("unmarshal accepts elements in the declaring namespace", func(t *testing.T) {
 		assert.Equal(t, map[string]any{"memberClass": "COM", "memberCode": "12345"}, result["incomingClient"])
 		assert.Equal(t, map[string]any{"partyClass": "COM", "partyCode": "70000000"}, result["incomingParty"])
+		assert.Equal(t, map[string]any{"value": "abc==", "algorithmId": "SHA-512"}, result["incomingHash"])
 	})
 
 	t.Run("unmarshal rejects elements in another namespace", func(t *testing.T) {
 		assert.Contains(t, result["wrongNamespaceErr"], "expected element <client> in name space urn:ms:header")
 	})
+}
+
+func TestGenerator_GlobalElementInlineSimpleContent(t *testing.T) {
+	_, code := generateFormatted(t, multiSchemaFixture, "ms")
+
+	body := structBody(t, code, "RequestHash")
+	assert.Contains(t, body, "Value string `xml:\",chardata\" json:\"value\"`")
+	assert.Contains(t, body, "AlgorithmId string `xml:\"algorithmId,attr,omitempty\" json:\"algorithmId,omitempty\"`")
 }

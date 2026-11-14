@@ -468,8 +468,16 @@ const TypesTemplate = `
 					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
 					{{end}}
 					{{template "ComplexTypeInline" .ComplexType}}
+					{{with .ComplexType.SimpleContent}}
+						{{if ne .Extension.Base ""}}
+							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
+						{{end}}
+						{{range .Extension.Attributes}}
+							{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+						{{end}}
+					{{end}}
 				}
-				
+
 				{{if not isElementFormQualified}}
 				func (t {{$outerType}}) TargetNamespace() string {
 					return "{{elementNamespace .}}"
