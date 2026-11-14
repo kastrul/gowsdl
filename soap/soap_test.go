@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -248,9 +249,8 @@ func (w *Wrapper) HasData() bool {
 }
 
 func (w *Wrapper) ErrorString() string {
-	switch w.Item.(type) {
-	case FaultError:
-		return w.Item.(FaultError).ErrorString()
+	if fe, ok := w.Item.(FaultError); ok {
+		return fe.ErrorString()
 	}
 	return "default error"
 }
@@ -478,10 +478,8 @@ func TestXsdDateTime(t *testing.T) {
 			parsedDt := TestDateTime{}
 			if err := xml.Unmarshal([]byte(dateTimeStr), &parsedDt); err != nil {
 				t.Error(err)
-			} else {
-				if !parsedDt.Datetime.ToGoTime().Equal(dateTimeObj) {
-					t.Errorf("Got:      %#v\nExpected: %#v", parsedDt.Datetime.ToGoTime(), dateTimeObj)
-				}
+			} else if !parsedDt.Datetime.ToGoTime().Equal(dateTimeObj) {
+				t.Errorf("Got:      %#v\nExpected: %#v", parsedDt.Datetime.ToGoTime(), dateTimeObj)
 			}
 		}
 	}
@@ -497,10 +495,8 @@ func TestXsdDateTime(t *testing.T) {
 			parsedDt := TestAttrDateTime{}
 			if err := xml.Unmarshal([]byte(dateTimeStr), &parsedDt); err != nil {
 				t.Error(err)
-			} else {
-				if !parsedDt.Datetime.ToGoTime().Equal(dateTimeObj) {
-					t.Errorf("Got:      %#v\nExpected: %#v", parsedDt.Datetime.ToGoTime(), dateTimeObj)
-				}
+			} else if !parsedDt.Datetime.ToGoTime().Equal(dateTimeObj) {
+				t.Errorf("Got:      %#v\nExpected: %#v", parsedDt.Datetime.ToGoTime(), dateTimeObj)
 			}
 		}
 	}
@@ -592,10 +588,8 @@ func TestXsdDate(t *testing.T) {
 			parsedDate := TestDate{}
 			if err := xml.Unmarshal([]byte(dateStr), &parsedDate); err != nil {
 				t.Error(dateStr, err)
-			} else {
-				if !parsedDate.Date.ToGoTime().Equal(dateObj) {
-					t.Errorf("Got:      %#v\nExpected: %#v", parsedDate.Date.ToGoTime(), dateObj)
-				}
+			} else if !parsedDate.Date.ToGoTime().Equal(dateObj) {
+				t.Errorf("Got:      %#v\nExpected: %#v", parsedDate.Date.ToGoTime(), dateObj)
 			}
 		}
 	}
@@ -611,10 +605,8 @@ func TestXsdDate(t *testing.T) {
 			parsedDate := TestAttrDate{}
 			if err := xml.Unmarshal([]byte(dateStr), &parsedDate); err != nil {
 				t.Error(dateStr, err)
-			} else {
-				if !parsedDate.Date.ToGoTime().Equal(dateObj) {
-					t.Errorf("Got:      %#v\nExpected: %#v", parsedDate.Date.ToGoTime(), dateObj)
-				}
+			} else if !parsedDate.Date.ToGoTime().Equal(dateObj) {
+				t.Errorf("Got:      %#v\nExpected: %#v", parsedDate.Date.ToGoTime(), dateObj)
 			}
 		}
 	}
@@ -843,7 +835,8 @@ func TestHTTPError(t *testing.T) {
 				if gotErr == nil {
 					t.Fatalf("Expected an error from call.  Received none")
 				}
-				requestError, ok := gotErr.(*HTTPError)
+				requestError := &HTTPError{}
+				ok := errors.As(gotErr, &requestError)
 				if !ok {
 					t.Fatalf("Expected a HTTPError.  Received: %s", gotErr.Error())
 				}
@@ -864,5 +857,4 @@ func TestHTTPError(t *testing.T) {
 			}
 		})
 	}
-
 }

@@ -56,7 +56,8 @@ func (c *GenericClient[TReq, TResp]) CallWithFault(ctx context.Context, request 
 
 	// Check if error is a SOAP fault
 	if err != nil {
-		if fault, ok := err.(*SOAPFault); ok {
+		fault := &SOAPFault{}
+		if errors.As(err, &fault) {
 			return nil, fault, nil
 		}
 		return nil, nil, err

@@ -194,12 +194,9 @@ func (xd XSDDate) string() string {
 				// UTC Tz
 				toks := strings.SplitN(dateString, "Z", 2)
 				dateString = toks[0]
-			} else {
-				// [+-]00:00 Tz, remove last 6 chars
-				if len(dateString) > 5 { // this should always be true
-					start := len(dateString) - 6 // locate at "-"
-					dateString = dateString[0:start]
-				}
+			} else if len(dateString) > 5 { // [+-]00:00 Tz, remove last 6 chars
+				start := len(dateString) - 6 // locate at "-"
+				dateString = dateString[0:start]
 			}
 		}
 		return dateString
