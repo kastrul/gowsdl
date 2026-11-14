@@ -122,14 +122,40 @@ func (c *HTTPClientConfig) WithClientCert(certFile, keyFile string) (*HTTPClient
 
 // Build creates an HTTP client from the configuration
 func (c *HTTPClientConfig) Build() *http.Client {
-	// Handle deprecated InsecureSkipVerify
-	if c.InsecureSkipVerify && c.TLSConfig != nil {
-		c.TLSConfig.InsecureSkipVerify = true
+	var proxy func(*http.Request) (*url.URL, error)
+	if c.ProxyURL != "" {
+		proxy = http.ProxyURL(mustParseURL(c.ProxyURL))
 	}
 
-	transport := &http.Transport{
-		Proxy:           http.ProxyFromEnvironment,
-		TLSClientConfig: c.TLSConfig,
+	// Wrap with rate limiter if configured
+	var finalTransport http.RoundTripper = newTransport(c.TLSConfig, c.InsecureSkipVerify, proxy)
+	if c.RateLimitPerSecond > 0 {
+		finalTransport = newRateLimitedTransport(finalTransport, c.RateLimitPerSecond)
+	}
+
+	return &http.Client{
+		Transport: finalTransport,
+		Timeout:   c.Timeout,
+	}
+}
+
+// newTransport is the single transport setup behind HTTPClientConfig.Build
+// and Config.Build. A nil proxy selects the proxy from the environment. When
+// insecureSkipVerify is set and tlsConfig is non-nil, tlsConfig is modified to
+// skip verification.
+func newTransport(tlsConfig *tls.Config, insecureSkipVerify bool, proxy func(*http.Request) (*url.URL, error)) *http.Transport {
+	// Handle deprecated InsecureSkipVerify
+	if insecureSkipVerify && tlsConfig != nil {
+		tlsConfig.InsecureSkipVerify = true
+	}
+
+	if proxy == nil {
+		proxy = http.ProxyFromEnvironment
+	}
+
+	return &http.Transport{
+		Proxy:           proxy,
+		TLSClientConfig: tlsConfig,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
@@ -138,21 +164,6 @@ func (c *HTTPClientConfig) Build() *http.Client {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	if c.ProxyURL != "" {
-		transport.Proxy = http.ProxyURL(mustParseURL(c.ProxyURL))
-	}
-
-	// Wrap with rate limiter if configured
-	var finalTransport http.RoundTripper = transport
-	if c.RateLimitPerSecond > 0 {
-		finalTransport = newRateLimitedTransport(transport, c.RateLimitPerSecond)
-	}
-
-	return &http.Client{
-		Transport: finalTransport,
-		Timeout:   c.Timeout,
 	}
 }
 

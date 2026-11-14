@@ -60,7 +60,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	gen "github.com/kastrul/gowsdl"
 	"github.com/kastrul/gowsdl/pkg/generator"
@@ -85,12 +84,13 @@ var operations = flag.String("operations", "", "Comma-separated list of operatio
 var pruneTypes = flag.Bool("prune-types", true, "With -operations, generate only the types used by the selected operations")
 
 // HTTP client configuration flags
-var httpTimeout = flag.Duration("http-timeout", 30*time.Second, "Timeout for HTTP requests")
-var httpRetries = flag.Int("http-retries", 0, "Number of retries for failed requests")
-var httpRetryDelay = flag.Duration("http-retry-delay", 1*time.Second, "Delay between retries")
-var httpRateLimit = flag.Int("http-rate-limit", 0, "Rate limit for HTTP requests per second (0 = no limit)")
-var httpUserAgent = flag.String("http-user-agent", "gowsdl/1.0", "User-Agent header for requests")
-var httpProxy = flag.String("http-proxy", "", "HTTP proxy URL")
+var httpDefaults = gen.DefaultHTTPClientConfig()
+var httpTimeout = flag.Duration("http-timeout", httpDefaults.Timeout, "Timeout for HTTP requests")
+var httpRetries = flag.Int("http-retries", httpDefaults.MaxRetries, "Number of retries for failed requests")
+var httpRetryDelay = flag.Duration("http-retry-delay", httpDefaults.RetryDelay, "Delay between retries")
+var httpRateLimit = flag.Int("http-rate-limit", httpDefaults.RateLimitPerSecond, "Rate limit for HTTP requests per second (0 = no limit)")
+var httpUserAgent = flag.String("http-user-agent", httpDefaults.UserAgent, "User-Agent header for requests")
+var httpProxy = flag.String("http-proxy", httpDefaults.ProxyURL, "HTTP proxy URL")
 var tlsCACert = flag.String("tls-ca-cert", "", "Path to CA certificate file")
 var tlsClientCert = flag.String("tls-client-cert", "", "Path to client certificate file (requires -tls-client-key)")
 var tlsClientKey = flag.String("tls-client-key", "", "Path to client key file (requires -tls-client-cert)")
