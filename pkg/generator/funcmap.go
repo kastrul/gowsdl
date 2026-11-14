@@ -29,7 +29,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"findType":                 g.findType,
 		"findSOAPAction":           g.findSOAPAction,
 		"findWSDL2SOAPAction":      g.findWSDL2SOAPAction,
-		"makeValidXmlTag":          makeValidXmlTag,
+		"makeValidXmlTag":          makeValidXMLTag,
 		"goString":                 goString,
 		"sanitizeEnumValue":        sanitizeEnumValue,
 		"getTargetNamespace":       g.getTargetNamespace,
@@ -38,6 +38,9 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"findNameByType":           g.findNameByType,
 		"isMessageElement":         g.isMessageElement,
 		"refXMLName":               g.refXMLName,
+		"attrXMLName":              g.attrXMLName,
+		"isHeaderMessage":          g.isHeaderMessage,
+		"partXMLName":              g.partXMLName,
 	}
 }
 
@@ -92,7 +95,7 @@ func removePointerFromType(typ string) string {
 	return strings.TrimPrefix(typ, "*")
 }
 
-func makeValidXmlTag(xmlName, goName string) string {
+func makeValidXMLTag(xmlName, goName string) string {
 	if xmlName == goName {
 		return xmlName
 	}

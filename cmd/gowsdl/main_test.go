@@ -72,7 +72,7 @@ func TestValidationErrorUnwrap(t *testing.T) {
 		Err:   baseErr,
 	}
 
-	if unwrapped := validationErr.Unwrap(); unwrapped != baseErr {
+	if unwrapped := validationErr.Unwrap(); !errors.Is(unwrapped, baseErr) {
 		t.Errorf("ValidationError.Unwrap() = %v, want %v", unwrapped, baseErr)
 	}
 

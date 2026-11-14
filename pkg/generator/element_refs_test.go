@@ -66,8 +66,8 @@ func TestGenerator_RefElementTagNames(t *testing.T) {
 		{
 			structName: "RepresentedPartyType",
 			fields: []string{
-				"PartyRole PartyRole `xml:\"partyRole,omitempty\" json:\"partyRole,omitempty\"`",
-				"PartyId PartyId `xml:\"partyId,omitempty\" json:\"partyId,omitempty\"`",
+				"PartyRole PartyRole `xml:\"urn:refs:repr partyRole,omitempty\" json:\"partyRole,omitempty\"`",
+				"PartyId PartyId `xml:\"urn:refs:repr partyId,omitempty\" json:\"partyId,omitempty\"`",
 			},
 		},
 		{
@@ -161,7 +161,7 @@ func TestResolveElementRefNamespaces(t *testing.T) {
 		}},
 	}
 
-	got := resolveElementRefNamespaces([]*parser.XSDSchema{schema, defaultNSSchema})
+	got := resolveElementRefNamespaces([]*parser.XSDSchema{schema, defaultNSSchema}, "urn:a")
 	assert.Equal(t, map[*parser.XSDElement]string{
 		defaultNS: "urn:d",
 		otherNS:   "urn:b",
@@ -312,7 +312,7 @@ func TestGenerator_RefElementRoundTrip(t *testing.T) {
 		assert.Contains(t, result.Marshaled, "<memberTag>a</memberTag><memberTag>b</memberTag>")
 		assert.NotContains(t, result.Marshaled, "<PartyClass>")
 		assert.NotContains(t, result.Marshaled, "<PartyCode")
-		assert.Contains(t, result.Marshaled, "<represented><partyRole>COM</partyRole><partyId>70000000</partyId></represented>")
+		assert.Contains(t, result.Marshaled, `<represented><partyRole xmlns="urn:refs:repr">COM</partyRole><partyId xmlns="urn:refs:repr">70000000</partyId></represented>`)
 		assert.NotContains(t, result.Marshaled, "<PartyRole>")
 	})
 

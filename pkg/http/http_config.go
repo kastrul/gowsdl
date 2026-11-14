@@ -81,7 +81,7 @@ func (c *HTTPClientConfig) WithTLSConfig(tlsConfig *tls.Config) *HTTPClientConfi
 
 // WithCACert adds a CA certificate from file
 func (c *HTTPClientConfig) WithCACert(certFile string) (*HTTPClientConfig, error) {
-	caCert, err := os.ReadFile(certFile)
+	caCert, err := os.ReadFile(certFile) //nolint:gosec // reading a caller-chosen CA file is the purpose of this method
 	if err != nil {
 		return c, fmt.Errorf("failed to read CA certificate: %w", err)
 	}

@@ -194,12 +194,9 @@ func (xd XSDDate) string() string {
 				// UTC Tz
 				toks := strings.SplitN(dateString, "Z", 2)
 				dateString = toks[0]
-			} else {
-				// [+-]00:00 Tz, remove last 6 chars
-				if len(dateString) > 5 { // this should always be true
-					start := len(dateString) - 6 // locate at "-"
-					dateString = dateString[0:start]
-				}
+			} else if len(dateString) > 5 { // [+-]00:00 Tz, remove last 6 chars
+				start := len(dateString) - 6 // locate at "-"
+				dateString = dateString[0:start]
 			}
 		}
 		return dateString
@@ -345,13 +342,13 @@ func (xt XSDTime) Location() *time.Location {
 }
 
 // CreateXsdTime creates an object representing xsd:time in Golang
-func CreateXsdTime(hour int, min int, sec int, nsec int, loc *time.Location) XSDTime {
+func CreateXsdTime(hour int, minute int, sec int, nsec int, loc *time.Location) XSDTime {
 	realLoc := loc
 	if loc == nil {
 		realLoc = time.Local
 	}
 	return XSDTime{
-		innerTime: time.Date(1951, 10, 22, hour, min, sec, nsec, realLoc),
+		innerTime: time.Date(1951, 10, 22, hour, minute, sec, nsec, realLoc),
 		hasTz:     loc != nil,
 	}
 }

@@ -82,8 +82,8 @@ func TestGenerator_XRoad_ResolvesSchemaImports(t *testing.T) {
 
 	assert.Equal(t, 1, declarationCount(code, "ClientIdentifierType"), "nested import identifiers.xsd should be loaded")
 	assert.Contains(t, code, "Client Client `")
-	assert.Contains(t, code, "ObjectType string `xml:\"objectType,attr,omitempty\"")
-	assert.Contains(t, code, "Lang string `xml:\"lang,attr,omitempty\"")
+	assert.Contains(t, code, "ObjectType string `xml:\"http://example.com/xsd/identifiers objectType,attr,omitempty\"")
+	assert.Contains(t, code, "Lang string `xml:\"http://example.com/xsd/identifiers lang,attr,omitempty\"")
 }
 
 func TestGenerator_ResolveSchemaExternals_MissingSchema(t *testing.T) {
@@ -259,4 +259,45 @@ func TestResolveAttributeRefs(t *testing.T) {
 	assert.Equal(t, "xsd:int", local.Type)
 	assert.Equal(t, "kind", inlineRef.Name)
 	assert.Equal(t, "xsd:integer", inlineRef.Type)
+}
+
+func TestGenerator_XRoad_UnqualifiedBodyBesideQualifiedImports(t *testing.T) {
+	code := generateXRoadFixture(t)
+
+	assert.Contains(t, structBody(t, code, "Submit"), "XMLName xml.Name `xml:\"tns:submit\"`")
+	assert.Contains(t, code, "func (t Submit) TargetNamespace() string")
+	assert.Contains(t, structBody(t, code, "Client"), "XMLName xml.Name `xml:\"http://example.com/xsd/header.xsd client\"`")
+	assert.NotContains(t, code, "func (t Client) TargetNamespace() string")
+}
+
+func TestGenerator_XRoad_HeaderMessagePartsAreSiblings(t *testing.T) {
+	code := generateXRoadFixture(t)
+
+	body := structBody(t, code, "RequestHeader")
+	assert.Contains(t, body, "Client Client `xml:\"http://example.com/xsd/header.xsd client,omitempty\"")
+	assert.Contains(t, body, "UserId UserId `xml:\"http://example.com/xsd/header.xsd userId,omitempty\"")
+	assert.Contains(t, code, "func (h RequestHeader) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {\n\treturn soap.MarshalParts(e, h)\n}")
+}
+
+func TestGenerator_IsHeaderMessage(t *testing.T) {
+	header := &parser.WSDLMessage{Name: "hdr"}
+	body := &parser.WSDLMessage{Name: "req"}
+	both := &parser.WSDLMessage{Name: "both"}
+
+	op := &parser.WSDLOperation{Name: "Op"}
+	op.Input.Message = "tns:req"
+	op.Output.Message = "tns:both"
+
+	bop := &parser.WSDLOperation{Name: "Op"}
+	bop.Input.SOAPHeader = []*parser.WSDLSOAPHeader{{Message: "tns:hdr"}, {Message: "tns:both"}}
+
+	g := &Generator{wsdl: &parser.WSDL{
+		PortTypes: []*parser.WSDLPortType{{Name: "PT", Operations: []*parser.WSDLOperation{op}}},
+		Binding:   []*parser.WSDLBinding{{Name: "B", Type: "tns:PT", Operations: []*parser.WSDLOperation{bop}}},
+	}}
+
+	assert.True(t, g.isHeaderMessage(header))
+	assert.False(t, g.isHeaderMessage(body), "a message bound only as a body is not a header message")
+	assert.False(t, g.isHeaderMessage(both), "a message that is also an operation output keeps its wrapper")
+	assert.False(t, (&Generator{}).isHeaderMessage(header))
 }

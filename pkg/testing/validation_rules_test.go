@@ -437,7 +437,7 @@ func (r *testCustomRule) Description() string {
 	return "A test rule for unit testing"
 }
 
-func (r *testCustomRule) Validate(soapXML string, style string) []RuleViolation {
+func (r *testCustomRule) Validate(_ string, _ string) []RuleViolation {
 	return []RuleViolation{
 		{
 			RuleName: r.Name(),

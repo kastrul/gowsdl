@@ -26,7 +26,7 @@ func TestDownloadFile(t *testing.T) {
 	}{
 		{
 			name: "successful download",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte("test content"))
 			},
@@ -35,7 +35,7 @@ func TestDownloadFile(t *testing.T) {
 		},
 		{
 			name: "404 not found",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
 			config:      DefaultHTTPClientConfig(),
@@ -44,7 +44,7 @@ func TestDownloadFile(t *testing.T) {
 		},
 		{
 			name: "500 server error",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
 			config:      DefaultHTTPClientConfig(),
@@ -53,7 +53,7 @@ func TestDownloadFile(t *testing.T) {
 		},
 		{
 			name: "timeout",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				time.Sleep(100 * time.Millisecond)
 				w.WriteHeader(http.StatusOK)
 			},
@@ -69,7 +69,7 @@ func TestDownloadFile(t *testing.T) {
 			name: "retry on server error",
 			serverResponse: func() func(w http.ResponseWriter, r *http.Request) {
 				count := 0
-				return func(w http.ResponseWriter, r *http.Request) {
+				return func(w http.ResponseWriter, _ *http.Request) {
 					count++
 					if count < 3 {
 						w.WriteHeader(http.StatusInternalServerError)
@@ -89,7 +89,7 @@ func TestDownloadFile(t *testing.T) {
 		},
 		{
 			name: "max retries exceeded",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
 			config: func() *HTTPClientConfig {
@@ -116,7 +116,7 @@ func TestDownloadFile(t *testing.T) {
 		},
 		{
 			name: "response size limit",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				// Write more than the limit
 				data := make([]byte, 1024)
@@ -155,7 +155,7 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestDownloadFileWithContext(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Simulate slow response
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
@@ -174,7 +174,7 @@ func TestDownloadFileWithContext(t *testing.T) {
 
 func TestDownloadFileRateLimit(t *testing.T) {
 	requestTimes := make([]time.Time, 0)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		requestTimes = append(requestTimes, time.Now())
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -200,7 +200,7 @@ func TestDownloadFileRateLimit(t *testing.T) {
 }
 
 func BenchmarkDownloadFile(b *testing.B) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/">
@@ -226,7 +226,7 @@ func BenchmarkDownloadFile(b *testing.B) {
 }
 
 func TestWSDLErrorInDownload(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer server.Close()

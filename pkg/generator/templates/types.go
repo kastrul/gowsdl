@@ -134,7 +134,7 @@ The call sites have always disagreed on both flags.
 				{{$name = "idAttr"}}
 			{{end}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"{{if $json}} json:"{{.Name}},omitempty"{{end}}` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty"{{if $json}} json:"{{.Name}},omitempty"{{end}}` + "`" + `
 	{{end}}
 {{end}}
 
@@ -153,10 +153,11 @@ The call sites have always disagreed on both flags.
 
 {{/*
 XMLNameField emits the XMLName field of a message element. It is called with a
-dict: Name is the XML name, Namespace the target namespace of its declaration.
+dict: Name is the XML name, Namespace the target namespace of its declaration
+and Qualified whether the schema declaring it has elementFormDefault="qualified".
 */}}
 {{define "XMLNameField"}}
-	{{if isElementFormQualified}}
+	{{if .Qualified}}
 	XMLName xml.Name ` + "`" + `xml:"{{.Namespace}} {{.Name}}"` + "`" + `
 	{{else if isResponseElement .Name}}
 	{{/* Response elements use local name only to handle any namespace prefix */}}
@@ -210,7 +211,7 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 	{{end}}
 	type {{$type}} struct {
 		{{if isMessageElement .Name}}
-			{{template "XMLNameField" (dict "Name" .Name "Namespace" (complexTypeNamespace .))}}
+			{{template "XMLNameField" (dict "Name" .Name "Namespace" (complexTypeNamespace .) "Qualified" (isQualified .))}}
 		{{end}}
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
@@ -226,7 +227,7 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 	}
 	
 	{{if isMessageElement .Name}}
-		{{if not isElementFormQualified}}
+		{{if not (isQualified .)}}
 		// TargetNamespace returns the target namespace for SOAP envelope configuration
 		func (t {{$type}}) TargetNamespace() string {
 			return "{{complexTypeNamespace .}}"
@@ -273,11 +274,11 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 			{{/* For complex types, use the public version of the type name */}}
 			{{if isComplexType .Type}}
 				type {{$type}} struct {
-					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .))}}
+					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .) "Qualified" (isQualified .))}}
 					{{$goPublicType}}
 				}
 				
-				{{if not isElementFormQualified}}
+				{{if not (isQualified .)}}
 				func (t {{$type}}) TargetNamespace() string {
 					return "{{elementNamespace .}}"
 				}
@@ -323,7 +324,7 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 				{{template "ComplexType" .ComplexType}}
 			{{else}}
 				type {{$outerType}} struct {
-					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .))}}
+					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .) "Qualified" (isQualified .))}}
 					{{template "ComplexTypeInline" .ComplexType}}
 					{{with .ComplexType.SimpleContent}}
 						{{if ne .Extension.Base ""}}
@@ -333,7 +334,7 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 					{{end}}
 				}
 
-				{{if not isElementFormQualified}}
+				{{if not (isQualified .)}}
 				func (t {{$outerType}}) TargetNamespace() string {
 					return "{{elementNamespace .}}"
 				}
@@ -379,6 +380,29 @@ dict: Name is the XML name, Namespace the target namespace of its declaration.
 
 		// MarshalXML implements xml.Marshaler and writes nothing.
 		func ({{$type}}) MarshalXML(*xml.Encoder, xml.StartElement) error { return nil }
+	{{else if and (isRPCStyleMessage .) (isHeaderMessage .)}}
+		{{$type := replaceReservedWords .Name | makePublic}}
+		// {{$type}} holds the parts of the {{.Name}} SOAP header message. Pass it to
+		// soap.Client.AddHeader: every part set to a non-zero value is sent as its
+		// own header element, and parts left zero are omitted.
+		type {{$type}} struct {
+			{{range .Parts}}
+				{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
+				{{if ne .Type ""}}
+					{{$partType := .Type | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $partType false}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{else if ne .Element ""}}
+					{{$elementType := .Element | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $elementType false}} ` + "`" + `xml:"{{partXMLName .}},omitempty" json:"{{.Name}},omitzero"` + "`" + `
+				{{end}}
+			{{end}}
+		}
+
+		// MarshalXML implements xml.Marshaler. It writes each non-zero part as a
+		// sibling element, with no element for the message itself.
+		func (h {{$type}}) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+			return soap.MarshalParts(e, h)
+		}
 	{{else if isRPCStyleMessage .}}
 		{{$type := replaceReservedWords .Name | makePublic}}
 		type {{$type}} struct {

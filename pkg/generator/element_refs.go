@@ -13,22 +13,25 @@ import (
 
 // resolveElementRefNamespaces maps each element declared with ref to the
 // namespace URI of the referenced element, when that namespace differs from the
-// target namespace of the schema containing the reference. Prefixed refs are
-// resolved through the schema's xmlns declarations and unprefixed refs through
-// its default namespace. Refs that cannot be resolved are left out, so their
-// tags fall back to the local name and match elements in any namespace when
-// unmarshaling.
-func resolveElementRefNamespaces(schemas []*parser.XSDSchema) map[*parser.XSDElement]string {
+// target namespace of the schema containing the reference, or when that schema
+// is not the primary one. Types of an imported schema are typically used by
+// elements of another namespace, so their children cannot rely on inheriting
+// the parent's default namespace. Prefixed refs are resolved through the
+// schema's xmlns declarations and unprefixed refs through its default
+// namespace. Refs that cannot be resolved are left out, so their tags fall back
+// to the local name and match elements in any namespace when unmarshaling.
+func resolveElementRefNamespaces(schemas []*parser.XSDSchema, primary string) map[*parser.XSDElement]string {
 	result := make(map[*parser.XSDElement]string)
 
 	for _, schema := range schemas {
 		visited := make(map[*parser.XSDComplexType]bool)
+		imported := schema.TargetNamespace != primary
 
 		var walkComplexType func(ct *parser.XSDComplexType)
 		walkElements := func(elements []*parser.XSDElement) {
 			for _, el := range elements {
 				if el.Ref != "" {
-					if ns := refNamespaceURI(schema, el.Ref); ns != "" && ns != schema.TargetNamespace {
+					if ns := refNamespaceURI(schema, el.Ref); ns != "" && (imported || ns != schema.TargetNamespace) {
 						result[el] = ns
 					}
 				}

@@ -12,15 +12,19 @@ import (
 	"time"
 )
 
+// SOAPEncoder encodes a SOAP envelope onto a request body.
 type SOAPEncoder interface {
 	Encode(v interface{}) error
 	Flush() error
 }
 
+// SOAPDecoder decodes a SOAP envelope from a response body.
 type SOAPDecoder interface {
 	Decode(v interface{}) error
 }
 
+// SOAPEnvelopeResponse is the envelope of a SOAP response, including any
+// MIME multipart attachments that came with it.
 type SOAPEnvelopeResponse struct {
 	XMLName     xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
 	Header      *SOAPHeaderResponse
@@ -28,6 +32,7 @@ type SOAPEnvelopeResponse struct {
 	Attachments []MIMEMultipartAttachment `xml:"attachments,omitempty"`
 }
 
+// SOAPEnvelope is the envelope of an outgoing SOAP request.
 type SOAPEnvelope struct {
 	XMLName xml.Name `xml:"soap:Envelope"`
 	XmlNS   string   `xml:"xmlns:soap,attr"`
@@ -39,17 +44,22 @@ type SOAPEnvelope struct {
 	Body   SOAPBody
 }
 
+// SOAPHeader holds the header elements of an outgoing SOAP request.
 type SOAPHeader struct {
 	XMLName xml.Name `xml:"soap:Header"`
 
 	Headers []interface{}
 }
+
+// SOAPHeaderResponse holds the header elements of a SOAP response.
 type SOAPHeaderResponse struct {
 	XMLName xml.Name `xml:"Header"`
 
 	Headers []interface{}
 }
 
+// SOAPBody is the body of an outgoing SOAP message. Body is marshaled directly
+// inside soap:Body, followed by Fault when it is set.
 type SOAPBody struct {
 	XMLName xml.Name `xml:"soap:Body"`
 
@@ -91,6 +101,8 @@ func (s SOAPBody) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	return nil
 }
 
+// SOAPBodyResponse is the body of a SOAP response. A soap:Fault element is
+// decoded into Fault instead of Body.
 type SOAPBodyResponse struct {
 	XMLName xml.Name `xml:"Body"`
 
@@ -103,6 +115,7 @@ type SOAPBodyResponse struct {
 	Fault         *SOAPFault `xml:",omitempty"`
 }
 
+// MIMEMultipartAttachment is a named binary part of a MIME multipart message.
 type MIMEMultipartAttachment struct {
 	Name string
 	Data []byte
@@ -159,14 +172,16 @@ Loop:
 	return nil
 }
 
-func (b *SOAPBody) ErrorFromFault() error {
-	if b.faultOccurred {
-		return b.Fault
+// ErrorFromFault returns Fault if the body is marked as containing a fault, and nil otherwise.
+func (s *SOAPBody) ErrorFromFault() error {
+	if s.faultOccurred {
+		return s.Fault
 	}
-	b.Fault = nil
+	s.Fault = nil
 	return nil
 }
 
+// ErrorFromFault returns the SOAP fault found while unmarshaling the body, or nil if there was none.
 func (b *SOAPBodyResponse) ErrorFromFault() error {
 	if b.faultOccurred {
 		return b.Fault
@@ -175,10 +190,13 @@ func (b *SOAPBodyResponse) ErrorFromFault() error {
 	return nil
 }
 
+// DetailContainer wraps the contents of a SOAP fault's detail element.
 type DetailContainer struct {
 	Detail interface{}
 }
 
+// FaultError is implemented by types that a SOAP fault's detail element is
+// decoded into. See Client.CallContextWithFaultDetail.
 type FaultError interface {
 	// ErrorString should return a short version of the detail as a string,
 	// which will be used in place of <faultstring> for the error message.
@@ -189,6 +207,8 @@ type FaultError interface {
 	HasData() bool
 }
 
+// SOAPFault is a SOAP 1.1 fault. It is returned as the error of a call
+// whose response contains a soap:Fault.
 type SOAPFault struct {
 	XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Fault"`
 
@@ -198,6 +218,8 @@ type SOAPFault struct {
 	Detail FaultError `xml:"detail,omitempty"`
 }
 
+// Error returns the fault detail's ErrorString when the detail has data,
+// and faultstring otherwise.
 func (f *SOAPFault) Error() string {
 	if f.Detail != nil && f.Detail.HasData() {
 		return f.Detail.ErrorString()
@@ -207,25 +229,32 @@ func (f *SOAPFault) Error() string {
 
 // HTTPError is returned whenever the HTTP request to the server fails
 type HTTPError struct {
-	//StatusCode is the status code returned in the HTTP response
+	// StatusCode is the status code returned in the HTTP response
 	StatusCode int
-	//ResponseBody contains the body returned in the HTTP response
+	// ResponseBody contains the body returned in the HTTP response
 	ResponseBody []byte
 }
 
+// Error returns the HTTP status code and response body.
 func (e *HTTPError) Error() string {
 	return fmt.Sprintf("HTTP Status %d: %s", e.StatusCode, string(e.ResponseBody))
 }
 
+// Namespace URIs used in WS-Security and SOAP envelopes.
 const (
-	// Predefined WSS namespaces to be used in
-	WssNsWSSE       string = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
-	WssNsWSU        string = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"
+	// WssNsWSSE is the WS-Security extension (wsse) namespace.
+	WssNsWSSE string = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+	// WssNsWSU is the WS-Security utility (wsu) namespace.
+	WssNsWSU string = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"
+	// WssNsType is the type URI of a plain-text UsernameToken password.
 	WssNsType       string = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText"
 	mtomContentType string = `multipart/related; start-info="application/soap+xml"; type="application/xop+xml"; boundary="%s"`
-	XmlNsSoapEnv    string = "http://schemas.xmlsoap.org/soap/envelope/"
+	// XmlNsSoapEnv is the SOAP 1.1 envelope namespace.
+	XmlNsSoapEnv string = "http://schemas.xmlsoap.org/soap/envelope/"
 )
 
+// WSSSecurityHeader is a WS-Security wsse:Security header. Create one with
+// NewWSSSecurityHeader.
 type WSSSecurityHeader struct {
 	XMLName   xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ wsse:Security"`
 	XmlNSWsse string   `xml:"xmlns:wsse,attr"`
@@ -235,6 +264,7 @@ type WSSSecurityHeader struct {
 	Token *WSSUsernameToken `xml:",omitempty"`
 }
 
+// WSSUsernameToken is a WS-Security wsse:UsernameToken element.
 type WSSUsernameToken struct {
 	XMLName   xml.Name `xml:"wsse:UsernameToken"`
 	XmlNSWsu  string   `xml:"xmlns:wsu,attr"`
@@ -246,6 +276,7 @@ type WSSUsernameToken struct {
 	Password *WSSPassword `xml:",omitempty"`
 }
 
+// WSSUsername is the wsse:Username element of a UsernameToken.
 type WSSUsername struct {
 	XMLName   xml.Name `xml:"wsse:Username"`
 	XmlNSWsse string   `xml:"xmlns:wsse,attr"`
@@ -253,6 +284,7 @@ type WSSUsername struct {
 	Data string `xml:",chardata"`
 }
 
+// WSSPassword is the wsse:Password element of a UsernameToken.
 type WSSPassword struct {
 	XMLName   xml.Name `xml:"wsse:Password"`
 	XmlNSWsse string   `xml:"xmlns:wsse,attr"`
@@ -288,9 +320,9 @@ type options struct {
 }
 
 var defaultOptions = options{
-	timeout:          time.Duration(30 * time.Second),
-	contimeout:       time.Duration(90 * time.Second),
-	tlshshaketimeout: time.Duration(15 * time.Second),
+	timeout:          30 * time.Second,
+	contimeout:       90 * time.Second,
+	tlshshaketimeout: 15 * time.Second,
 }
 
 // A Option sets options such as credentials, tls, etc.
@@ -410,13 +442,14 @@ func (s *Client) SetHeaders(headers ...interface{}) {
 	s.headers = headers
 }
 
-// Get all currently available http headers from  client
-// Use case: For setting authentication header
+// GetHttpClientHeaders returns the extra HTTP headers the client sends with
+// every request, for example an authentication header.
 func (s *Client) GetHttpClientHeaders() map[string]string {
 	return s.opts.httpHeaders
 }
 
-// Update Http headers with latest header information
+// SetHttpClientHeaders replaces the extra HTTP headers the client sends with
+// every request.
 func (s *Client) SetHttpClientHeaders(headers map[string]string) {
 	s.opts.httpHeaders = headers
 }
@@ -445,7 +478,7 @@ func (s *Client) CallContextWithAttachmentsAndFaultDetail(ctx context.Context, s
 	return s.call(ctx, soapAction, request, response, faultDetail, attachments)
 }
 
-// CallContextWithFault performs HTTP POST request.
+// CallContextWithFaultDetail performs HTTP POST request.
 // Note that if SOAP fault is returned, it will be stored in the error.
 func (s *Client) CallContextWithFaultDetail(ctx context.Context, soapAction string, request, response interface{}, faultDetail FaultError) error {
 	return s.call(ctx, soapAction, request, response, faultDetail, nil)

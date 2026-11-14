@@ -11,36 +11,45 @@ import (
 	"github.com/kastrul/gowsdl/pkg/types"
 )
 
-// Re-export types for backward compatibility
+// Types re-exported from the pkg/ subpackages for backward compatibility.
 type (
-	// Error types
-	WSDLError   = types.WSDLError
+	// WSDLError is an alias of types.WSDLError.
+	WSDLError = types.WSDLError
+	// SchemaError is an alias of types.SchemaError.
 	SchemaError = types.SchemaError
-
-	// Parser types
-	WSDL           = parser.WSDL
-	WSDL2          = parser.WSDL2
-	XSDSchema      = parser.XSDSchema
+	// WSDL is an alias of parser.WSDL.
+	WSDL = parser.WSDL
+	// WSDL2 is an alias of parser.WSDL2.
+	WSDL2 = parser.WSDL2
+	// XSDSchema is an alias of parser.XSDSchema.
+	XSDSchema = parser.XSDSchema
+	// XSDComplexType is an alias of parser.XSDComplexType.
 	XSDComplexType = parser.XSDComplexType
-	XSDElement     = parser.XSDElement
-	XSDAttribute   = parser.XSDAttribute
-	WSDLBinding    = parser.WSDLBinding
-	WSDLOperation  = parser.WSDLOperation
-	WSDLService    = parser.WSDLService
-	WSDLPort       = parser.WSDLPort
-	WSDLImport     = parser.WSDLImport
-	XSDImport      = parser.XSDImport
-
-	// Core types
+	// XSDElement is an alias of parser.XSDElement.
+	XSDElement = parser.XSDElement
+	// XSDAttribute is an alias of parser.XSDAttribute.
+	XSDAttribute = parser.XSDAttribute
+	// WSDLBinding is an alias of parser.WSDLBinding.
+	WSDLBinding = parser.WSDLBinding
+	// WSDLOperation is an alias of parser.WSDLOperation.
+	WSDLOperation = parser.WSDLOperation
+	// WSDLService is an alias of parser.WSDLService.
+	WSDLService = parser.WSDLService
+	// WSDLPort is an alias of parser.WSDLPort.
+	WSDLPort = parser.WSDLPort
+	// WSDLImport is an alias of parser.WSDLImport.
+	WSDLImport = parser.WSDLImport
+	// XSDImport is an alias of parser.XSDImport.
+	XSDImport = parser.XSDImport
+	// NamespaceManager is an alias of core.NamespaceManager.
 	NamespaceManager = core.NamespaceManager
-	Location         = http.Location
+	// Location is an alias of http.Location.
+	Location = http.Location
+	// HTTPClientConfig is an alias of http.HTTPClientConfig.
+	HTTPClientConfig = http.HTTPClientConfig
 )
 
-// Re-export functions for backward compatibility
-// HTTPClientConfig is an alias for backward compatibility
-type HTTPClientConfig = http.HTTPClientConfig
-
-// Re-export functions for backward compatibility
+// Functions re-exported from the pkg/ subpackages for backward compatibility.
 var (
 	NewNamespaceManager     = core.NewNamespaceManager
 	ParseLocation           = http.ParseLocation

@@ -30,6 +30,7 @@ type Generator struct {
 	keepUnusedTypes bool
 	typeMapper      *types.TypeMapper
 	refNamespaces   map[*parser.XSDElement]string
+	attrNamespaces  map[*parser.XSDAttribute]string
 }
 
 // Option defines a function that configures Generator

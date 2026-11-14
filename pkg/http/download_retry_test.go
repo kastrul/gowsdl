@@ -20,7 +20,7 @@ import (
 
 func TestDownloadFile_RetrySucceedsAfterTransportError(t *testing.T) {
 	var attempts atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if attempts.Add(1) == 1 {
 			conn, _, err := w.(http.Hijacker).Hijack()
 			require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestDownloadFile_RetrySucceedsAfterTransportError(t *testing.T) {
 }
 
 func TestDownloadFile_RetryDelayHonoursContextCancellation(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer server.Close()

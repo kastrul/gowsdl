@@ -65,7 +65,7 @@ func (b *Binary) ContentType() string {
 func (b *Binary) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
 	if b.useMTOM {
 		if b.packageID == "" {
-			b.packageID = fmt.Sprintf("%d", rand.Int())
+			b.packageID = fmt.Sprintf("%d", rand.Int()) //nolint:gosec // a MIME Content-ID only needs to be unique, not unpredictable
 		}
 		return enc.EncodeElement(struct {
 			Include *xopPlaceholder `xml:"http://www.w3.org/2004/08/xop/include Include"`
@@ -151,7 +151,7 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 	v := reflect.Indirect(reflect.ValueOf(data))
 
 	switch v.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		getBinaryFields(v.Elem(), fields)
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {

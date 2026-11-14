@@ -7,6 +7,7 @@ package parser
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -17,7 +18,7 @@ func DetectWSDLVersion(data []byte) (string, error) {
 
 	for {
 		tok, err := decoder.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
