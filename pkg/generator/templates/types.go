@@ -32,6 +32,69 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
+{{define "ChoiceElements"}}
+	{{$parentTypeName := .ParentTypeName}}
+	{{range .Elements}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .ComplexType}}
+			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
+		{{else if .Type}}
+			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{end}}
+	{{end}}
+{{end}}
+
+{{define "ChoiceElementsNamed"}}
+	{{$parentTypeName := .ParentTypeName}}
+	{{range .Elements}}
+		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .ComplexType}}
+			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
+				{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .Type}}
+			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else}}
+			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{end}}
+	{{end}}
+{{end}}
+
 {{define "ComplexTypeInlineNamed"}}
 	{{$parentTypeName := .ParentTypeName}}
 	{{$complexType := .ComplexType}}
@@ -83,38 +146,8 @@ const TypesTemplate = `
 		{{end}}
 	{{end}}
 
-	{{range $complexType.Choice}}
-		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
-			{{$typeName := .Ref | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .ComplexType}}
-			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
-				{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .Type}}
-			{{$typeName := .Type | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else}}
-			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-		{{end}}
-	{{end}}
+	{{template "ChoiceElementsNamed" (dict "ParentTypeName" $parentTypeName "Elements" $complexType.Choice)}}
+	{{template "ChoiceElementsNamed" (dict "ParentTypeName" $parentTypeName "Elements" $complexType.SequenceChoice)}}
 
 	{{range $complexType.All}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
@@ -240,29 +273,8 @@ const TypesTemplate = `
 		{{end}}
 	{{end}}
 
-	{{range .Choice}}
-		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
-			{{$typeName := .Ref | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .ComplexType}}
-			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
-		{{else if .Type}}
-			{{$typeName := .Type | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-	{{end}}
+	{{template "ChoiceElements" (dict "ParentTypeName" $parentTypeName "Elements" .Choice)}}
+	{{template "ChoiceElements" (dict "ParentTypeName" $parentTypeName "Elements" .SequenceChoice)}}
 
 	{{range .All}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
