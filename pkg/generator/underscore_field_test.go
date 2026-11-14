@@ -6,7 +6,9 @@ package generator
 
 import (
 	"context"
+	"go/ast"
 	"go/format"
+	"go/parser"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -195,6 +197,26 @@ func TestDedupeStructFields(t *testing.T) {
 			expected: "type A struct {\n\tBase\n\tBase_ string `xml:\"_base\"`\n}\n",
 		},
 		{
+			name:     "embedded pointer field is never renamed",
+			input:    "type A struct {\n\t*Base\n\tBase string `xml:\"_base\"`\n}\n",
+			expected: "type A struct {\n\t*Base\n\tBase_ string `xml:\"_base\"`\n}\n",
+		},
+		{
+			name:     "embedded package-qualified field is never renamed",
+			input:    "type A struct {\n\tsoap.Header\n\tHeader string `xml:\"_header\"`\n}\n",
+			expected: "type A struct {\n\tsoap.Header\n\tHeader_ string `xml:\"_header\"`\n}\n",
+		},
+		{
+			name:     "embedded generic field is never renamed",
+			input:    "type A struct {\n\tList[int]\n\tList string `xml:\"_list\"`\n}\n",
+			expected: "type A struct {\n\tList[int]\n\tList_ string `xml:\"_list\"`\n}\n",
+		},
+		{
+			name:     "embedded multi-parameter generic field is never renamed",
+			input:    "type A struct {\n\t*Pair[string, int]\n\tPair string `xml:\"_pair\"`\n}\n",
+			expected: "type A struct {\n\t*Pair[string, int]\n\tPair_ string `xml:\"_pair\"`\n}\n",
+		},
+		{
 			name:     "collisions are scoped per struct",
 			input:    "type A struct {\n\tX string `xml:\"x\"`\n}\ntype B struct {\n\tX string `xml:\"_x\"`\n}\n",
 			expected: "type A struct {\n\tX string `xml:\"x\"`\n}\ntype B struct {\n\tX string `xml:\"_x\"`\n}\n",
@@ -211,4 +233,38 @@ func TestDedupeStructFields(t *testing.T) {
 			assert.Equal(t, tt.expected, string(dedupeStructFields([]byte(tt.input))))
 		})
 	}
+}
+
+func TestEmbeddedFieldIdent(t *testing.T) {
+	tests := []struct {
+		expr     string
+		expected string
+	}{
+		{"Base", "Base"},
+		{"*Base", "Base"},
+		{"soap.Header", "Header"},
+		{"*soap.Header", "Header"},
+		{"List[int]", "List"},
+		{"Pair[string, int]", "Pair"},
+		{"*pkg.Pair[string, int]", "Pair"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			expr, err := parser.ParseExpr(tt.expr)
+			require.NoError(t, err)
+			id := embeddedFieldIdent(expr)
+			require.NotNil(t, id)
+			assert.Equal(t, tt.expected, id.Name)
+		})
+	}
+}
+
+func TestEmbeddedFieldIdent_UnsupportedExpr(t *testing.T) {
+	for _, src := range []string{"[]int", "map[string]int", "func()"} {
+		expr, err := parser.ParseExpr(src)
+		require.NoError(t, err)
+		assert.Nil(t, embeddedFieldIdent(expr), src)
+	}
+	assert.Nil(t, embeddedFieldIdent(&ast.BadExpr{}))
 }
