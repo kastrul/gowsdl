@@ -3,19 +3,16 @@ package soap
 import (
 	"encoding/base64"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"math/rand"
-	"mime"
-	"mime/multipart"
 	"net/textproto"
 	"reflect"
 	"strings"
 )
 
 type mtomEncoder struct {
-	writer *multipart.Writer
+	multipartEncoder
 }
 
 // Binary enables binary data to be enchanged in MTOM mode with XOP encoding
@@ -102,9 +99,12 @@ func (b *Binary) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 }
 
 func newMtomEncoder(w io.Writer) *mtomEncoder {
-	return &mtomEncoder{
-		writer: multipart.NewWriter(w),
-	}
+	return &mtomEncoder{newMultipartEncoder(w)}
+}
+
+// ContentType returns the Content-Type header of the encoded request.
+func (e *mtomEncoder) ContentType() string {
+	return fmt.Sprintf(mtomContentType, e.Boundary())
 }
 
 func (e *mtomEncoder) Encode(v interface{}) error {
@@ -145,10 +145,6 @@ func (e *mtomEncoder) Encode(v interface{}) error {
 	}
 
 	return nil
-}
-
-func (e *mtomEncoder) Flush() error {
-	return e.writer.Close()
 }
 
 func getBinaryFields(data interface{}, fields *[]reflect.Value) {
@@ -195,80 +191,46 @@ func enableMTOMMode(fields []reflect.Value) {
 	}
 }
 
-func (e *mtomEncoder) Boundary() string {
-	return e.writer.Boundary()
-}
-
 type mtomDecoder struct {
-	reader *multipart.Reader
+	multipartDecoder
 }
 
 func getMtomHeader(contentType string) (string, error) {
-	mediaType, params, err := mime.ParseMediaType(contentType)
-	if err != nil {
+	boundary, params, err := multipartParams(contentType)
+	if err != nil || boundary == "" {
 		return "", err
 	}
 
-	if strings.HasPrefix(mediaType, "multipart/") {
-		boundary, ok := params["boundary"]
-		if !ok || boundary == "" {
-			return "", fmt.Errorf("invalid multipart boundary: %s", boundary)
-		}
-
-		cType, ok := params["type"]
-		if !ok || cType != "application/xop+xml" {
-			// Process as normal xml (Don't resolve XOP parts)
-			return "", nil
-		}
-
-		startInfo, ok := params["start-info"]
-		if !ok || (!strings.Contains(startInfo, "application/soap+xml") && !strings.Contains(startInfo, "text/xml")) {
-			return "", fmt.Errorf(`expected param start-info to contain "application/soap+xml" or "text/xml", got %s`, startInfo)
-		}
-		return boundary, nil
+	cType, ok := params["type"]
+	if !ok || cType != "application/xop+xml" {
+		// Process as normal xml (Don't resolve XOP parts)
+		return "", nil
 	}
 
-	return "", nil
+	startInfo, ok := params["start-info"]
+	if !ok || (!strings.Contains(startInfo, "application/soap+xml") && !strings.Contains(startInfo, "text/xml")) {
+		return "", fmt.Errorf(`expected param start-info to contain "application/soap+xml" or "text/xml", got %s`, startInfo)
+	}
+	return boundary, nil
 }
 
 func newMtomDecoder(r io.Reader, boundary string) *mtomDecoder {
-	return &mtomDecoder{
-		reader: multipart.NewReader(r, boundary),
-	}
+	return &mtomDecoder{newMultipartDecoder(r, boundary)}
 }
 
 func (d *mtomDecoder) Decode(v interface{}) error {
 	packages := make(map[string]*Binary, 0)
-	for {
-		p, err := d.reader.NextPart()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return err
+	isRoot := func(contentType string) bool {
+		return strings.HasPrefix(contentType, "application/xop+xml")
+	}
+	attach := func(contentID, contentType string, content []byte) {
+		packages[contentID] = &Binary{
+			content:     &content,
+			contentType: contentType,
 		}
-		contentType := p.Header.Get("Content-Type")
-		if strings.HasPrefix(contentType, "application/xop+xml") {
-			err := xml.NewDecoder(p).Decode(v)
-			if err != nil {
-				return err
-			}
-		} else {
-			contentID := p.Header.Get("Content-Id")
-			if contentID == "" {
-				return errors.New("invalid multipart content ID")
-			}
-			content, err := io.ReadAll(p)
-			if err != nil {
-				return err
-			}
-
-			contentID = strings.Trim(contentID, "<>")
-			packages[contentID] = &Binary{
-				content:     &content,
-				contentType: contentType,
-			}
-		}
+	}
+	if err := d.decodeParts(v, isRoot, attach); err != nil {
+		return err
 	}
 
 	// Get binary fields after reading the structure, so I have all fields mapped
