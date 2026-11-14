@@ -64,6 +64,14 @@ func WithOperations(names ...string) Option {
 	}
 }
 
+// WithTypePruning controls whether, when WithOperations is used, only the
+// types needed by the selected operations are generated. Enabled by default.
+func WithTypePruning(enabled bool) Option {
+	return func(g *GoWSDL) error {
+		return generator.WithTypePruning(enabled)(g.generator)
+	}
+}
+
 // ParseOperationList splits a comma-separated list of operation names,
 // trimming whitespace and dropping empty entries.
 func ParseOperationList(list string) []string {

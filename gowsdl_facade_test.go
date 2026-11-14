@@ -44,6 +44,10 @@ func TestWithOptions(t *testing.T) {
 			name:   "WithOperations",
 			option: WithOperations("TestOperation"),
 		},
+		{
+			name:   "WithTypePruning",
+			option: WithTypePruning(false),
+		},
 	}
 
 	// Create a temporary WSDL file for testing

@@ -48,6 +48,8 @@ Usage: gowsdl [options] myservice.wsdl
         Generate code using Go generics (requires Go 1.18+ for generic features)
   -operations string
         Comma-separated list of operation names to generate client methods for (default: all)
+  -prune-types
+        With -operations, generate only the types used by the selected operations (default true)
   -insecure-skip-verify
         Skip TLS certificate verification when downloading WSDLs
   -ca-cert string
@@ -74,7 +76,8 @@ gowsdl -operations "GetUser,UpdateUser" -p myservice -o myservice.go myservice.w
 
 * Names match the WSDL `operation` name exactly (case-sensitive).
 * Port types / interfaces with none of the listed operations are left out of the client.
-* All schema types are still generated, and server code (`-generate-server`) is not filtered.
+* Only the types those operations use are generated: request, response, fault and SOAP header types, plus everything they reference (nested elements, base types, attributes, enums, lists and unions). Pass `-prune-types=false` to keep every schema type.
+* Server code (`-generate-server`) is not filtered. Because it covers every operation, type pruning is turned off when it is enabled.
 * An unknown name fails generation and lists the available operations.
 
 From Go, use the `WithOperations` option:
@@ -83,6 +86,7 @@ From Go, use the `WithOperations` option:
 g, err := gowsdl.NewGoWSDL("myservice.wsdl",
     gowsdl.WithPackage("myservice"),
     gowsdl.WithOperations("GetUser", "UpdateUser"),
+    // gowsdl.WithTypePruning(false), // keep every schema type
 )
 ```
 

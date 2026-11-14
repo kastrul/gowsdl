@@ -113,7 +113,7 @@ func TestGenerator_OperationFilter_WSDL11(t *testing.T) {
 	assert.Contains(t, ops, "urn:GetUser")
 
 	types := string(code["types"])
-	assert.Contains(t, types, "DeleteUser", "types are not filtered")
+	assert.NotContains(t, types, "DeleteUser", "types of excluded operations are pruned by default")
 
 	assertCompilableSource(t, code)
 }

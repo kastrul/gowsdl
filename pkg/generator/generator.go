@@ -37,6 +37,7 @@ type Generator struct {
 	useGenerics      bool
 	generateServer   bool
 	operations       map[string]bool
+	keepUnusedTypes  bool
 	namespaceManager *core.NamespaceManager
 	typeMapper       *types.TypeMapper
 }
@@ -124,6 +125,9 @@ func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 
 	if err := g.validateOperationFilter(); err != nil {
 		return nil, err
+	}
+	if len(g.operations) > 0 && !g.keepUnusedTypes && g.generateServer {
+		log.Printf("[WARN] type pruning is disabled because server code needs the types of every operation")
 	}
 
 	// Process WSDL nodes
@@ -583,11 +587,40 @@ func (g *Generator) genTypes() ([]byte, error) {
 		}
 	}
 
+	if g.pruningActive() {
+		u := g.collectTypeUsage()
+		data.SimpleType = filterSlice(data.SimpleType, func(st *parser.XSDSimpleType) bool { return u.types[st.Name] })
+		data.ComplexTypes = filterSlice(data.ComplexTypes, func(ct *parser.XSDComplexType) bool { return u.types[ct.Name] })
+		data.Elements = filterSlice(data.Elements, func(el *parser.XSDElement) bool { return u.elements[el.Name] })
+		data.Messages = filterSlice(data.Messages, func(msg *parser.WSDLMessage) bool { return u.messages[msg.Name] })
+		if g.wsdl != nil {
+			data.PortTypes = g.filteredPortTypes()
+		}
+		used := make(map[string]*InlineComplexType, len(data.InlineTypes))
+		for key, it := range data.InlineTypes {
+			if u.complexTypes[it.ComplexType] {
+				used[key] = it
+			}
+		}
+		data.InlineTypes = used
+	}
+
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 
 	return buf.Bytes(), nil
+}
+
+// filterSlice returns the elements of items for which keep returns true.
+func filterSlice[T any](items []T, keep func(T) bool) []T {
+	var result []T
+	for _, item := range items {
+		if keep(item) {
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 func (g *Generator) genOperations() ([]byte, error) {
