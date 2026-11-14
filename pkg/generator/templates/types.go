@@ -29,6 +29,8 @@ const TypesTemplate = `
 		{{else}}
 			type {{$type}} {{toGoType .Restriction.Base false}}
 		{{end}}
+	{{else}}
+		type {{$type}} string
 	{{end}}
 {{end}}
 
