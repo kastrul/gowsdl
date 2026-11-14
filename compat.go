@@ -5,9 +5,6 @@
 package gowsdl
 
 import (
-	"crypto/tls"
-	"time"
-
 	"github.com/kastrul/gowsdl/pkg/core"
 	"github.com/kastrul/gowsdl/pkg/http"
 	"github.com/kastrul/gowsdl/pkg/parser"
@@ -47,16 +44,5 @@ type HTTPClientConfig = http.HTTPClientConfig
 var (
 	NewNamespaceManager     = core.NewNamespaceManager
 	ParseLocation           = http.ParseLocation
-	DefaultHTTPClientConfig = func() *HTTPClientConfig {
-		return &HTTPClientConfig{
-			Timeout:         30 * time.Second,
-			MaxRetries:      0,
-			RetryDelay:      1 * time.Second,
-			MaxResponseSize: 10 * 1024 * 1024,
-			UserAgent:       "gowsdl/1.0",
-			TLSConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			},
-		}
-	}
+	DefaultHTTPClientConfig = http.DefaultHTTPClientConfig
 )

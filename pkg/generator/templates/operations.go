@@ -7,12 +7,12 @@ package templates
 // UnifiedOperationsTemplate is a consolidated template for both WSDL 1.1 and 2.0
 const UnifiedOperationsTemplate = `
 {{range .}}
-	{{$privateType := .Name | makePrivate}}
+	{{$privateType := .Name | makePrivate}}{{$portTypeName := .Name}}
 	{{$exportType := .Name | makePublic}}
 
 	type {{$exportType}} interface {
 		{{range .Operations}}
-			{{$soapAction := findSOAPAction .Name $privateType}}
+			{{$soapAction := findSOAPAction .Name $portTypeName}}
 			{{$requestType := ""}}
 			{{$responseType := ""}}
 			
@@ -86,7 +86,7 @@ const UnifiedOperationsTemplate = `
 			{{end}}
 		{{end}}
 		
-		{{$soapAction := findSOAPAction .Name $privateType}}
+		{{$soapAction := findSOAPAction .Name $portTypeName}}
 		
 		func (service *{{$privateType}}) {{makePublic .Name | replaceReservedWords}}Context (ctx context.Context, {{if ne $requestType ""}}request *{{$requestType}}{{end}}) ({{if ne $responseType ""}}*{{$responseType}}, {{end}}error) {
 			{{if ne $responseType ""}}response := new({{$responseType}}){{end}}

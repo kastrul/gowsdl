@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // WithTypePruning controls whether, when an operation filter is set via
@@ -84,7 +85,7 @@ func (g *Generator) collectTypeUsage() *typeUsage {
 			messages[msg.Name] = msg
 		}
 		useMessage := func(ref string) {
-			name := removeNamespacePrefix(ref)
+			name := utils.LocalName(ref)
 			if name == "" || u.messages[name] {
 				return
 			}
@@ -106,19 +107,21 @@ func (g *Generator) collectTypeUsage() *typeUsage {
 		}
 
 		for _, pt := range g.filteredPortTypes() {
+			selected := make(map[string]bool, len(pt.Operations))
 			for _, op := range pt.Operations {
+				selected[op.Name] = true
 				useMessage(op.Input.Message)
 				useMessage(op.Output.Message)
 				for _, f := range op.Faults {
 					useMessage(f.Message)
 				}
 			}
-		}
-		for _, b := range g.wsdl.Binding {
-			for _, op := range b.Operations {
-				if g.operations[op.Name] {
-					useHeaders(op.Input.SOAPHeader)
-					useHeaders(op.Output.SOAPHeader)
+			for _, b := range g.bindingsForPortType(pt.Name) {
+				for _, op := range b.Operations {
+					if selected[op.Name] {
+						useHeaders(op.Input.SOAPHeader)
+						useHeaders(op.Output.SOAPHeader)
+					}
 				}
 			}
 		}
@@ -138,7 +141,7 @@ func (g *Generator) collectTypeUsage() *typeUsage {
 					u.useElement(op.Output.Element)
 				}
 				for _, f := range append(append([]*parser.WSDL2OperationFaultRef{}, op.InFault...), op.OutFault...) {
-					u.useElement(faults[removeNamespacePrefix(f.Ref)])
+					u.useElement(faults[utils.LocalName(f.Ref)])
 				}
 			}
 		}
@@ -148,7 +151,7 @@ func (g *Generator) collectTypeUsage() *typeUsage {
 }
 
 func (u *typeUsage) useType(ref string) {
-	name := removeNamespacePrefix(ref)
+	name := utils.LocalName(ref)
 	if name == "" || u.types[name] {
 		return
 	}
@@ -162,7 +165,7 @@ func (u *typeUsage) useType(ref string) {
 }
 
 func (u *typeUsage) useElement(ref string) {
-	name := removeNamespacePrefix(ref)
+	name := utils.LocalName(ref)
 	if name == "" || u.elements[name] {
 		return
 	}
@@ -173,7 +176,7 @@ func (u *typeUsage) useElement(ref string) {
 }
 
 func (u *typeUsage) useAttribute(ref string) {
-	name := removeNamespacePrefix(ref)
+	name := utils.LocalName(ref)
 	if name == "" || u.attributes[name] {
 		return
 	}

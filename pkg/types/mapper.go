@@ -6,6 +6,8 @@ package types
 
 import (
 	"strings"
+
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // TypeMapper handles conversion from XSD types to Go types
@@ -24,10 +26,7 @@ func NewTypeMapper() *TypeMapper {
 
 // MapXSDTypeToGoType converts an XSD type to its Go equivalent
 func (tm *TypeMapper) MapXSDTypeToGoType(xsdType string, nillable bool) string {
-	// Remove namespace prefix if present
-	if idx := strings.LastIndex(xsdType, ":"); idx >= 0 {
-		xsdType = xsdType[idx+1:]
-	}
+	xsdType = utils.LocalName(xsdType)
 
 	goType, ok := tm.xsdToGoTypes[xsdType]
 	if !ok {
@@ -47,9 +46,7 @@ func (tm *TypeMapper) MapXSDTypeToGoType(xsdType string, nillable bool) string {
 // IsBuiltinType reports whether xsdType (with or without namespace prefix) is a
 // built-in XSD type with a direct Go mapping.
 func (tm *TypeMapper) IsBuiltinType(xsdType string) bool {
-	if idx := strings.LastIndex(xsdType, ":"); idx >= 0 {
-		xsdType = xsdType[idx+1:]
-	}
+	xsdType = utils.LocalName(xsdType)
 	_, ok := tm.xsdToGoTypes[xsdType]
 	return ok
 }

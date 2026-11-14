@@ -297,7 +297,9 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if find {
+	if !find {
+		panic(WSDLUndefinedError)
+	} else {
 		m := val.Addr().MethodByName(name + "Func")
 		if !m.IsValid() {
 			panic(WSDLUndefinedError)

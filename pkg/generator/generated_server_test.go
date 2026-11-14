@@ -88,6 +88,21 @@ func TestEndpointDispatchesRequest(t *testing.T) {
 		t.Fatalf("response does not carry the handler result: %s", got)
 	}
 }
+
+func TestEndpointFaultsOnUnknownOperation(t *testing.T) {
+	body := ` + "`" + `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><NoSuchRequest xmlns="http://example.com/stockquote"/></soap:Body></soap:Envelope>` + "`" + `
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
+	rec := httptest.NewRecorder()
+
+	Endpoint(rec, req)
+
+	got, _ := io.ReadAll(rec.Result().Body)
+	if !strings.Contains(string(got), "<faultcode>soap:Server</faultcode>") ||
+		!strings.Contains(string(got), "Server was unable to process request.") {
+		t.Fatalf("unknown operation should produce a server fault: %s", got)
+	}
+}
 `
 
 func TestGenerator_WSDL2Server_DispatchesValidRequest(t *testing.T) {

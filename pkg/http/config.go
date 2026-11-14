@@ -6,13 +6,17 @@ package http
 
 import (
 	"crypto/tls"
-	"net"
 	"net/http"
 	"net/url"
 	"time"
 )
 
-// Config holds configuration for the HTTP client
+// Config holds configuration for the HTTP client.
+//
+// Deprecated: use HTTPClientConfig, which has the same fields and builds its
+// client from the same transport setup. Config is kept for backward
+// compatibility: unlike HTTPClientConfig.Build, its Build ignores
+// RateLimitPerSecond and silently ignores a malformed ProxyURL.
 type Config struct {
 	Timeout            time.Duration
 	MaxRetries         int
@@ -25,33 +29,18 @@ type Config struct {
 	ProxyURL           string
 }
 
-// Build creates an HTTP client from the configuration
+// Build creates an HTTP client from the configuration.
+//
+// Deprecated: use HTTPClientConfig.Build.
 func (c *Config) Build() *http.Client {
-	// Handle deprecated InsecureSkipVerify
-	if c.InsecureSkipVerify && c.TLSConfig != nil {
-		c.TLSConfig.InsecureSkipVerify = true
-	}
-
-	transport := &http.Transport{
-		Proxy:           http.ProxyFromEnvironment,
-		TLSClientConfig: c.TLSConfig,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
+	var proxy func(*http.Request) (*url.URL, error)
 	if c.ProxyURL != "" {
 		proxyURL, _ := url.Parse(c.ProxyURL)
-		transport.Proxy = http.ProxyURL(proxyURL)
+		proxy = http.ProxyURL(proxyURL)
 	}
 
 	return &http.Client{
-		Transport: transport,
+		Transport: newTransport(c.TLSConfig, c.InsecureSkipVerify, proxy),
 		Timeout:   c.Timeout,
 	}
 }

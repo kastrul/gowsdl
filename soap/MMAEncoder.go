@@ -94,11 +94,6 @@ func getMmaHeader(contentType string) (string, error) {
 		if !ok || boundary == "" {
 			return "", fmt.Errorf("invalid multipart boundary: %s", boundary)
 		}
-
-		startInfo, ok := params["start"]
-		if !ok || startInfo != "<soaprequest@gowsdl.lib>" {
-			return "", fmt.Errorf(`expected param start="<soaprequest@gowsdl.lib>", got %s`, startInfo)
-		}
 		return boundary, nil
 	}
 

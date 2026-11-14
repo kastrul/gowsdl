@@ -7,13 +7,17 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	gen "github.com/kastrul/gowsdl"
 )
 
 func TestValidationError(t *testing.T) {
@@ -470,5 +474,26 @@ func TestServerFilePathCalculation(t *testing.T) {
 				assert.Empty(t, serverFilePath, "Server file path should be empty when generateServer is false")
 			}
 		})
+	}
+}
+
+func TestHTTPFlagDefaults_MatchDefaultHTTPClientConfig(t *testing.T) {
+	defaults := gen.DefaultHTTPClientConfig()
+
+	for name, want := range map[string]string{
+		"http-timeout":     defaults.Timeout.String(),
+		"http-retries":     strconv.Itoa(defaults.MaxRetries),
+		"http-retry-delay": defaults.RetryDelay.String(),
+		"http-rate-limit":  strconv.Itoa(defaults.RateLimitPerSecond),
+		"http-user-agent":  defaults.UserAgent,
+		"http-proxy":       defaults.ProxyURL,
+	} {
+		f := flag.Lookup(name)
+		if f == nil {
+			t.Fatalf("flag -%s is not defined", name)
+		}
+		if f.DefValue != want {
+			t.Errorf("flag -%s default = %q, want %q", name, f.DefValue, want)
+		}
 	}
 }

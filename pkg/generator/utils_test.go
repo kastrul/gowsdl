@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kastrul/gowsdl/pkg/http"
+	"github.com/kastrul/gowsdl/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -131,7 +132,7 @@ func TestUtilityFunctions(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			result := removeNamespacePrefix(tt.input)
+			result := utils.LocalName(tt.input)
 			assert.Equal(t, tt.expected, result)
 		}
 	})

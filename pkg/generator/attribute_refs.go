@@ -6,6 +6,7 @@ package generator
 
 import (
 	"github.com/kastrul/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // ResolveAttributeRefs fills in the name and type of attributes declared with
@@ -29,7 +30,7 @@ func ResolveAttributeRefs(schemas []*parser.XSDSchema) {
 			if attr.Name != "" || attr.Ref == "" {
 				continue
 			}
-			attr.Name = removeNamespacePrefix(attr.Ref)
+			attr.Name = utils.LocalName(attr.Ref)
 			if attr.Type != "" {
 				continue
 			}

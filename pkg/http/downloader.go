@@ -57,6 +57,9 @@ func DownloadFile(ctx context.Context, url string, httpConfig HTTPConfig) ([]byt
 		resp, err = client.Do(req)
 		// Check for context cancellation
 		if ctx.Err() != nil {
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
 			return nil, ctx.Err()
 		}
 		lastErr = err
