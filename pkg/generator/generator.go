@@ -37,6 +37,8 @@ type Generator struct {
 	useGenerics      bool
 	genericsOnly     bool
 	generateServer   bool
+	operations       map[string]bool
+	keepUnusedTypes  bool
 	namespaceManager *core.NamespaceManager
 	typeMapper       *types.TypeMapper
 }
@@ -132,6 +134,13 @@ func New(file string, opts ...Option) (*Generator, error) {
 func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 	if err := g.unmarshal(ctx); err != nil {
 		return nil, err
+	}
+
+	if err := g.validateOperationFilter(); err != nil {
+		return nil, err
+	}
+	if len(g.operations) > 0 && !g.keepUnusedTypes && g.generateServer {
+		log.Printf("[WARN] type pruning is disabled because server code needs the types of every operation")
 	}
 
 	// Process WSDL nodes
@@ -591,11 +600,40 @@ func (g *Generator) genTypes() ([]byte, error) {
 		}
 	}
 
+	if g.pruningActive() {
+		u := g.collectTypeUsage()
+		data.SimpleType = filterSlice(data.SimpleType, func(st *parser.XSDSimpleType) bool { return u.types[st.Name] })
+		data.ComplexTypes = filterSlice(data.ComplexTypes, func(ct *parser.XSDComplexType) bool { return u.types[ct.Name] })
+		data.Elements = filterSlice(data.Elements, func(el *parser.XSDElement) bool { return u.elements[el.Name] })
+		data.Messages = filterSlice(data.Messages, func(msg *parser.WSDLMessage) bool { return u.messages[msg.Name] })
+		if g.wsdl != nil {
+			data.PortTypes = g.filteredPortTypes()
+		}
+		used := make(map[string]*InlineComplexType, len(data.InlineTypes))
+		for key, it := range data.InlineTypes {
+			if u.complexTypes[it.ComplexType] {
+				used[key] = it
+			}
+		}
+		data.InlineTypes = used
+	}
+
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 
 	return buf.Bytes(), nil
+}
+
+// filterSlice returns the elements of items for which keep returns true.
+func filterSlice[T any](items []T, keep func(T) bool) []T {
+	var result []T
+	for _, item := range items {
+		if keep(item) {
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 func (g *Generator) genOperations() ([]byte, error) {
@@ -607,7 +645,7 @@ func (g *Generator) genOperations() ([]byte, error) {
 
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
 		tmplText = templates.OperationsWSDL2Template
-		data = g.wsdl2.Interfaces
+		data = g.filteredInterfaces()
 		if g.useGenerics {
 			log.Printf("gowsdl: generic client generation is not supported for WSDL 2.0; generating standard operations only")
 		}
@@ -620,7 +658,7 @@ func (g *Generator) genOperations() ([]byte, error) {
 			UseGenerics  bool
 			GenericsOnly bool
 		}{
-			PortTypes:    g.wsdl.PortTypes,
+			PortTypes:    g.filteredPortTypes(),
 			Messages:     g.wsdl.Messages,
 			UseGenerics:  g.useGenerics,
 			GenericsOnly: g.genericsOnly,
@@ -723,6 +761,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"removeNS":                 removeNamespacePrefix,
 		"findType":                 g.findType,
 		"findSOAPAction":           g.findSOAPAction,
+		"findWSDL2SOAPAction":      g.findWSDL2SOAPAction,
 		"makeValidXmlTag":          makeValidXmlTag,
 		"goString":                 goString,
 		"sanitizeEnumValue":        sanitizeEnumValue,
@@ -1011,6 +1050,28 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 		}
 	}
 
+	return ""
+}
+
+// findWSDL2SOAPAction returns the SOAP action that a WSDL 2.0 binding of the
+// named interface declares for the named operation, or "" if none does.
+func (g *Generator) findWSDL2SOAPAction(operation, iface string) string {
+	if g.wsdl2 == nil {
+		return ""
+	}
+	for _, binding := range g.wsdl2.Bindings {
+		if removeNamespacePrefix(binding.Interface) != iface {
+			continue
+		}
+		for _, op := range binding.Operations {
+			if removeNamespacePrefix(op.Ref) != operation {
+				continue
+			}
+			if action := op.ResolvedSOAPAction(); action != "" {
+				return action
+			}
+		}
+	}
 	return ""
 }
 

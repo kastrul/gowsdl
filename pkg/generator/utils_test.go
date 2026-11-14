@@ -263,7 +263,6 @@ func TestGeneratorWithDifferentVersions(t *testing.T) {
 	})
 
 	t.Run("WSDL_2.0", func(t *testing.T) {
-		// Note: WSDL 2.0 support may be limited, so we'll test if it handles gracefully
 		wsdl2Content := `<?xml version="1.0" encoding="UTF-8"?>
 <description xmlns="http://www.w3.org/ns/wsdl"
              targetNamespace="http://example.com/stockquote"
@@ -323,18 +322,10 @@ func TestGeneratorWithDifferentVersions(t *testing.T) {
 		require.NoError(t, err)
 
 		g, err := New(tmpFile.Name(), WithPackage("stockquote"), WithServerGeneration(true))
-		if err != nil {
-			// WSDL 2.0 may not be fully supported yet, so we'll skip if it fails
-			t.Skipf("WSDL 2.0 parsing not fully supported: %v", err)
-			return
-		}
+		require.NoError(t, err)
 
-		ctx := context.Background()
-		code, err := g.Generate(ctx)
-		if err != nil {
-			t.Skipf("WSDL 2.0 generation not fully supported: %v", err)
-			return
-		}
+		code, err := g.Generate(context.Background())
+		require.NoError(t, err)
 
 		assert.Contains(t, code, "header")
 		assert.Contains(t, code, "types")

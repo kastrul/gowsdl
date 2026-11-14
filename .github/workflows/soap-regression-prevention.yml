@@ -99,7 +99,7 @@ jobs:
           for wsdl in test_fixtures/*/*.wsdl; do
             if [ -f "$wsdl" ]; then
               echo "Testing template with: $wsdl"
-              go run ./cmd/gowsdl -d /tmp -o test_output.go -p testpkg "$wsdl" || {
+              go run ./cmd/gowsdl -d "$RUNNER_TEMP" -o test_output.go -p testpkg "$wsdl" || {
                 echo "❌ Template change broke WSDL: $wsdl"
                 exit 1
               }

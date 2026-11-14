@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kastrul/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -122,7 +123,13 @@ func TestGenericClientUsage(t *testing.T) {
 	wsdlPath := filepath.Join(t.TempDir(), "test_generic.wsdl")
 	require.NoError(t, os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0644))
 
-	g, err := New(wsdlPath, WithPackage("testgen"), WithExportAllTypes(true), WithGenerics())
+	g, err := New(wsdlPath,
+		WithPackage("testgen"),
+		WithHTTPConfig(http.DefaultHTTPClientConfig()),
+		WithExportAllTypes(true),
+		WithServerGeneration(true),
+		WithGenerics(),
+	)
 	require.NoError(t, err)
 
 	code, err := g.Generate(context.Background())

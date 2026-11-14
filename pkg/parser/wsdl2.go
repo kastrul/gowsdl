@@ -6,17 +6,29 @@ package parser
 
 import "encoding/xml"
 
-const wsdl2Namespace = "http://www.w3.org/ns/wsdl/"
+const (
+	// wsdl2Namespace is the WSDL 2.0 namespace defined by the W3C specification.
+	wsdl2Namespace = "http://www.w3.org/ns/wsdl"
+	// wsdl2LegacyNamespace is the non-standard trailing-slash form of the WSDL 2.0
+	// namespace, accepted for backward compatibility.
+	wsdl2LegacyNamespace = "http://www.w3.org/ns/wsdl/"
+)
+
+// isWSDL2Namespace reports whether ns identifies the WSDL 2.0 namespace,
+// accepting both the spec form and the legacy trailing-slash form.
+func isWSDL2Namespace(ns string) bool {
+	return ns == wsdl2Namespace || ns == wsdl2LegacyNamespace
+}
 
 // WSDL2 represents the structure of a WSDL 2.0 document
 type WSDL2 struct {
 	Xmlns           map[string]string `xml:"-"`
 	Name            string            `xml:"name,attr"`
 	TargetNamespace string            `xml:"targetNamespace,attr"`
-	Types           WSDLType          `xml:"http://www.w3.org/ns/wsdl/ types"`
-	Interfaces      []*WSDL2Interface `xml:"http://www.w3.org/ns/wsdl/ interface"`
-	Bindings        []*WSDL2Binding   `xml:"http://www.w3.org/ns/wsdl/ binding"`
-	Services        []*WSDL2Service   `xml:"http://www.w3.org/ns/wsdl/ service"`
+	Types           WSDLType          `xml:"types"`
+	Interfaces      []*WSDL2Interface `xml:"interface"`
+	Bindings        []*WSDL2Binding   `xml:"binding"`
+	Services        []*WSDL2Service   `xml:"service"`
 	Imports         []*WSDLImport     `xml:"import"`
 	Includes        []*WSDL2Include   `xml:"include"`
 	Doc             string            `xml:"documentation"`
@@ -64,9 +76,12 @@ type WSDL2InterfaceFault struct {
 
 // WSDL2Binding represents a binding in WSDL 2.0
 type WSDL2Binding struct {
-	Name       string                   `xml:"name,attr"`
-	Interface  string                   `xml:"interface,attr"`
-	Type       string                   `xml:"type,attr"`
+	Name      string `xml:"name,attr"`
+	Interface string `xml:"interface,attr"`
+	Type      string `xml:"type,attr"`
+	// MEPDefault is the wsoap:mepDefault attribute: the SOAP MEP used by
+	// operations of this binding that do not set wsoap:mep themselves.
+	MEPDefault string                   `xml:"http://www.w3.org/ns/wsdl/soap mepDefault,attr"`
 	Operations []*WSDL2BindingOperation `xml:"operation"`
 	Faults     []*WSDL2BindingFault     `xml:"fault"`
 	Doc        string                   `xml:"documentation"`
@@ -74,13 +89,45 @@ type WSDL2Binding struct {
 
 // WSDL2BindingOperation represents binding details for an operation
 type WSDL2BindingOperation struct {
-	Ref            string                        `xml:"ref,attr"`
-	SOAPAction     string                        `xml:"http://www.w3.org/ns/wsdl/soap soapAction,attr"`
+	Ref string `xml:"ref,attr"`
+	// Action is the wsoap:action attribute defined by the WSDL 2.0 SOAP binding.
+	Action string `xml:"http://www.w3.org/ns/wsdl/soap action,attr"`
+	// MEP is the wsoap:mep attribute defined by the WSDL 2.0 SOAP binding.
+	MEP string `xml:"http://www.w3.org/ns/wsdl/soap mep,attr"`
+	// SOAPAction holds the non-standard wsoap:soapAction attribute.
+	//
+	// Deprecated: the WSDL 2.0 SOAP binding names this attribute wsoap:action.
+	// Use Action, or ResolvedSOAPAction to honour both names.
+	SOAPAction string `xml:"http://www.w3.org/ns/wsdl/soap soapAction,attr"`
+	// SOAPMEPDefault holds a wsoap:mepDefault attribute found on an operation.
+	//
+	// Deprecated: the WSDL 2.0 SOAP binding defines wsoap:mepDefault on the
+	// binding element and wsoap:mep on the operation. Use MEP, or
+	// ResolvedSOAPMEP to honour both names.
 	SOAPMEPDefault string                        `xml:"http://www.w3.org/ns/wsdl/soap mepDefault,attr"`
 	Input          *WSDL2BindingOperationMessage `xml:"input"`
 	Output         *WSDL2BindingOperationMessage `xml:"output"`
 	InFault        []*WSDL2BindingOperationFault `xml:"infault"`
 	OutFault       []*WSDL2BindingOperationFault `xml:"outfault"`
+}
+
+// ResolvedSOAPAction returns the operation's SOAP action, preferring the
+// spec-defined wsoap:action over the legacy wsoap:soapAction attribute.
+func (op *WSDL2BindingOperation) ResolvedSOAPAction() string {
+	if op.Action != "" {
+		return op.Action
+	}
+	return op.SOAPAction
+}
+
+// ResolvedSOAPMEP returns the operation's SOAP MEP, preferring the
+// spec-defined wsoap:mep over a legacy wsoap:mepDefault on the operation.
+// It does not fall back to the binding's MEPDefault.
+func (op *WSDL2BindingOperation) ResolvedSOAPMEP() string {
+	if op.MEP != "" {
+		return op.MEP
+	}
+	return op.SOAPMEPDefault
 }
 
 // WSDL2BindingOperationMessage represents input/output binding details
@@ -163,7 +210,7 @@ Loop:
 				if err := d.DecodeElement(&w.Doc, &t); err != nil {
 					return err
 				}
-			case t.Name.Space == wsdl2Namespace:
+			case isWSDL2Namespace(t.Name.Space):
 				switch t.Name.Local {
 				case "types":
 					if err := d.DecodeElement(&w.Types, &t); err != nil {

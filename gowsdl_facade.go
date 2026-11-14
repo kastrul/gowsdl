@@ -64,6 +64,28 @@ func WithServerGeneration(generate bool) Option {
 	}
 }
 
+// WithOperations restricts client code generation to the named WSDL operations.
+// An empty list generates all operations.
+func WithOperations(names ...string) Option {
+	return func(g *GoWSDL) error {
+		return generator.WithOperations(names...)(g.generator)
+	}
+}
+
+// WithTypePruning controls whether, when WithOperations is used, only the
+// types needed by the selected operations are generated. Enabled by default.
+func WithTypePruning(enabled bool) Option {
+	return func(g *GoWSDL) error {
+		return generator.WithTypePruning(enabled)(g.generator)
+	}
+}
+
+// ParseOperationList splits a comma-separated list of operation names,
+// trimming whitespace and dropping empty entries.
+func ParseOperationList(list string) []string {
+	return generator.ParseOperationList(list)
+}
+
 // NewGoWSDL creates a new GoWSDL instance with the provided options
 func NewGoWSDL(file string, opts ...Option) (*GoWSDL, error) {
 	file = strings.TrimSpace(file)

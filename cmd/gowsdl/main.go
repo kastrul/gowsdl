@@ -10,8 +10,12 @@ This project is originally intended to generate Go clients for WS-* services.
 Usage: gowsdl [options] myservice.wsdl
   -o string
         File where the generated code will be saved (default "myservice.go")
+  -operations string
+        Comma-separated list of operation names to generate client methods for (default: all)
   -p string
         Package under which code will be generated (default "myservice")
+  -prune-types
+        With -operations, generate only the types used by the selected operations (default true)
   -v    Shows gowsdl version
 
 Features
@@ -77,6 +81,8 @@ var makePublic = flag.Bool("make-public", true, "Make the generated types public
 var useGenerics = flag.Bool("use-generics", false, "Generate code using Go generics (requires Go 1.18+)")
 var genericsOnly = flag.Bool("generics-only", false, "Generate only generic methods (returning soap.Result) for WSDL 1.1 document-style operations; implies -use-generics")
 var generateServer = flag.Bool("generate-server", false, "Generate server implementation code")
+var operations = flag.String("operations", "", "Comma-separated list of operation names to generate client methods for (default: all)")
+var pruneTypes = flag.Bool("prune-types", true, "With -operations, generate only the types used by the selected operations")
 
 // HTTP client configuration flags
 var httpTimeout = flag.Duration("http-timeout", 30*time.Second, "Timeout for HTTP requests")
@@ -287,6 +293,9 @@ func run() error {
 		opts = append(opts, gen.WithGenericsOnly())
 	} else if *useGenerics {
 		opts = append(opts, gen.WithGenerics())
+	}
+	if names := gen.ParseOperationList(*operations); len(names) > 0 {
+		opts = append(opts, gen.WithOperations(names...), gen.WithTypePruning(*pruneTypes))
 	}
 
 	// load wsdl
