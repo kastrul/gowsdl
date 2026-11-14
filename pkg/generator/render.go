@@ -300,17 +300,20 @@ func (g *Generator) serverTypeName(ref string) string {
 }
 
 // serverOperationsWSDL1 resolves the request and response types of every
-// operation of the given WSDL 1.1 port types from their messages.
+// operation of the given WSDL 1.1 port types from their messages. A one-way
+// operation has no output message.
 func (g *Generator) serverOperationsWSDL1(portTypes []*parser.WSDLPortType) []templates.ServerOperation {
 	var ops []templates.ServerOperation
 	for _, pt := range portTypes {
 		for _, op := range pt.Operations {
-			ops = append(ops, templates.ServerOperation{
-				Request:     g.serverTypeName(op.Input.Message),
-				Response:    g.serverTypeName(op.Output.Message),
-				HasRequest:  true,
-				HasResponse: true,
-			})
+			so := templates.ServerOperation{
+				Request:    g.serverTypeName(op.Input.Message),
+				HasRequest: true,
+			}
+			if op.Output.Message != "" {
+				so.Response, so.HasResponse = g.serverTypeName(op.Output.Message), true
+			}
+			ops = append(ops, so)
 		}
 	}
 	return ops

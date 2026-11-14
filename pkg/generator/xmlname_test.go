@@ -5,12 +5,10 @@
 package generator
 
 import (
-	"go/format"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // xmlNameWant is what a generated type must declare: its XMLName struct tag,
@@ -34,13 +32,10 @@ type xmlNameWant struct {
 // Types not listed in a scenario must have neither.
 func TestGenerator_XMLNameAndTargetNamespace(t *testing.T) {
 	tests := []struct {
-		name string
-		wsdl string
-		pkg  string
-		// brokenClient, when set, says why the generated client is known not
-		// to be valid Go; only the types are checked.
-		brokenClient string
-		types        map[string]xmlNameWant
+		name  string
+		wsdl  string
+		pkg   string
+		types map[string]xmlNameWant
 	}{
 		{
 			name: "unqualified request with nested inline types",
@@ -102,10 +97,9 @@ func TestGenerator_XMLNameAndTargetNamespace(t *testing.T) {
 			},
 		},
 		{
-			name:         "one-way operation and an unused complex type",
-			wsdl:         oneWayUnusedTypeWSDL,
-			pkg:          "test",
-			brokenClient: "a one-way operation is generated as returning (*, error)",
+			name: "one-way operation and an unused complex type",
+			wsdl: oneWayUnusedTypeWSDL,
+			pkg:  "test",
 			types: map[string]xmlNameWant{
 				"UsedRequest":     {xmlName: `xml:"tns:UsedRequest"`, targetNamespace: "http://example.com/unused"},
 				"UnusedType":      {},
@@ -132,10 +126,9 @@ func TestGenerator_XMLNameAndTargetNamespace(t *testing.T) {
 			},
 		},
 		{
-			name:         "complex types not used in messages",
-			wsdl:         nonMessageTypesWSDL,
-			pkg:          "test",
-			brokenClient: "a one-way operation is generated as returning (*, error)",
+			name: "complex types not used in messages",
+			wsdl: nonMessageTypesWSDL,
+			pkg:  "test",
 			types: map[string]xmlNameWant{
 				"UsedElement":     {xmlName: `xml:"tns:UsedElement"`, targetNamespace: "http://example.com/types"},
 				"UsedType":        {},
@@ -155,10 +148,9 @@ func TestGenerator_XMLNameAndTargetNamespace(t *testing.T) {
 			},
 		},
 		{
-			name:         "qualified element with an inline type",
-			wsdl:         qualifiedInlineWSDL,
-			pkg:          "testpkg",
-			brokenClient: "a one-way operation is generated as returning (*, error)",
+			name: "qualified element with an inline type",
+			wsdl: qualifiedInlineWSDL,
+			pkg:  "testpkg",
 			types: map[string]xmlNameWant{
 				"QualifiedRequest":     {xmlName: `xml:"http://example.com/qualified qualifiedRequest"`},
 				"QualifiedRequestType": {},
@@ -197,14 +189,7 @@ func TestGenerator_XMLNameAndTargetNamespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := tryGenerate(t, writeWSDL(t, tt.wsdl), WithPackage(tt.pkg))
-			require.NoError(t, err)
-			if tt.brokenClient != "" {
-				code := string(out["header"]) + out.types() + out.operations()
-				_, err := format.Source([]byte(code))
-				require.Error(t, err, "the client is valid Go now; clear brokenClient (was: %s)", tt.brokenClient)
-				out = generated{"header": out["header"], "types": out["types"]}
-			}
+			out := generate(t, writeWSDL(t, tt.wsdl), WithPackage(tt.pkg))
 
 			methods := make(map[string]bool)
 			for _, name := range out.declNames(t) {

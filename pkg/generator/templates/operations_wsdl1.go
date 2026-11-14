@@ -20,7 +20,9 @@ const OperationsWSDL1Template = `
 			//   - {{.Name}}{{if .Doc}} {{.Doc}}{{end}}{{end}}
 			{{end}}
 			{{if .Doc}}{{comment .Doc}}{{end}}
-			{{if and $generic $.GenericsOnly -}}
+			{{if not .Output.Message -}}
+			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) error
+			{{- else if and $generic $.GenericsOnly -}}
 			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (soap.Result[{{$responseType}}], error)
 			{{- else -}}
 			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
@@ -47,7 +49,8 @@ const OperationsWSDL1Template = `
 		{{$soapAction := findSOAPAction .Name $portTypeName}}{{$generic := and $.UseGenerics (not (isRPCPortType $portTypeName)) (ne $requestType "") (ne $responseType "")}}
 
 		{{if not (and $generic $.GenericsOnly) -}}
-		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
+		{{$oneWay := not .Output.Message}}
+		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) {{if $oneWay}}error{{else}}(*{{$responseType}}, error){{end}} {
 			{{if isRPCPortType $portTypeName}}
 				// RPC-style operation: wrap request in operation element
 				{{$opName := .Name}}
@@ -63,7 +66,9 @@ const OperationsWSDL1Template = `
 						{{end}}
 					{{end}}
 				}
-				
+				{{if $oneWay}}
+				return service.client.CallContext(ctx, "{{$soapAction}}", α, nil)
+				{{else}}
 				var γ Operation{{.Name | makePublic}}Out
 				
 				err := service.client.CallContext(ctx, "{{$soapAction}}", α, &γ)
@@ -108,6 +113,10 @@ const OperationsWSDL1Template = `
 						{{end}}
 					{{end}}
 				{{end}}
+				{{end}}
+			{{else if $oneWay}}
+				// One-way operation: no response is expected
+				return service.client.CallContext(ctx, "{{$soapAction}}", request, nil)
 			{{else}}
 				// Document-style operation
 				response := new({{$responseType}})

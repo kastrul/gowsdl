@@ -34,8 +34,13 @@ const OperationsWSDL2Template = `
 			{{end}}
 			
 			{{if .Doc}}{{comment .Doc}}{{end}}
+			{{if .Output}}
 			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
 			{{.Name | makePublic}}Context(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
+			{{else}}
+			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) error
+			{{.Name | makePublic}}Context(ctx context.Context, request *{{$requestType}}) error
+			{{end}}
 		{{end}}
 	}
 
@@ -62,6 +67,7 @@ const OperationsWSDL2Template = `
 			{{$responseType = findType .Output.Element | replaceReservedWords | makePublic}}
 		{{end}}
 
+		{{if .Output}}
 		func (service *{{$interface | makePrivate}}) {{.Name | makePublic}}Context(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
 			response := new({{$responseType}})
 			err := service.client.CallContext(ctx, {{printf "%q" $soapAction}}, request, response)
@@ -74,6 +80,16 @@ const OperationsWSDL2Template = `
 		func (service *{{$interface | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
 			return service.{{.Name | makePublic}}Context(ctx, request)
 		}
+		{{else}}
+		// {{.Name | makePublic}}Context sends a one-way request: no response is expected.
+		func (service *{{$interface | makePrivate}}) {{.Name | makePublic}}Context(ctx context.Context, request *{{$requestType}}) error {
+			return service.client.CallContext(ctx, {{printf "%q" $soapAction}}, request, nil)
+		}
+
+		func (service *{{$interface | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) error {
+			return service.{{.Name | makePublic}}Context(ctx, request)
+		}
+		{{end}}
 	{{end}}
 {{end}}
 `
