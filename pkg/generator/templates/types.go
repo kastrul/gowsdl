@@ -150,7 +150,7 @@ called with the extension's base type.
 	{{if ne .Extension.Base ""}}
 		{{if eq .Extension.Base "soap:Header"}}
 			soap.Header
-		{{else if eq (toGoType .Extension.Base false) "any"}}
+		{{else if eq (toGoType .Extension.Base false) "soap.AnyType"}}
 			InnerXML string ` + "`" + `xml:",innerxml"` + "`" + `
 		{{else}}
 			{{toGoType .Extension.Base false}}
@@ -312,6 +312,19 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				func (xt *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 					return (*soap.XSDTime)(xt).UnmarshalXML(d, start)
 				}
+			{{else if eq $goType "soap.AnyType"}}
+				func (a {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+					return soap.AnyType(a).MarshalXML(e, start)
+				}
+
+				func (a *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+					return (*soap.AnyType)(a).UnmarshalXML(d, start)
+				}
+
+				// Decode unmarshals the received element into v. See soap.AnyType.Decode.
+				func (a {{$type}}) Decode(v any) error {
+					return soap.AnyType(a).Decode(v)
+				}
 			{{end}}
 		{{end}}
 	{{else}}
@@ -363,7 +376,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 							type {{$type}} {{toGoType .Restriction.Base false}}
 						{{end}}
 					{{else}}
-						type {{$type}} any
+						type {{$type}} string
 					{{end}}
 				{{end}}
 			{{end}}

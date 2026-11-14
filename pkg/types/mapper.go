@@ -36,7 +36,7 @@ func (tm *TypeMapper) MapXSDTypeToGoType(xsdType string, nillable bool) string {
 	}
 
 	// Make pointer if nillable
-	if nillable && !strings.HasPrefix(goType, "*") && goType != "any" {
+	if nillable && !strings.HasPrefix(goType, "*") && goType != "soap.AnyType" {
 		goType = "*" + goType
 	}
 
@@ -122,9 +122,9 @@ func initXSDToGoTypes() map[string]string {
 		"gMonth":     "string",
 
 		// Other
-		"any":           "any",
-		"anyType":       "any",
-		"anySimpleType": "any",
+		"any":           "soap.AnyType",
+		"anyType":       "soap.AnyType",
+		"anySimpleType": "string",
 	}
 }
 
