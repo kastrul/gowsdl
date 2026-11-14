@@ -77,9 +77,30 @@ type Result[T any] struct {
 	// TransportError indicates if the fault was due to a transport/network error
 	// rather than a SOAP fault from the server
 	TransportError bool
+	// Err is the error the call failed with, or nil on success. For a SOAP
+	// fault it is the fault itself. For a transport error it is the original
+	// error, such as *HTTPError, *url.Error or context.DeadlineExceeded, so it
+	// can be inspected with errors.Is and errors.As.
+	Err error
 }
 
-// Unwrap returns the value or an error if a fault occurred
+// transportResult reports err as a transport error. The synthetic fault keeps
+// err as its cause, so errors.Is and errors.As see through it.
+func transportResult[T any](code string, err error) Result[T] {
+	return Result[T]{
+		Fault: &SOAPFault{
+			Code:   code,
+			String: err.Error(),
+			cause:  err,
+		},
+		TransportError: true,
+		Err:            err,
+	}
+}
+
+// Unwrap returns the value or an error if a fault occurred. For a transport
+// error the returned fault wraps the original error, so
+// errors.Is(err, context.DeadlineExceeded) and similar checks work.
 func (r Result[T]) Unwrap() (T, error) {
 	var zero T
 	if r.Fault != nil {
@@ -105,7 +126,8 @@ func (c *GenericClient[TReq, TResp]) CallAsResult(ctx context.Context, request T
 //
 // A SOAP fault returned by the server is reported in Result.Fault. Any other
 // error, such as a network failure or a cancelled context, is reported as a
-// fault with code "Client.Transport" and Result.TransportError set.
+// fault with code "Client.Transport" and Result.TransportError set. In both
+// cases Result.Err holds the original error.
 func (s *Client) CallResult[Resp, Req any](ctx context.Context, soapAction string, request Req) Result[Resp] {
 	var response Resp
 	err := s.CallContext(ctx, soapAction, request, &response)
@@ -113,15 +135,9 @@ func (s *Client) CallResult[Resp, Req any](ctx context.Context, soapAction strin
 		return Result[Resp]{Value: response}
 	}
 	if fault, ok := errors.AsType[*SOAPFault](err); ok {
-		return Result[Resp]{Fault: fault}
+		return Result[Resp]{Fault: fault, Err: err}
 	}
-	return Result[Resp]{
-		Fault: &SOAPFault{
-			Code:   "Client.Transport",
-			String: err.Error(),
-		},
-		TransportError: true,
-	}
+	return transportResult[Resp]("Client.Transport", err)
 }
 
 // SOAPArray is a generic container for SOAP array types
@@ -215,14 +231,8 @@ func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TRe
 				// Check if this result hasn't been received yet
 				if !received[j] {
 					results[j] = BatchResult[TResp]{
-						Index: j,
-						Result: Result[TResp]{
-							Fault: &SOAPFault{
-								Code:   "Client.Timeout",
-								String: ctx.Err().Error(),
-							},
-							TransportError: true,
-						},
+						Index:  j,
+						Result: transportResult[TResp]("Client.Timeout", ctx.Err()),
 					}
 				}
 			}
