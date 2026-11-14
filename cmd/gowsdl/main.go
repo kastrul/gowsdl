@@ -1,53 +1,44 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-/*
 
+/*
 Gowsdl generates Go code from a WSDL file.
 
 This project is originally intended to generate Go clients for WS-* services.
 
 Usage: gowsdl [options] myservice.wsdl
-  -o string
-        File where the generated code will be saved (default "myservice.go")
-  -operations string
-        Comma-separated list of operation names to generate client methods for (default: all)
-  -p string
-        Package under which code will be generated (default "myservice")
-  -prune-types
-        With -operations, generate only the types used by the selected operations (default true)
-  -v    Shows gowsdl version
 
-Features
+	-o string
+	      File where the generated code will be saved (default "myservice.go")
+	-operations string
+	      Comma-separated list of operation names to generate client methods for (default: all)
+	-p string
+	      Package under which code will be generated (default "myservice")
+	-prune-types
+	      With -operations, generate only the types used by the selected operations (default true)
+	-v    Shows gowsdl version
 
-Supports only Document/Literal wrapped services, which are WS-I (http://ws-i.org/) compliant.
+# Features
 
-Attempts to generate idiomatic Go code as much as possible.
+  - Supports only Document/Literal wrapped services, which are WS-I (http://ws-i.org/) compliant.
+  - Attempts to generate idiomatic Go code as much as possible.
+  - Supports WSDL 1.1, XML Schema 1.0, SOAP 1.1.
+  - Resolves external XML Schemas.
+  - Supports providing WSDL HTTP URL as well as a local WSDL file.
 
-Supports WSDL 1.1, XML Schema 1.0, SOAP 1.1.
+# Not supported
 
-Resolves external XML Schemas
+  - UDDI.
 
-Supports providing WSDL HTTP URL as well as a local WSDL file.
+# TODO
 
-Not supported
-
-UDDI.
-
-TODO
-
-Add support for filters to allow the user to change the generated code.
-
-If WSDL file is local, resolve external XML schemas locally too instead of failing due to not having a URL to download them from.
-
-Resolve XSD element references.
-
-Support for generating namespaces.
-
-Make code generation agnostic so generating code to other programming languages is feasible through plugins.
-
+  - Add support for filters to allow the user to change the generated code.
+  - If WSDL file is local, resolve external XML schemas locally too instead of failing due to not having a URL to download them from.
+  - Resolve XSD element references.
+  - Support for generating namespaces.
+  - Make code generation agnostic so generating code to other programming languages is feasible through plugins.
 */
-
 package main
 
 import (
@@ -261,7 +252,7 @@ func run() error {
 			return fmt.Errorf("invalid TLS version: %s", *tlsMinVersion)
 		}
 		if httpConfig.TLSConfig == nil {
-			httpConfig.TLSConfig = &tls.Config{}
+			httpConfig.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 		}
 		httpConfig.TLSConfig.MinVersion = minVersion
 	}
@@ -313,7 +304,7 @@ func run() error {
 	pkgDir := filepath.Join(*dir, *pkg)
 
 	// Create directory with proper permissions and handle existing directories
-	err = os.MkdirAll(pkgDir, 0755)
+	err = os.MkdirAll(pkgDir, 0755) //nolint:gosec // generated Go sources live in a normal, world-readable source directory
 	if err != nil {
 		return fmt.Errorf("failed to create package directory: %w", err)
 	}
@@ -337,7 +328,7 @@ func run() error {
 		}
 	}
 
-	file, err := os.Create(outputPath)
+	file, err := os.Create(outputPath) //nolint:gosec // outputPath is checked by validatePath above
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
@@ -357,7 +348,7 @@ func run() error {
 	if err != nil {
 		// Write unformatted code and return error with context
 		if writeErr := writeData(file, data.Bytes()); writeErr != nil {
-			return fmt.Errorf("failed to format code and failed to write unformatted code: format error: %w, write error: %v", err, writeErr)
+			return fmt.Errorf("failed to format code and failed to write unformatted code: format error: %w, write error: %w", err, writeErr)
 		}
 		return fmt.Errorf("failed to format generated code: %w", err)
 	}
@@ -368,7 +359,7 @@ func run() error {
 
 	// Generate server file only if generateServer flag is set
 	if *generateServer {
-		serverFile, err := os.Create(serverFilePath)
+		serverFile, err := os.Create(serverFilePath) //nolint:gosec // serverFilePath is checked by validatePath above
 		if err != nil {
 			return fmt.Errorf("failed to create server file: %w", err)
 		}
@@ -387,7 +378,7 @@ func run() error {
 		if err != nil {
 			// Write unformatted server code and return error with context
 			if writeErr := writeData(serverFile, serverData.Bytes()); writeErr != nil {
-				return fmt.Errorf("failed to format server code and failed to write unformatted server code: format error: %w, write error: %v", err, writeErr)
+				return fmt.Errorf("failed to format server code and failed to write unformatted server code: format error: %w, write error: %w", err, writeErr)
 			}
 			return fmt.Errorf("failed to format generated server code: %w", err)
 		}
@@ -398,7 +389,7 @@ func run() error {
 	}
 
 	// Output what was generated
-	log.Printf("Generated %s (package %s) from %s", outputPath, *pkg, wsdlPath)
+	log.Printf("Generated %s (package %s) from %s", outputPath, *pkg, wsdlPath) //nolint:gosec // echoes the user's own CLI arguments to stderr
 
 	if *generateServer {
 		log.Printf("Generated %s (server implementation)", serverFilePath)

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -52,6 +53,9 @@ func TestSOAPCaptureRoundTrip(t *testing.T) {
 
 	// Execute round trip
 	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -82,6 +86,9 @@ func TestSOAPCaptureRequestWithoutBody(t *testing.T) {
 	}
 
 	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -106,6 +113,9 @@ func TestSOAPCaptureInvalidXML(t *testing.T) {
 	}
 
 	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -136,7 +146,7 @@ func TestSOAPCaptureThreadSafety(t *testing.T) {
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <getUser xmlns="http://example.com/test">
-      <userId>` + string(rune('0'+goroutineID)) + string(rune('0'+j)) + `</userId>
+      <userId>` + strconv.Itoa(goroutineID) + strconv.Itoa(j) + `</userId>
     </getUser>
   </soap:Body>
 </soap:Envelope>`
@@ -148,7 +158,10 @@ func TestSOAPCaptureThreadSafety(t *testing.T) {
 					Body:   io.NopCloser(strings.NewReader(soapBody)),
 				}
 
-				_, err := capture.RoundTrip(req)
+				resp, err := capture.RoundTrip(req)
+				if resp != nil {
+					_ = resp.Body.Close()
+				}
 				assert.NoError(t, err)
 			}
 		}(i)
@@ -181,7 +194,10 @@ func TestSOAPCaptureMultipleHeaders(t *testing.T) {
 	req.Header.Add("Accept", "application/xml")
 	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
 
-	_, err := capture.RoundTrip(req)
+	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 
 	lastReq := capture.GetLastRequest()
@@ -204,7 +220,10 @@ func TestSOAPCaptureReset(t *testing.T) {
 			Body:   io.NopCloser(strings.NewReader("<test/>")),
 		}
 
-		_, err := capture.RoundTrip(req)
+		resp, err := capture.RoundTrip(req)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		require.NoError(t, err)
 	}
 
@@ -285,7 +304,10 @@ func TestSOAPCaptureBodyRestore(t *testing.T) {
 	}
 
 	// Execute round trip
-	_, err := capture.RoundTrip(req)
+	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 
 	// Verify original request body is still readable
@@ -311,7 +333,10 @@ func TestSOAPCaptureReadError(t *testing.T) {
 	}
 
 	// Should return error from RoundTrip
-	_, err := capture.RoundTrip(req)
+	resp, err := capture.RoundTrip(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read request body")
 }
@@ -319,7 +344,7 @@ func TestSOAPCaptureReadError(t *testing.T) {
 // errorReader is a test helper that always returns an error on Read
 type errorReader struct{}
 
-func (e *errorReader) Read(p []byte) (n int, err error) {
+func (e *errorReader) Read(_ []byte) (n int, err error) {
 	return 0, io.ErrUnexpectedEOF
 }
 

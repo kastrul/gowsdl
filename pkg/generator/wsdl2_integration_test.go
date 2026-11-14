@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
@@ -164,9 +163,7 @@ func TestWSDL2Integration(t *testing.T) {
 
 	t.Run("WSDL2WithXSDElementReferences", func(t *testing.T) {
 		// Test that element references work in WSDL 2.0
-		wsdl2WithRefs := strings.ReplaceAll(wsdl2Content,
-			`<xs:element name="GetQuoteRequest">`,
-			`<xs:element name="GetQuoteRequest">`) + `
+		wsdl2WithRefs := wsdl2Content + `
 		<!-- Add a type that references the element -->
 		<xs:complexType name="QuoteContainer">
 			<xs:sequence>

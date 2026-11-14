@@ -232,7 +232,7 @@ func TestVboxGeneratesWithoutSyntaxErrors(t *testing.T) {
 		resp, err := g.Generate(context.Background())
 		if err != nil {
 			continue
-			//t.Error(err)
+			// t.Error(err)
 		}
 
 		data := new(bytes.Buffer)
@@ -272,7 +272,6 @@ func TestEnumerationsGeneratedCorrectly(t *testing.T) {
 	enumStringTest(t, "chromedata.wsdl", "DriveTrainFrontWheelDrive", "DriveTrain", "Front Wheel Drive")
 	enumStringTest(t, "chromedata.wsdl", "DriveTrainEmptyString", "DriveTrain", "")
 	enumStringTest(t, "vboxweb.wsdl", "SettingsVersionV1_14", "SettingsVersion", "v1_14")
-
 }
 
 func TestComplexTypeGeneratedCorrectly(t *testing.T) {

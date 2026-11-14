@@ -11,15 +11,17 @@ const (
 	refResolution traverseMode = iota
 )
 
-type traverser struct {
+// Traverser walks an XSD schema and resolves element references against a
+// set of schemas. Create one with NewTraverser.
+type Traverser struct {
 	c   *XSDSchema
 	all []*XSDSchema
 	tm  traverseMode
 }
 
 // NewTraverser creates a new traverser for schema resolution
-func NewTraverser(c *XSDSchema, all []*XSDSchema) *traverser {
-	return &traverser{
+func NewTraverser(c *XSDSchema, all []*XSDSchema) *Traverser {
+	return &Traverser{
 		c:   c,
 		all: all,
 		tm:  refResolution, // default traverse mode is refResolution
@@ -27,7 +29,7 @@ func NewTraverser(c *XSDSchema, all []*XSDSchema) *traverser {
 }
 
 // Traverse performs the traversal
-func (t *traverser) Traverse() {
+func (t *Traverser) Traverse() {
 	t.tm = refResolution
 
 	for _, ct := range t.c.ComplexTypes {
@@ -41,13 +43,13 @@ func (t *traverser) Traverse() {
 	}
 }
 
-func (t *traverser) traverseElements(ct []*XSDElement) {
+func (t *Traverser) traverseElements(ct []*XSDElement) {
 	for _, elm := range ct {
 		t.traverseElement(elm)
 	}
 }
 
-func (t *traverser) traverseElement(elm *XSDElement) {
+func (t *Traverser) traverseElement(elm *XSDElement) {
 	// Check if we are in ref resolution mode
 	if t.tm == refResolution && elm.Ref != "" {
 		refElm := t.getGlobalElement(elm.Ref)
@@ -81,10 +83,10 @@ func (t *traverser) traverseElement(elm *XSDElement) {
 	}
 }
 
-func (t *traverser) traverseSimpleType(st *XSDSimpleType) {
+func (t *Traverser) traverseSimpleType(_ *XSDSimpleType) {
 }
 
-func (t *traverser) traverseComplexType(ct *XSDComplexType) {
+func (t *Traverser) traverseComplexType(ct *XSDComplexType) {
 	t.traverseElements(ct.Sequence)
 	t.traverseElements(ct.Choice)
 	t.traverseElements(ct.SequenceChoice)
@@ -97,13 +99,13 @@ func (t *traverser) traverseComplexType(ct *XSDComplexType) {
 	t.traverseAttributes(ct.SimpleContent.Extension.Attributes)
 }
 
-func (t *traverser) traverseAttributes(attrs []*XSDAttribute) {
+func (t *Traverser) traverseAttributes(attrs []*XSDAttribute) {
 	for _, attr := range attrs {
 		t.traverseAttribute(attr)
 	}
 }
 
-func (t *traverser) traverseAttribute(attr *XSDAttribute) {
+func (t *Traverser) traverseAttribute(attr *XSDAttribute) {
 	// Check if we are in ref resolution mode
 	if t.tm != refResolution {
 		return
@@ -127,7 +129,7 @@ func (t *traverser) traverseAttribute(attr *XSDAttribute) {
 	}
 }
 
-func (t *traverser) getGlobalAttribute(name string) *XSDAttribute {
+func (t *Traverser) getGlobalAttribute(name string) *XSDAttribute {
 	ref := t.qname(name)
 
 	for _, schema := range t.all {
@@ -143,7 +145,7 @@ func (t *traverser) getGlobalAttribute(name string) *XSDAttribute {
 	return nil
 }
 
-func (t *traverser) getGlobalElement(name string) *XSDElement {
+func (t *Traverser) getGlobalElement(name string) *XSDElement {
 	ref := t.qname(name)
 
 	for _, schema := range t.all {
@@ -160,7 +162,7 @@ func (t *traverser) getGlobalElement(name string) *XSDElement {
 }
 
 // qname resolves QName into xml.Name.
-func (t *traverser) qname(name string) (qname xml.Name) {
+func (t *Traverser) qname(name string) (qname xml.Name) {
 	x := strings.SplitN(name, ":", 2)
 	if len(x) == 1 {
 		qname.Local = x[0]

@@ -68,7 +68,7 @@ func (b *Binary) ContentType() string {
 func (b *Binary) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
 	if b.useMTOM {
 		if b.packageID == "" {
-			b.packageID = fmt.Sprintf("%d", rand.Int())
+			b.packageID = fmt.Sprintf("%d", rand.Int()) //nolint:gosec // a MIME Content-ID only needs to be unique, not unpredictable
 		}
 		return enc.EncodeElement(struct {
 			Include *xopPlaceholder `xml:"http://www.w3.org/2004/08/xop/include Include"`

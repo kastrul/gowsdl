@@ -299,7 +299,7 @@ func TestBasicAuthWithSpecialCharacters(t *testing.T) {
 
 func TestBasicAuthErrorHandling(t *testing.T) {
 	t.Run("server returns 401", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = w.Write([]byte("Unauthorized"))
 		}))
