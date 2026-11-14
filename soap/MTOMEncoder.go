@@ -274,8 +274,15 @@ func (d *mtomDecoder) Decode(v interface{}) error {
 	// Set binary fields with correct content
 	for _, f := range fields {
 		b := f.Interface().(*Binary)
-		b.content = packages[b.packageID].content
-		b.contentType = packages[b.packageID].contentType
+		if b == nil || !b.useMTOM {
+			continue
+		}
+		pkg, ok := packages[b.packageID]
+		if !ok {
+			return fmt.Errorf("missing MTOM part for content ID %q", b.packageID)
+		}
+		b.content = pkg.content
+		b.contentType = pkg.contentType
 	}
 	return nil
 }
