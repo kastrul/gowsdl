@@ -41,7 +41,8 @@ type HTTPClientConfig struct {
 	// InsecureSkipVerify skips TLS verification (deprecated, use TLSConfig)
 	InsecureSkipVerify bool
 
-	// ProxyURL for HTTP proxy
+	// ProxyURL is an explicit HTTP proxy. When empty, the proxy is taken from
+	// the HTTP_PROXY, HTTPS_PROXY and NO_PROXY environment variables.
 	ProxyURL string
 }
 
@@ -127,6 +128,7 @@ func (c *HTTPClientConfig) Build() *http.Client {
 	}
 
 	transport := &http.Transport{
+		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: c.TLSConfig,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
