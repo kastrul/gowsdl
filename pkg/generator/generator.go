@@ -442,11 +442,11 @@ func (g *Generator) genTypes() ([]byte, error) {
 			for _, operation := range portType.Operations {
 				if operation.Output.Message != "" {
 					// Find the message and its parts
-					msgName := removeNamespacePrefix(operation.Output.Message)
+					msgName := utils.LocalName(operation.Output.Message)
 					if msg, ok := messageMap[msgName]; ok {
 						for _, part := range msg.Parts {
 							if part.Element != "" {
-								elementName := removeNamespacePrefix(part.Element)
+								elementName := utils.LocalName(part.Element)
 								responseElements[elementName] = true
 								// Debug log (commented out for production)
 								// fmt.Printf("Added response element: %s from operation %s\n", elementName, operation.Name)
@@ -463,7 +463,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		for _, iface := range g.wsdl2.Interfaces {
 			for _, operation := range iface.Operations {
 				if operation.Output != nil && operation.Output.Element != "" {
-					elementName := removeNamespacePrefix(operation.Output.Element)
+					elementName := utils.LocalName(operation.Output.Element)
 					responseElements[elementName] = true
 					// Debug log (commented out for production)
 					// fmt.Printf("Added WSDL2 response element: %s from operation %s\n", elementName, operation.Name)
@@ -478,8 +478,8 @@ func (g *Generator) genTypes() ([]byte, error) {
 	if g.wsdl != nil {
 		for _, pt := range g.filteredPortTypes() {
 			for _, op := range pt.Operations {
-				operationMessages[removeNamespacePrefix(op.Input.Message)] = true
-				operationMessages[removeNamespacePrefix(op.Output.Message)] = true
+				operationMessages[utils.LocalName(op.Input.Message)] = true
+				operationMessages[utils.LocalName(op.Output.Message)] = true
 			}
 		}
 	}
@@ -489,11 +489,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 
 	// Add function to check if a type is complex
 	funcMap["isComplexType"] = func(typeName string) bool {
-		// Remove namespace prefix if present
-		if idx := strings.LastIndex(typeName, ":"); idx >= 0 {
-			typeName = typeName[idx+1:]
-		}
-		return complexTypeMap[typeName]
+		return complexTypeMap[utils.LocalName(typeName)]
 	}
 
 	// Template State Management for Inline Type Name Resolution
@@ -787,8 +783,8 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"makePrivate":              makePrivate,
 		"comment":                  comment,
 		"removePointerFromType":    removePointerFromType,
-		"removeNamespacePrefix":    removeNamespacePrefix,
-		"removeNS":                 removeNamespacePrefix,
+		"removeNamespacePrefix":    utils.LocalName,
+		"removeNS":                 utils.LocalName,
 		"findType":                 g.findType,
 		"findSOAPAction":           g.findSOAPAction,
 		"findWSDL2SOAPAction":      g.findWSDL2SOAPAction,
@@ -810,7 +806,7 @@ func (g *Generator) toGoType(xsdType string, nillable bool) string {
 	if xsdType == "" || g.typeMapper.IsBuiltinType(xsdType) {
 		return g.typeMapper.MapXSDTypeToGoType(xsdType, nillable)
 	}
-	goType := utils.MakePublic(g.typeMapper.EscapeReservedWord(removeNamespacePrefix(xsdType)))
+	goType := utils.MakePublic(g.typeMapper.EscapeReservedWord(utils.LocalName(xsdType)))
 	if nillable {
 		goType = "*" + goType
 	}
@@ -822,7 +818,7 @@ func (g *Generator) toGoType(xsdType string, nillable bool) string {
 func (g *Generator) resolveBuiltinBase(xsdType string) string {
 	seen := make(map[string]bool)
 	for xsdType != "" && !g.typeMapper.IsBuiltinType(xsdType) {
-		local := removeNamespacePrefix(xsdType)
+		local := utils.LocalName(xsdType)
 		if seen[local] {
 			return ""
 		}
@@ -885,10 +881,7 @@ func (g *Generator) isRPCPortType(portTypeName string) bool {
 	for _, binding := range g.wsdl.Binding {
 		if binding.SOAPBinding.Style == "rpc" {
 			// Extract port type name from binding type
-			bindingType := binding.Type
-			if idx := strings.LastIndex(bindingType, ":"); idx != -1 {
-				bindingType = bindingType[idx+1:]
-			}
+			bindingType := utils.LocalName(binding.Type)
 			if bindingType == portTypeName {
 				return true
 			}
@@ -916,14 +909,6 @@ func comment(text string) string {
 
 func removePointerFromType(typ string) string {
 	return strings.TrimPrefix(typ, "*")
-}
-
-func removeNamespacePrefix(name string) string {
-	parts := strings.Split(name, ":")
-	if len(parts) > 1 {
-		return parts[len(parts)-1]
-	}
-	return name
 }
 
 func makeValidXmlTag(xmlName, goName string) string {
@@ -1008,7 +993,7 @@ func (g *Generator) isRPCStyleMessage(msg *parser.WSDLMessage) bool {
 // findType finds the actual type name from a message reference
 func (g *Generator) findType(message string) string {
 	// Remove namespace prefix from message name
-	message = removeNamespacePrefix(message)
+	message = utils.LocalName(message)
 
 	// For WSDL 1.1, messages typically reference elements
 	// Try to find the message and get its part's element/type
@@ -1031,11 +1016,11 @@ func (g *Generator) findType(message string) string {
 					// Get the first part's element or type
 					part := msg.Parts[0]
 					if part.Element != "" {
-						return removeNamespacePrefix(part.Element)
+						return utils.LocalName(part.Element)
 					}
 					if part.Type != "" {
 						// For document-style with a complex type reference
-						return removeNamespacePrefix(part.Type)
+						return utils.LocalName(part.Type)
 					}
 				}
 			}
@@ -1060,10 +1045,7 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 	// Find the binding that references the port type
 	for _, binding := range g.wsdl.Binding {
 		// Check if this binding is for the port type we're looking for
-		bindingPortType := binding.Type
-		if idx := strings.LastIndex(bindingPortType, ":"); idx != -1 {
-			bindingPortType = bindingPortType[idx+1:]
-		}
+		bindingPortType := utils.LocalName(binding.Type)
 
 		// Normalize names by removing common suffixes to provide a more robust comparison
 		normalizedBindingPortType := bindingPortType
@@ -1096,11 +1078,11 @@ func (g *Generator) findWSDL2SOAPAction(operation, iface string) string {
 		return ""
 	}
 	for _, binding := range g.wsdl2.Bindings {
-		if removeNamespacePrefix(binding.Interface) != iface {
+		if utils.LocalName(binding.Interface) != iface {
 			continue
 		}
 		for _, op := range binding.Operations {
-			if removeNamespacePrefix(op.Ref) != operation {
+			if utils.LocalName(op.Ref) != operation {
 				continue
 			}
 			if action := op.ResolvedSOAPAction(); action != "" {
@@ -1137,7 +1119,7 @@ func (g *Generator) getSchemas() []*parser.XSDSchema {
 // This is used to determine if XMLName should be generated for complex types
 func (g *Generator) findNameByType(typeName string) string {
 	// Remove namespace prefix from type name
-	typeName = removeNamespacePrefix(typeName)
+	typeName = utils.LocalName(typeName)
 
 	// Get schemas based on WSDL version
 	schemas := g.getSchemas()
@@ -1145,7 +1127,7 @@ func (g *Generator) findNameByType(typeName string) string {
 	// Search for an element that has this type
 	for _, schema := range schemas {
 		for _, elem := range schema.Elements {
-			elemType := removeNamespacePrefix(elem.Type)
+			elemType := utils.LocalName(elem.Type)
 			// If element type matches, return the element name
 			if elemType == typeName {
 				return elem.Name
@@ -1173,10 +1155,7 @@ func (g *Generator) isMessageElement(typeName string) bool {
 		for _, part := range message.Parts {
 			if part.Element != "" {
 				// Extract element name from part.Element (remove namespace prefix)
-				elementName := part.Element
-				if idx := strings.LastIndex(elementName, ":"); idx >= 0 {
-					elementName = elementName[idx+1:]
-				}
+				elementName := utils.LocalName(part.Element)
 				// If element name matches the type name, this type is used as a message element
 				if elementName == typeName {
 					return true

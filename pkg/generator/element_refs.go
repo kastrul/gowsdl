@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // resolveElementRefNamespaces maps each element declared with ref to the
@@ -73,7 +74,7 @@ func refNamespaceURI(schema *parser.XSDSchema, ref string) string {
 // element's namespace URI when it lives in a different namespace than the
 // schema that references it.
 func (g *Generator) refXMLName(el *parser.XSDElement) string {
-	local := removeNamespacePrefix(el.Ref)
+	local := utils.LocalName(el.Ref)
 	if ns := g.refNamespaces[el]; ns != "" {
 		return ns + " " + local
 	}

@@ -210,3 +210,25 @@ func BenchmarkMakePublic(b *testing.B) {
 		})
 	}
 }
+
+func TestLocalName(t *testing.T) {
+	tests := []struct {
+		qname    string
+		expected string
+	}{
+		{"", ""},
+		{"Name", "Name"},
+		{"tns:Name", "Name"},
+		{"a:b:Name", "Name"},
+		{"tns:", ""},
+		{":Name", "Name"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.qname, func(t *testing.T) {
+			if got := LocalName(tt.qname); got != tt.expected {
+				t.Errorf("LocalName(%q) = %q, want %q", tt.qname, got, tt.expected)
+			}
+		})
+	}
+}

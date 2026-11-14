@@ -86,12 +86,17 @@ func ToGoName(s string, public bool) string {
 
 // NormalizeXMLName normalizes XML element/attribute names for Go
 func NormalizeXMLName(name string) string {
-	// Remove namespace prefix if present
-	if idx := strings.LastIndex(name, ":"); idx >= 0 {
-		name = name[idx+1:]
-	}
+	return ToGoName(LocalName(name), true)
+}
 
-	return ToGoName(name, true)
+// LocalName returns the local part of a QName: the text after the last colon,
+// or qname unchanged when it has no namespace prefix. It does not resolve the
+// prefix.
+func LocalName(qname string) string {
+	if idx := strings.LastIndex(qname, ":"); idx >= 0 {
+		return qname[idx+1:]
+	}
+	return qname
 }
 
 // ReservedGoWords contains Go reserved words that need to be escaped

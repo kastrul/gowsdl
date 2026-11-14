@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
+	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // WithOperations restricts client code generation to the named WSDL operations.
@@ -110,7 +111,7 @@ func (g *Generator) httpOnlyPortTypes() map[string]bool {
 	httpOnly := make(map[string]bool)
 	soap := make(map[string]bool)
 	for _, b := range g.wsdl.Binding {
-		name := removeNamespacePrefix(b.Type)
+		name := utils.LocalName(b.Type)
 		if b.IsHTTPOnly() {
 			httpOnly[name] = true
 		} else {
