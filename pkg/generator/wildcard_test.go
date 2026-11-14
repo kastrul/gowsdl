@@ -5,13 +5,10 @@
 package generator
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const wildcardWSDL = `<?xml version="1.0" encoding="UTF-8"?>
@@ -97,10 +94,8 @@ func TestWildcardItems(t *testing.T) {
 `
 
 func TestGenerator_WildcardItemsUseAnyElement(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "wild.wsdl")
-	require.NoError(t, os.WriteFile(path, []byte(wildcardWSDL), 0o600))
-
-	code, out := generateCode(t, path, WithPackage("wild"))
+	out := generate(t, writeWSDL(t, wildcardWSDL), WithPackage("wild"))
+	code := out.client(t)
 
 	assert.Regexp(t, `Items\s+\[\]soap\.AnyElement\s+`+"`"+`xml:",any"`+"`", structBody(t, code, "Extensible"))
 	assert.Equal(t, 2, strings.Count(code, "Items []soap.AnyElement"), "named and inline complex types")
