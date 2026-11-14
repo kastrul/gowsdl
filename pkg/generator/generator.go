@@ -651,7 +651,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return nil, err
 	}
 
-	return dedupeStructFields(buf.Bytes()), nil
+	return fixStructOmitempty(dedupeStructFields(buf.Bytes())), nil
 }
 
 // filterSlice returns the elements of items for which keep returns true.
