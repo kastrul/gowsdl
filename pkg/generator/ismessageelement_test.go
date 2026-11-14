@@ -2,7 +2,6 @@ package generator
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -166,20 +165,7 @@ func TestGenerator_isMessageElement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Write WSDL to temp file
-			tmpFile, err := os.CreateTemp("", "test-ismessageelement-*.wsdl")
-			require.NoError(t, err)
-			defer func() {
-				_ = os.Remove(tmpFile.Name())
-			}()
-
-			_, err = tmpFile.WriteString(tt.wsdl)
-			require.NoError(t, err)
-			err = tmpFile.Close()
-			require.NoError(t, err)
-
-			// Create generator
-			gen, err := New(tmpFile.Name(), WithPackage("testpkg"))
+			gen, err := New(writeWSDL(t, tt.wsdl), WithPackage("testpkg"))
 			require.NoError(t, err)
 
 			// Generate code to trigger WSDL parsing
@@ -222,20 +208,7 @@ func TestGenerator_isMessageElement_NoMessages(t *testing.T) {
 	</wsdl:types>
 </wsdl:definitions>`
 
-	// Write to temp file
-	tmpFile, err := os.CreateTemp("", "test-nomessages-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tmpFile.Name())
-	}()
-
-	_, err = tmpFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	// Create generator
-	gen, err := New(tmpFile.Name(), WithPackage("testpkg"))
+	gen, err := New(writeWSDL(t, wsdlContent), WithPackage("testpkg"))
 	require.NoError(t, err)
 
 	// Generate code to trigger WSDL parsing

@@ -5,10 +5,7 @@
 package generator
 
 import (
-	"context"
 	"go/format"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -222,14 +219,7 @@ func TestGenerator_Generics_ClientRoundTrip(t *testing.T) {
 		"generics-only": {WithGenericsOnly(), "GetUser"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			wsdlPath := filepath.Join(t.TempDir(), "service.wsdl")
-			require.NoError(t, os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0o600))
-
-			g, err := New(wsdlPath, WithPackage("usergen"), WithExportAllTypes(true), tc.opt)
-			require.NoError(t, err)
-			out, err := g.Generate(context.Background())
-			require.NoError(t, err)
-
+			out := generate(t, writeWSDL(t, genericTestWSDL), WithPackage("usergen"), WithExportAllTypes(true), tc.opt)
 			test := strings.ReplaceAll(genericClientRoundTripTest, "GENERIC_METHOD", tc.method)
 			runGeneratedModuleTests(t, "example.com/usergen", out, map[string]string{"client_test.go": test})
 		})
