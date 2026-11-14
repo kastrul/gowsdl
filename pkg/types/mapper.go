@@ -44,6 +44,16 @@ func (tm *TypeMapper) MapXSDTypeToGoType(xsdType string, nillable bool) string {
 	return goType
 }
 
+// IsBuiltinType reports whether xsdType (with or without namespace prefix) is a
+// built-in XSD type with a direct Go mapping.
+func (tm *TypeMapper) IsBuiltinType(xsdType string) bool {
+	if idx := strings.LastIndex(xsdType, ":"); idx >= 0 {
+		xsdType = xsdType[idx+1:]
+	}
+	_, ok := tm.xsdToGoTypes[xsdType]
+	return ok
+}
+
 // IsReservedWord checks if a word is a Go reserved word
 func (tm *TypeMapper) IsReservedWord(word string) bool {
 	_, reserved := tm.reservedWords[word]

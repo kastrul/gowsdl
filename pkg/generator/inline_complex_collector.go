@@ -8,6 +8,7 @@ import (
 	"fmt"
 	
 	"github.com/enthus-golang/gowsdl/pkg/parser"
+	"github.com/enthus-golang/gowsdl/pkg/types"
 	"github.com/enthus-golang/gowsdl/pkg/utils"
 )
 
@@ -20,21 +21,26 @@ type InlineComplexType struct {
 	MaxOccurs     string
 }
 
-// CollectInlineComplexTypes finds all inline complex types in the schema and generates names for them
+// CollectInlineComplexTypes finds all inline complex types in the schema and generates names for them.
+// Generated names never collide with top-level schema types or with each other.
 func CollectInlineComplexTypes(schemas []*parser.XSDSchema) map[string]*InlineComplexType {
 	inlineTypes := make(map[string]*InlineComplexType)
-	
+	used := declaredTypeNames(schemas)
+
 	for _, schema := range schemas {
-		// Process complex types
 		for _, ct := range schema.ComplexTypes {
-			collectFromComplexType(ct.Name, ct, inlineTypes)
+			collectFromComplexType(ct.Name, ct, inlineTypes, used)
 		}
-		
-		// Process elements
+
 		for _, el := range schema.Elements {
-			if el.ComplexType != nil {
-				// Global element with inline complex type
-				typeName := utils.MakePublic(el.Name) + "Type"
+			if el.ComplexType == nil {
+				continue
+			}
+			typeName := utils.MakePublic(el.Name) + "Type"
+			// The element itself is generated as a struct, so a colliding
+			// alias would only duplicate an existing declaration.
+			if !used[typeName] {
+				used[typeName] = true
 				key := fmt.Sprintf("element_%s", el.Name)
 				inlineTypes[key] = &InlineComplexType{
 					Name:          el.Name,
@@ -43,91 +49,74 @@ func CollectInlineComplexTypes(schemas []*parser.XSDSchema) map[string]*InlineCo
 					MinOccurs:     el.MinOccurs,
 					MaxOccurs:     el.MaxOccurs,
 				}
-				// Also collect nested inline types within this element
-				collectFromComplexType(el.Name, el.ComplexType, inlineTypes)
 			}
+			collectFromComplexType(el.Name, el.ComplexType, inlineTypes, used)
 		}
 	}
-	
+
 	return inlineTypes
 }
 
+// declaredTypeNames returns the Go names of all top-level types declared by the schemas.
+func declaredTypeNames(schemas []*parser.XSDSchema) map[string]bool {
+	mapper := types.NewTypeMapper()
+	goName := func(name string) string {
+		return utils.MakePublic(mapper.EscapeReservedWord(name))
+	}
+
+	used := make(map[string]bool)
+	for _, schema := range schemas {
+		for _, st := range schema.SimpleType {
+			used[goName(st.Name)] = true
+		}
+		for _, ct := range schema.ComplexTypes {
+			used[goName(ct.Name)] = true
+		}
+		for _, el := range schema.Elements {
+			used[goName(el.Name)] = true
+		}
+	}
+	return used
+}
+
+// uniqueTypeName returns name, or name with a numeric suffix if it is already used,
+// and marks the result as used.
+func uniqueTypeName(name string, used map[string]bool) string {
+	candidate := name
+	for i := 2; used[candidate]; i++ {
+		candidate = fmt.Sprintf("%s%d", name, i)
+	}
+	used[candidate] = true
+	return candidate
+}
+
 // collectFromComplexType recursively collects inline complex types from a complex type
-func collectFromComplexType(parentTypeName string, ct *parser.XSDComplexType, inlineTypes map[string]*InlineComplexType) {
-	// Process sequences
-	for _, seq := range ct.Sequence {
-		if seq.ComplexType != nil {
-			// Generate a name based on parent type and element name
-			typeName := utils.MakePublic(parentTypeName) + utils.MakePublic(seq.Name) + "Type"
-			key := fmt.Sprintf("%s_%s", parentTypeName, seq.Name)
-			
-			inlineTypes[key] = &InlineComplexType{
-				Name:          seq.Name,
-				GeneratedName: typeName,
-				ComplexType:   seq.ComplexType,
-				MinOccurs:     seq.MinOccurs,
-				MaxOccurs:     seq.MaxOccurs,
+func collectFromComplexType(parentTypeName string, ct *parser.XSDComplexType, inlineTypes map[string]*InlineComplexType, used map[string]bool) {
+	collect := func(elements []*parser.XSDElement) {
+		for _, el := range elements {
+			if el.ComplexType == nil {
+				continue
 			}
-			
-			// Recursively process nested complex types
-			collectFromComplexType(typeName, seq.ComplexType, inlineTypes)
+			typeName := uniqueTypeName(utils.MakePublic(parentTypeName)+utils.MakePublic(el.Name)+"Type", used)
+			key := fmt.Sprintf("%s_%s", parentTypeName, el.Name)
+
+			inlineTypes[key] = &InlineComplexType{
+				Name:          el.Name,
+				GeneratedName: typeName,
+				ComplexType:   el.ComplexType,
+				MinOccurs:     el.MinOccurs,
+				MaxOccurs:     el.MaxOccurs,
+			}
+
+			collectFromComplexType(typeName, el.ComplexType, inlineTypes, used)
 		}
 	}
-	
-	// Process choices
-	for _, choice := range ct.Choice {
-		if choice.ComplexType != nil {
-			typeName := utils.MakePublic(parentTypeName) + utils.MakePublic(choice.Name) + "Type"
-			key := fmt.Sprintf("%s_%s", parentTypeName, choice.Name)
-			
-			inlineTypes[key] = &InlineComplexType{
-				Name:          choice.Name,
-				GeneratedName: typeName,
-				ComplexType:   choice.ComplexType,
-				MinOccurs:     choice.MinOccurs,
-				MaxOccurs:     choice.MaxOccurs,
-			}
-			
-			collectFromComplexType(typeName, choice.ComplexType, inlineTypes)
-		}
-	}
-	
-	// Process all
-	for _, all := range ct.All {
-		if all.ComplexType != nil {
-			typeName := utils.MakePublic(parentTypeName) + utils.MakePublic(all.Name) + "Type"
-			key := fmt.Sprintf("%s_%s", parentTypeName, all.Name)
-			
-			inlineTypes[key] = &InlineComplexType{
-				Name:          all.Name,
-				GeneratedName: typeName,
-				ComplexType:   all.ComplexType,
-				MinOccurs:     all.MinOccurs,
-				MaxOccurs:     all.MaxOccurs,
-			}
-			
-			collectFromComplexType(typeName, all.ComplexType, inlineTypes)
-		}
-	}
-	
-	// Process complex content extensions
+
+	collect(ct.Sequence)
+	collect(ct.Choice)
+	collect(ct.All)
 	if ct.ComplexContent.Extension.Base != "" {
-		for _, seq := range ct.ComplexContent.Extension.Sequence {
-			if seq.ComplexType != nil {
-				typeName := utils.MakePublic(parentTypeName) + utils.MakePublic(seq.Name) + "Type"
-				key := fmt.Sprintf("%s_%s", parentTypeName, seq.Name)
-				
-				inlineTypes[key] = &InlineComplexType{
-					Name:          seq.Name,
-					GeneratedName: typeName,
-					ComplexType:   seq.ComplexType,
-					MinOccurs:     seq.MinOccurs,
-					MaxOccurs:     seq.MaxOccurs,
-				}
-				
-				collectFromComplexType(typeName, seq.ComplexType, inlineTypes)
-			}
-		}
+		collect(ct.ComplexContent.Extension.Sequence)
 	}
 }
 

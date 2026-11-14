@@ -10,6 +10,8 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -270,7 +272,80 @@ func (g *Generator) unmarshal(ctx context.Context) error {
 		}
 	}
 
+	g.resolveSchemaExternals(ctx)
+	ResolveAttributeRefs(g.getSchemas())
+
 	return nil
+}
+
+// maxSchemaImportDepth bounds how deep nested xsd:import/xsd:include chains are followed.
+const maxSchemaImportDepth = 10
+
+// resolveSchemaExternals loads schemas referenced through xsd:import and
+// xsd:include and appends them to the WSDL's schema list. Schemas that cannot
+// be fetched or parsed are skipped with a warning.
+func (g *Generator) resolveSchemaExternals(ctx context.Context) {
+	resolved := make(map[string]bool)
+	for _, schema := range g.getSchemas() {
+		g.resolveXSDExternals(ctx, schema, g.loc, resolved, 0)
+	}
+}
+
+func (g *Generator) resolveXSDExternals(ctx context.Context, schema *parser.XSDSchema, base *http.Location, resolved map[string]bool, depth int) {
+	if depth >= maxSchemaImportDepth {
+		log.Printf("[WARN] schema import depth limit (%d) reached at %s", maxSchemaImportDepth, base)
+		return
+	}
+
+	refs := make([]string, 0, len(schema.Imports)+len(schema.Includes))
+	for _, imp := range schema.Imports {
+		if imp.SchemaLocation == "" {
+			continue
+		}
+		refs = append(refs, imp.SchemaLocation)
+	}
+	for _, incl := range schema.Includes {
+		if incl.SchemaLocation == "" {
+			continue
+		}
+		refs = append(refs, incl.SchemaLocation)
+	}
+
+	for _, ref := range refs {
+		loc, err := base.Parse(ref)
+		if err != nil {
+			log.Printf("[WARN] invalid schemaLocation %q: %v", ref, err)
+			continue
+		}
+		key := loc.String()
+		if resolved[key] {
+			continue
+		}
+		resolved[key] = true
+
+		data, err := g.fetchFile(ctx, loc)
+		if err != nil {
+			log.Printf("[WARN] failed to fetch schema %s: %v", key, err)
+			continue
+		}
+
+		external := new(parser.XSDSchema)
+		if err := xml.Unmarshal(data, external); err != nil {
+			log.Printf("[WARN] failed to parse schema %s: %v", key, err)
+			continue
+		}
+
+		g.resolveXSDExternals(ctx, external, loc, resolved, depth+1)
+		g.appendSchema(external)
+	}
+}
+
+func (g *Generator) appendSchema(schema *parser.XSDSchema) {
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		g.wsdl2.Types.Schemas = append(g.wsdl2.Types.Schemas, schema)
+	} else if g.wsdl != nil {
+		g.wsdl.Types.Schemas = append(g.wsdl.Types.Schemas, schema)
+	}
 }
 
 func (g *Generator) fetchFile(ctx context.Context, loc *http.Location) ([]byte, error) {
@@ -617,7 +692,8 @@ func (g *Generator) genServerWSDL(ctx context.Context) ([]byte, error) {
 // createFuncMap creates the template function map
 func (g *Generator) createFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"toGoType":                g.typeMapper.MapXSDTypeToGoType,
+		"toGoType":                g.toGoType,
+		"enumValue":               g.enumValue,
 		"replaceReservedWords":    g.typeMapper.EscapeReservedWord,
 		"replaceAttrReservedWords": g.typeMapper.EscapeReservedWord,
 		"makePublic":              utils.MakePublic,
@@ -637,6 +713,77 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"findNameByType":          g.findNameByType,
 		"isMessageElement":        g.isMessageElement,
 	}
+}
+
+// toGoType maps an XSD type reference to the Go type name used in generated
+// code. User-defined types are named exactly as their declarations are.
+func (g *Generator) toGoType(xsdType string, nillable bool) string {
+	if xsdType == "" || g.typeMapper.IsBuiltinType(xsdType) {
+		return g.typeMapper.MapXSDTypeToGoType(xsdType, nillable)
+	}
+	goType := utils.MakePublic(g.typeMapper.EscapeReservedWord(removeNamespacePrefix(xsdType)))
+	if nillable {
+		goType = "*" + goType
+	}
+	return goType
+}
+
+// resolveBuiltinBase follows simpleType restriction chains until an XSD
+// built-in type is reached. It returns "" when the chain cannot be resolved.
+func (g *Generator) resolveBuiltinBase(xsdType string) string {
+	seen := make(map[string]bool)
+	for xsdType != "" && !g.typeMapper.IsBuiltinType(xsdType) {
+		local := removeNamespacePrefix(xsdType)
+		if seen[local] {
+			return ""
+		}
+		seen[local] = true
+		next := ""
+		for _, schema := range g.getSchemas() {
+			for _, st := range schema.SimpleType {
+				if st.Name == local {
+					next = st.Restriction.Base
+					break
+				}
+			}
+			if next != "" {
+				break
+			}
+		}
+		xsdType = next
+	}
+	return xsdType
+}
+
+// enumValue returns the Go literal for an enumeration value of a simple type
+// restricting base. It returns "" when the value cannot be represented.
+func (g *Generator) enumValue(base, value string) string {
+	goType := g.typeMapper.MapXSDTypeToGoType(g.resolveBuiltinBase(base), false)
+	trimmed := strings.TrimSpace(value)
+	switch goType {
+	case "int8", "int16", "int32", "int64":
+		if _, err := strconv.ParseInt(trimmed, 10, 64); err != nil {
+			return ""
+		}
+		return trimmed
+	case "uint8", "uint16", "uint32", "uint64":
+		if _, err := strconv.ParseUint(trimmed, 10, 64); err != nil {
+			return ""
+		}
+		return trimmed
+	case "float32", "float64":
+		if _, err := strconv.ParseFloat(trimmed, 64); err != nil {
+			return ""
+		}
+		return trimmed
+	case "bool":
+		b, err := strconv.ParseBool(trimmed)
+		if err != nil {
+			return ""
+		}
+		return strconv.FormatBool(b)
+	}
+	return strconv.Quote(value)
 }
 
 // isRPCPortType checks if a port type is used in an RPC-style binding
@@ -744,6 +891,18 @@ func (g *Generator) isRPCStyleMessage(msg *parser.WSDLMessage) bool {
 		return false
 	}
 	
+	// A single element part is a document/literal body; any remaining
+	// type parts are MIME attachments, not body content.
+	elementParts := 0
+	for _, part := range msg.Parts {
+		if part.Element != "" {
+			elementParts++
+		}
+	}
+	if elementParts == 1 {
+		return false
+	}
+
 	// Multiple parts always require a wrapper
 	if len(msg.Parts) > 1 {
 		return true

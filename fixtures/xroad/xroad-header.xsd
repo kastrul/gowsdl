@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema elementFormDefault="qualified"
+        targetNamespace="http://example.com/xsd/header.xsd"
+        xmlns="http://example.com/xsd/header.xsd"
+        xmlns:id="http://example.com/xsd/identifiers"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:import namespace="http://example.com/xsd/identifiers" schemaLocation="identifiers.xsd"/>
+    <xs:element name="client" type="id:clientIdentifierType"/>
+    <xs:element name="userId" type="xs:string"/>
+    <xs:element name="title">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:string">
+                    <xs:attribute ref="id:lang"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

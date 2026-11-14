@@ -16,10 +16,15 @@ const TypesTemplate = `
 		{{if .Restriction.Enumeration}}
 			type {{$type}} {{toGoType .Restriction.Base false}}
 
+			{{$base := .Restriction.Base}}
 			const (
 				{{range .Restriction.Enumeration}}
+					{{$enumValue := enumValue $base .Value}}
+					{{if $enumValue}}
 					{{$enumName := .Value | sanitizeEnumValue | replaceReservedWords | makePublic}}
-					{{$type}}{{$enumName}} {{$type}} = "{{goString .Value}}" {{end}}
+					{{$type}}{{$enumName}} {{$type}} = {{$enumValue}}
+					{{end}}
+				{{end}}
 			)
 		{{else}}
 			type {{$type}} {{toGoType .Restriction.Base false}}
@@ -35,7 +40,7 @@ const TypesTemplate = `
 			{{if eq .Extension.Base "soap:Header"}}
 				soap.Header
 			{{else}}
-				{{removePointerFromType .Extension.Base | removeNamespacePrefix}}
+				{{toGoType .Extension.Base false}}
 			{{end}}
 		{{end}}
 	{{end}}
@@ -144,7 +149,7 @@ const TypesTemplate = `
 			{{if eq .Extension.Base "soap:Header"}}
 				soap.Header
 			{{else}}
-				{{removePointerFromType .Extension.Base | removeNamespacePrefix}}
+				{{toGoType .Extension.Base false}}
 			{{end}}
 		{{end}}
 	{{end}}
@@ -315,7 +320,7 @@ const TypesTemplate = `
 				{{if eq .Extension.Base "soap:Header"}}
 					soap.Header
 				{{else}}
-					{{removePointerFromType .Extension.Base | removeNamespacePrefix}}
+					{{toGoType .Extension.Base false}}
 				{{end}}
 			{{end}}
 			{{template "Elements" .Extension.Sequence}}
@@ -469,10 +474,14 @@ const TypesTemplate = `
 					{{else if .Restriction.Base}}
 						{{if .Restriction.Enumeration}}
 							type {{$type}} {{toGoType .Restriction.Base false}}
+							{{$base := .Restriction.Base}}
 							const (
 								{{range .Restriction.Enumeration}}
+									{{$enumValue := enumValue $base .Value}}
+									{{if $enumValue}}
 									{{$enumName := .Value | sanitizeEnumValue | replaceReservedWords | makePublic}}
-									{{$type}}{{$enumName}} {{$type}} = "{{goString .Value}}"
+									{{$type}}{{$enumName}} {{$type}} = {{$enumValue}}
+									{{end}}
 								{{end}}
 							)
 						{{else}}

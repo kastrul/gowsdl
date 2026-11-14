@@ -140,7 +140,7 @@ func TestCollectFromComplexType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			inlineTypes := make(map[string]*InlineComplexType)
-			collectFromComplexType(tt.parentTypeName, tt.complexType, inlineTypes)
+			collectFromComplexType(tt.parentTypeName, tt.complexType, inlineTypes, make(map[string]bool))
 
 			// Check that all expected types were collected
 			for key, expectedName := range tt.expectedTypes {

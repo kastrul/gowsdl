@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema elementFormDefault="qualified"
+        targetNamespace="http://example.com/xsd/identifiers"
+        xmlns="http://example.com/xsd/identifiers"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:attribute name="objectType" type="xs:string"/>
+    <xs:attribute name="lang" type="xs:language"/>
+    <xs:complexType name="clientIdentifierType">
+        <xs:sequence>
+            <xs:element name="memberCode" type="xs:string"/>
+        </xs:sequence>
+        <xs:attribute ref="objectType" use="required"/>
+    </xs:complexType>
+</xs:schema>
