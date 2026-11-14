@@ -29,7 +29,7 @@ func TestGenericCodeGeneration(t *testing.T) {
 	tests := []struct {
 		name            string
 		pkgName         string
-		useGenerics     bool
+		extraArgs       []string
 		checkContent    []string
 		checkNotContent []string
 	}{
@@ -47,9 +47,9 @@ func TestGenericCodeGeneration(t *testing.T) {
 			},
 		},
 		{
-			name:        "Generic code generation",
-			pkgName:     "testpkggen",
-			useGenerics: true,
+			name:      "Generic code generation",
+			pkgName:   "testpkggen",
+			extraArgs: []string{"-use-generics"},
 			checkContent: []string{
 				"type UserServicePortType interface",
 				"GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)",
@@ -58,6 +58,22 @@ func TestGenericCodeGeneration(t *testing.T) {
 				`soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`,
 				"service.getUserClient.CallAsResult(ctx, *request)",
 				"soap.ErrNilRequest",
+			},
+		},
+		{
+			name:      "Generic-only code generation",
+			pkgName:   "testpkggenonly",
+			extraArgs: []string{"-generics-only"},
+			checkContent: []string{
+				"type UserServicePortType interface",
+				"GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)",
+				"getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]",
+				`soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`,
+				"service.getUserClient.CallAsResult(ctx, *request)",
+			},
+			checkNotContent: []string{
+				"GetUserGeneric",
+				"(*GetUserResponse, error)",
 			},
 		},
 	}
@@ -70,9 +86,7 @@ func TestGenericCodeGeneration(t *testing.T) {
 				"-o", "generated.go",
 				"-d", tmpDir,
 			}
-			if tt.useGenerics {
-				args = append(args, "-use-generics")
-			}
+			args = append(args, tt.extraArgs...)
 			args = append(args, wsdlPath)
 
 			cmd := exec.Command("go", args...)

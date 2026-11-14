@@ -147,11 +147,12 @@ func TestManager_GetGenericOperationsTemplate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "generic_operations", tmpl.Name())
 
-	render := func(useGenerics bool) string {
+	render := func(useGenerics, genericsOnly bool) string {
 		data := struct {
-			PortTypes   []stubPortType
-			Messages    []struct{}
-			UseGenerics bool
+			PortTypes    []stubPortType
+			Messages     []struct{}
+			UseGenerics  bool
+			GenericsOnly bool
 		}{
 			PortTypes: []stubPortType{{
 				Name: "UserService",
@@ -161,20 +162,29 @@ func TestManager_GetGenericOperationsTemplate(t *testing.T) {
 					Output: stubMessageRef{Message: "GetUserResponseMessage"},
 				}},
 			}},
-			UseGenerics: useGenerics,
+			UseGenerics:  useGenerics,
+			GenericsOnly: genericsOnly,
 		}
 		var buf bytes.Buffer
 		require.NoError(t, tmpl.Execute(&buf, data))
 		return buf.String()
 	}
 
-	withGenerics := render(true)
+	withGenerics := render(true, false)
 	assert.Contains(t, withGenerics, "GetUserGeneric(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
 	assert.Contains(t, withGenerics, "getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]")
 	assert.Contains(t, withGenerics, `soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`)
 	assert.Contains(t, withGenerics, "CallAsResult")
 
-	withoutGenerics := render(false)
+	assert.Contains(t, withGenerics, "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)")
+
+	genericsOnly := render(true, true)
+	assert.Contains(t, genericsOnly, "GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
+	assert.Contains(t, genericsOnly, "CallAsResult")
+	assert.NotContains(t, genericsOnly, "GetUserGeneric")
+	assert.NotContains(t, genericsOnly, "(*GetUserResponse, error)")
+
+	withoutGenerics := render(false, false)
 	assert.Contains(t, withoutGenerics, "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)")
 	assert.NotContains(t, withoutGenerics, "Generic")
 }

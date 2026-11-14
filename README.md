@@ -46,6 +46,8 @@ Usage: gowsdl [options] myservice.wsdl
   -v    Shows gowsdl version
   -use-generics
         Generate code using Go generics (requires Go 1.18+ for generic features)
+  -generics-only
+        Generate only generic methods (returning soap.Result) for WSDL 1.1 document-style operations; implies -use-generics
   -insecure-skip-verify
         Skip TLS certificate verification when downloading WSDLs
   -ca-cert string
@@ -110,6 +112,22 @@ if result.IsSuccess() {
 ```
 
 The generic method provides better type safety and explicit fault handling, making it easier to distinguish between transport errors and business logic errors (SOAP faults).
+
+#### Generic-only Mode
+
+Use `-generics-only` (or `WithGenericsOnly()` when using gowsdl as a library) to generate only the generic methods. They keep the plain operation name and replace the standard methods:
+
+```bash
+gowsdl -generics-only -p myservice -o myservice.go myservice.wsdl
+```
+
+```go
+type UserServicePortType interface {
+    GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)
+}
+```
+
+Operations that cannot use the generic client keep their standard methods: RPC-style port types, WSDL 2.0 files, and operations without a request or response type.
 
 ### New Features
 

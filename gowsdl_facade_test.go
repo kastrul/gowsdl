@@ -29,6 +29,10 @@ func TestWithOptions(t *testing.T) {
 			option: WithGenerics(),
 		},
 		{
+			name:   "WithGenericsOnly",
+			option: WithGenericsOnly(),
+		},
+		{
 			name:   "WithExportAllTypes",
 			option: WithExportAllTypes(true),
 		},

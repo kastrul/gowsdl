@@ -6,6 +6,7 @@ package generator
 
 import (
 	"context"
+	"go/format"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,4 +138,45 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 		assert.NotContains(t, code, "GenericClient")
 		assert.NotContains(t, code, "GetUserGeneric")
 	})
+
+	t.Run("generics only", func(t *testing.T) {
+		code := generateOperations(t, genericTestWSDL, WithGenericsOnly())
+		assert.Contains(t, code, "GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
+		assert.Contains(t, code, "func (service *userServicePortType) GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
+		assert.Contains(t, code, "getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]")
+		assert.Contains(t, code, "return service.getUserClient.CallAsResult(ctx, *request), nil")
+		assert.NotContains(t, code, "GetUserGeneric")
+		assert.NotContains(t, code, "(*GetUserResponse, error)")
+	})
+
+	t.Run("generics only keeps standard methods for RPC port types", func(t *testing.T) {
+		rpcWSDL := strings.Replace(genericTestWSDL, `style="document"`, `style="rpc"`, 1)
+
+		code := generateOperations(t, rpcWSDL, WithGenericsOnly())
+		assert.Contains(t, code, standardSnippet)
+		assert.NotContains(t, code, "GenericClient")
+		assert.NotContains(t, code, "soap.Result[")
+	})
+}
+
+func TestGenerator_Generics_DocCommentStaysAttached(t *testing.T) {
+	documented := strings.Replace(genericTestWSDL,
+		`<operation name="GetUser">`,
+		`<operation name="GetUser">
+      <documentation>Fetches a user.</documentation>`, 1)
+	require.NotEqual(t, genericTestWSDL, documented)
+
+	modes := map[string][]Option{
+		"standard":      nil,
+		"use generics":  {WithGenerics()},
+		"generics only": {WithGenericsOnly()},
+	}
+	for name, opts := range modes {
+		t.Run(name, func(t *testing.T) {
+			code := generateOperations(t, documented, opts...)
+			formatted, err := format.Source([]byte("package test\n" + code))
+			require.NoError(t, err)
+			assert.Contains(t, string(formatted), "// Fetches a user.\n\tGetUser(ctx context.Context")
+		})
+	}
 }
