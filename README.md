@@ -176,6 +176,25 @@ type UserServicePortType interface {
 
 Operations that cannot use the generic client keep their standard methods: RPC-style port types, WSDL 2.0 files, and operations without a request or response type.
 
+### xsd:anyType Fields
+
+Elements declared as `xsd:anyType` are generated as `soap.AnyType`. A received element keeps its content as self-contained XML, so you can decode it once you know its type:
+
+```go
+// Receiving
+var item Item
+if err := resp.Value.Decode(&item); err != nil {
+    // Handle error
+}
+// resp.Value.Attrs holds the element's attributes, such as xsi:type,
+// and resp.Value.InnerXML its content as XML.
+
+// Sending: Value is encoded as the element's content
+req.Value = soap.AnyType{Value: Item{ID: 7}}
+```
+
+An unset `soap.AnyType` field is left out of the request. `xsd:anySimpleType` is generated as `string`.
+
 ### New Features
 
 #### WSDL 2.0 Support

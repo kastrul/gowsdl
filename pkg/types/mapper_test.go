@@ -54,8 +54,8 @@ func TestMapXSDTypeToGoType(t *testing.T) {
 		{"time", "time", false, "soap.XSDTime"},
 
 		// Other
-		{"any", "any", false, "any"},
-		{"anyType", "anyType", false, "any"},
+		{"any", "any", false, "soap.AnyType"},
+		{"anyType", "anyType", false, "soap.AnyType"},
 
 		// With namespace prefix
 		{"xsd:string", "xsd:string", false, "string"},
@@ -71,8 +71,8 @@ func TestMapXSDTypeToGoType(t *testing.T) {
 		{"CustomType", "CustomType", true, "*CustomType"},
 
 		// Interface types should not be pointers even when nillable
-		{"any", "any", true, "any"},
-		{"anyType", "anyType", true, "any"},
+		{"any", "any", true, "soap.AnyType"},
+		{"anyType", "anyType", true, "soap.AnyType"},
 	}
 
 	for _, tt := range tests {
@@ -188,7 +188,8 @@ func TestInitXSDToGoTypes(t *testing.T) {
 	assert.Equal(t, "bool", mapping["boolean"])
 	assert.Equal(t, "[]byte", mapping["base64Binary"])
 	assert.Equal(t, "soap.XSDDateTime", mapping["dateTime"])
-	assert.Equal(t, "any", mapping["any"])
+	assert.Equal(t, "soap.AnyType", mapping["any"])
+	assert.Equal(t, "string", mapping["anySimpleType"])
 
 	// Ensure we have a reasonable number of mappings
 	assert.Greater(t, len(mapping), 20)

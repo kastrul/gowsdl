@@ -19,6 +19,7 @@ var externalStructTypes = map[string]bool{
 	"soap.XSDDateTime": true,
 	"soap.XSDDate":     true,
 	"soap.XSDTime":     true,
+	"soap.AnyType":     true,
 	"xml.Name":         true,
 }
 
