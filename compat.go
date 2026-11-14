@@ -19,21 +19,21 @@ type (
 	// Error types
 	WSDLError   = types.WSDLError
 	SchemaError = types.SchemaError
-	
+
 	// Parser types
-	WSDL            = parser.WSDL
-	WSDL2           = parser.WSDL2
-	XSDSchema       = parser.XSDSchema
-	XSDComplexType  = parser.XSDComplexType
-	XSDElement      = parser.XSDElement
-	XSDAttribute    = parser.XSDAttribute
-	WSDLBinding     = parser.WSDLBinding
-	WSDLOperation   = parser.WSDLOperation
-	WSDLService     = parser.WSDLService
-	WSDLPort        = parser.WSDLPort
-	WSDLImport      = parser.WSDLImport
-	XSDImport       = parser.XSDImport
-	
+	WSDL           = parser.WSDL
+	WSDL2          = parser.WSDL2
+	XSDSchema      = parser.XSDSchema
+	XSDComplexType = parser.XSDComplexType
+	XSDElement     = parser.XSDElement
+	XSDAttribute   = parser.XSDAttribute
+	WSDLBinding    = parser.WSDLBinding
+	WSDLOperation  = parser.WSDLOperation
+	WSDLService    = parser.WSDLService
+	WSDLPort       = parser.WSDLPort
+	WSDLImport     = parser.WSDLImport
+	XSDImport      = parser.XSDImport
+
 	// Core types
 	NamespaceManager = core.NamespaceManager
 	Location         = http.Location
@@ -45,8 +45,8 @@ type HTTPClientConfig = http.HTTPClientConfig
 
 // Re-export functions for backward compatibility
 var (
-	NewNamespaceManager = core.NewNamespaceManager
-	ParseLocation       = http.ParseLocation
+	NewNamespaceManager     = core.NewNamespaceManager
+	ParseLocation           = http.ParseLocation
 	DefaultHTTPClientConfig = func() *HTTPClientConfig {
 		return &HTTPClientConfig{
 			Timeout:         30 * time.Second,

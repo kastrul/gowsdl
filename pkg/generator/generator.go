@@ -123,7 +123,7 @@ func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 
 	// Process WSDL nodes
 	schemas := g.getSchemas()
-	
+
 	for _, schema := range schemas {
 		parser.NewTraverser(schema, schemas).Traverse()
 	}
@@ -133,20 +133,20 @@ func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 
 func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error) {
 	gocode := make(map[string][]byte)
-	
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	
+
 	// Calculate number of goroutines based on generateServer flag
 	numGoroutines := 3 // header, types, operations
 	if g.generateServer {
 		numGoroutines = 6 // add server, server_header, server_wsdl
 	}
 	errChan := make(chan error, numGoroutines)
-	
+
 	// Generate all components in parallel
 	wg.Add(numGoroutines)
-	
+
 	go func() {
 		defer wg.Done()
 		if data, err := g.genHeader(); err != nil {
@@ -157,7 +157,7 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 			mu.Unlock()
 		}
 	}()
-	
+
 	go func() {
 		defer wg.Done()
 		if data, err := g.genTypes(); err != nil {
@@ -168,7 +168,7 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 			mu.Unlock()
 		}
 	}()
-	
+
 	go func() {
 		defer wg.Done()
 		if data, err := g.genOperations(); err != nil {
@@ -179,7 +179,7 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 			mu.Unlock()
 		}
 	}()
-	
+
 	// Only generate server files if generateServer is enabled
 	if g.generateServer {
 		go func() {
@@ -192,7 +192,7 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 				mu.Unlock()
 			}
 		}()
-		
+
 		go func() {
 			defer wg.Done()
 			if data, err := g.genServerHeader(); err != nil {
@@ -203,7 +203,7 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 				mu.Unlock()
 			}
 		}()
-		
+
 		go func() {
 			defer wg.Done()
 			if data, err := g.genServerWSDL(ctx); err != nil {
@@ -215,15 +215,15 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 			}
 		}()
 	}
-	
+
 	wg.Wait()
 	close(errChan)
-	
+
 	// Check for errors
 	for err := range errChan {
 		return nil, err
 	}
-	
+
 	return gocode, nil
 }
 
@@ -373,13 +373,13 @@ func (g *Generator) genHeader() ([]byte, error) {
 
 func (g *Generator) genTypes() ([]byte, error) {
 	funcMap := g.createFuncMap()
-	
+
 	// Pre-process complex types into a map for efficient lookup
 	complexTypeMap := make(map[string]bool)
-	
+
 	// Collect all complex types first
 	schemas := g.getSchemas()
-	
+
 	for _, schema := range schemas {
 		if schema.ComplexTypes != nil {
 			for _, ct := range schema.ComplexTypes {
@@ -387,13 +387,13 @@ func (g *Generator) genTypes() ([]byte, error) {
 			}
 		}
 	}
-	
+
 	// Collect inline complex types
 	inlineTypes := CollectInlineComplexTypes(schemas)
-	
+
 	// Collect response element names from operations
 	responseElements := make(map[string]bool)
-	
+
 	// Handle WSDL 1.1
 	if g.wsdl != nil && g.wsdl.PortTypes != nil {
 		// Create a map of messages for efficient O(1) lookup
@@ -401,7 +401,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		for _, msg := range g.wsdl.Messages {
 			messageMap[msg.Name] = msg
 		}
-		
+
 		for _, portType := range g.wsdl.PortTypes {
 			for _, operation := range portType.Operations {
 				if operation.Output.Message != "" {
@@ -421,7 +421,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 			}
 		}
 	}
-	
+
 	// Handle WSDL 2.0
 	if g.wsdl2 != nil && g.wsdl2.Interfaces != nil {
 		for _, iface := range g.wsdl2.Interfaces {
@@ -435,7 +435,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 			}
 		}
 	}
-	
+
 	// Add function to check if a type is complex
 	funcMap["isComplexType"] = func(typeName string) bool {
 		// Remove namespace prefix if present
@@ -444,7 +444,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		}
 		return complexTypeMap[typeName]
 	}
-	
+
 	// Template State Management for Inline Type Name Resolution
 	// ========================================================
 	// The following code implements a state management pattern within the template
@@ -467,9 +467,9 @@ func (g *Generator) genTypes() ([]byte, error) {
 	//
 	// WARNING: This pattern is fragile as it relies on proper sequencing of template
 	// calls. Always ensure setCurrentType is called before processing nested elements.
-	
+
 	currentTypeName := ""
-	
+
 	// getInlineTypeName retrieves the generated name for an inline complex type
 	// Parameters:
 	//   - parentName: The parent type name, or "$" to use the current context type
@@ -486,7 +486,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		// Fallback to generating a name if not found
 		return utils.MakePublic(parentName) + utils.MakePublic(elementName) + "Type"
 	}
-	
+
 	// setCurrentType stores the name of the type currently being processed by the template
 	// This enables nested template calls to access the parent context via "$"
 	// Returns empty string so it can be used inline in templates without output
@@ -494,10 +494,10 @@ func (g *Generator) genTypes() ([]byte, error) {
 		currentTypeName = typeName
 		return ""
 	}
-	
+
 	// Add function to check if this should be an optional pointer
 	funcMap["isOptionalType"] = IsOptionalType
-	
+
 	// Add function to check if elements should be qualified
 	funcMap["isElementFormQualified"] = func() bool {
 		// Check if any schema has elementFormDefault="qualified"
@@ -509,7 +509,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		// Default is unqualified
 		return false
 	}
-	
+
 	// Add function to check if an element is a response element
 	funcMap["isResponseElement"] = func(elementName string) bool {
 		result := responseElements[elementName]
@@ -517,8 +517,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		// fmt.Printf("isResponseElement(%s) = %v (map contains %d elements)\n", elementName, result, len(responseElements))
 		return result
 	}
-	
-	
+
 	// Add dict function for creating template data structures
 	funcMap["dict"] = func(values ...interface{}) (map[string]interface{}, error) {
 		if len(values)%2 != 0 {
@@ -534,14 +533,14 @@ func (g *Generator) genTypes() ([]byte, error) {
 		}
 		return dict, nil
 	}
-	
+
 	tmpl, err := template.New("types").Funcs(funcMap).Parse(templates.TypesTemplate)
 	if err != nil {
 		return nil, err
 	}
 
 	var buf bytes.Buffer
-	
+
 	// Merge all schemas into a single data structure
 	data := struct {
 		SimpleType      []*parser.XSDSimpleType
@@ -553,16 +552,16 @@ func (g *Generator) genTypes() ([]byte, error) {
 		InlineTypes     map[string]*InlineComplexType
 		TargetNamespace string
 	}{}
-	
+
 	// Add RPC-style messages for WSDL 1.1
 	if g.wsdl != nil {
 		data.Messages = g.wsdl.Messages
 		data.PortTypes = g.wsdl.PortTypes
 	}
-	
+
 	data.Schemas = schemas
 	data.InlineTypes = inlineTypes
-	
+
 	// Merge all schemas and get first non-empty target namespace
 	for _, schema := range schemas {
 		if data.TargetNamespace == "" && schema.TargetNamespace != "" {
@@ -578,7 +577,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 			data.Elements = append(data.Elements, schema.Elements...)
 		}
 	}
-	
+
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
@@ -588,11 +587,11 @@ func (g *Generator) genTypes() ([]byte, error) {
 
 func (g *Generator) genOperations() ([]byte, error) {
 	funcMap := g.createFuncMap()
-	
+
 	// Choose template based on WSDL version
 	var tmplText string
 	var data interface{}
-	
+
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
 		tmplText = templates.OperationsWSDL2Template
 		data = g.wsdl2.Interfaces
@@ -609,7 +608,7 @@ func (g *Generator) genOperations() ([]byte, error) {
 	} else {
 		return []byte{}, nil
 	}
-	
+
 	tmpl, err := template.New("operations").Funcs(funcMap).Parse(tmplText)
 	if err != nil {
 		return nil, err
@@ -625,11 +624,11 @@ func (g *Generator) genOperations() ([]byte, error) {
 
 func (g *Generator) genServer() ([]byte, error) {
 	funcMap := g.createFuncMap()
-	
+
 	// Choose template based on WSDL version
 	var tmplText string
 	var data interface{}
-	
+
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
 		tmplText = templates.ServerWSDL2Template
 		data = g.wsdl2.Interfaces
@@ -639,17 +638,17 @@ func (g *Generator) genServer() ([]byte, error) {
 	} else {
 		return nil, errors.New("no WSDL data available")
 	}
-	
+
 	tmpl, err := template.New("server").Funcs(funcMap).Parse(tmplText)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -659,12 +658,12 @@ func (g *Generator) genServerHeader() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, g.pkg); err != nil {
 		return nil, err
 	}
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -674,44 +673,44 @@ func (g *Generator) genServerWSDL(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WSDL file: %w", err)
 	}
-	
+
 	funcMap := g.createFuncMap()
 	tmpl, err := template.New("server_wsdl").Funcs(funcMap).Parse(templates.ServerWSDLTemplate)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, string(wsdlContent)); err != nil {
 		return nil, err
 	}
-	
+
 	return buf.Bytes(), nil
 }
 
 // createFuncMap creates the template function map
 func (g *Generator) createFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"toGoType":                g.toGoType,
-		"enumValue":               g.enumValue,
-		"replaceReservedWords":    g.typeMapper.EscapeReservedWord,
+		"toGoType":                 g.toGoType,
+		"enumValue":                g.enumValue,
+		"replaceReservedWords":     g.typeMapper.EscapeReservedWord,
 		"replaceAttrReservedWords": g.typeMapper.EscapeReservedWord,
-		"makePublic":              utils.MakePublic,
-		"makePrivate":             makePrivate,
-		"comment":                 comment,
-		"removePointerFromType":   removePointerFromType,
-		"removeNamespacePrefix":   removeNamespacePrefix,
-		"removeNS":                removeNamespacePrefix,
-		"findType":                g.findType,
-		"findSOAPAction":          g.findSOAPAction,
-		"makeValidXmlTag":         makeValidXmlTag,
-		"goString":                goString,
-		"sanitizeEnumValue":       sanitizeEnumValue,
-		"getTargetNamespace":      g.getTargetNamespace,
-		"isRPCStyleMessage":       g.isRPCStyleMessage,
-		"isRPCPortType":           g.isRPCPortType,
-		"findNameByType":          g.findNameByType,
-		"isMessageElement":        g.isMessageElement,
+		"makePublic":               utils.MakePublic,
+		"makePrivate":              makePrivate,
+		"comment":                  comment,
+		"removePointerFromType":    removePointerFromType,
+		"removeNamespacePrefix":    removeNamespacePrefix,
+		"removeNS":                 removeNamespacePrefix,
+		"findType":                 g.findType,
+		"findSOAPAction":           g.findSOAPAction,
+		"makeValidXmlTag":          makeValidXmlTag,
+		"goString":                 goString,
+		"sanitizeEnumValue":        sanitizeEnumValue,
+		"getTargetNamespace":       g.getTargetNamespace,
+		"isRPCStyleMessage":        g.isRPCStyleMessage,
+		"isRPCPortType":            g.isRPCPortType,
+		"findNameByType":           g.findNameByType,
+		"isMessageElement":         g.isMessageElement,
 	}
 }
 
@@ -791,7 +790,7 @@ func (g *Generator) isRPCPortType(portTypeName string) bool {
 	if g.wsdl == nil {
 		return false
 	}
-	
+
 	// Check all bindings to see if any RPC binding references this port type
 	for _, binding := range g.wsdl.Binding {
 		if binding.SOAPBinding.Style == "rpc" {
@@ -805,7 +804,7 @@ func (g *Generator) isRPCPortType(portTypeName string) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -854,7 +853,7 @@ func sanitizeEnumValue(s string) string {
 	if s == "" {
 		return "EmptyString"
 	}
-	
+
 	// Remove spaces entirely (don't convert to underscores)
 	s = strings.ReplaceAll(s, " ", "")
 	// Remove hyphens
@@ -875,12 +874,12 @@ func sanitizeEnumValue(s string) string {
 	s = strings.ReplaceAll(s, ";", "")
 	s = strings.ReplaceAll(s, "'", "")
 	s = strings.ReplaceAll(s, "\"", "")
-	
+
 	// If the result is empty after cleanup, return "Empty"
 	if s == "" {
 		return "Empty"
 	}
-	
+
 	return s
 }
 
@@ -890,7 +889,7 @@ func (g *Generator) isRPCStyleMessage(msg *parser.WSDLMessage) bool {
 	if msg == nil {
 		return false
 	}
-	
+
 	// A single element part is a document/literal body; any remaining
 	// type parts are MIME attachments, not body content.
 	elementParts := 0
@@ -907,12 +906,12 @@ func (g *Generator) isRPCStyleMessage(msg *parser.WSDLMessage) bool {
 	if len(msg.Parts) > 1 {
 		return true
 	}
-	
+
 	// Single part with primitive type (no element reference) requires a wrapper
 	if len(msg.Parts) == 1 && msg.Parts[0].Element == "" && msg.Parts[0].Type != "" {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -920,7 +919,7 @@ func (g *Generator) isRPCStyleMessage(msg *parser.WSDLMessage) bool {
 func (g *Generator) findType(message string) string {
 	// Remove namespace prefix from message name
 	message = removeNamespacePrefix(message)
-	
+
 	// For WSDL 1.1, messages typically reference elements
 	// Try to find the message and get its part's element/type
 	if g.wsdl != nil {
@@ -932,7 +931,7 @@ func (g *Generator) findType(message string) string {
 					// This will generate a wrapper type in the types template
 					return msg.Name
 				}
-				
+
 				if len(msg.Parts) > 0 {
 					// Get the first part's element or type
 					part := msg.Parts[0]
@@ -947,13 +946,13 @@ func (g *Generator) findType(message string) string {
 			}
 		}
 	}
-	
+
 	// For WSDL 2.0, check interfaces
 	if g.wsdl2 != nil {
 		// In WSDL 2.0, operations directly reference elements
 		return message
 	}
-	
+
 	// Fallback: return the message name without namespace
 	return message
 }
@@ -970,18 +969,18 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 		if idx := strings.LastIndex(bindingPortType, ":"); idx != -1 {
 			bindingPortType = bindingPortType[idx+1:]
 		}
-		
+
 		// Normalize names by removing common suffixes to provide a more robust comparison
 		normalizedBindingPortType := bindingPortType
 		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "PortType")
 		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "Port")
 		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "Type")
-		
+
 		normalizedPortType := portType
 		normalizedPortType = strings.TrimSuffix(normalizedPortType, "PortType")
 		normalizedPortType = strings.TrimSuffix(normalizedPortType, "Port")
 		normalizedPortType = strings.TrimSuffix(normalizedPortType, "Type")
-		
+
 		if strings.EqualFold(normalizedBindingPortType, normalizedPortType) {
 			// Find the operation in this binding
 			for _, op := range binding.Operations {
@@ -991,14 +990,14 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 
 func (g *Generator) getTargetNamespace() string {
 	// Get the target namespace from the first schema that has one
 	schemas := g.getSchemas()
-	
+
 	for _, schema := range schemas {
 		if schema.TargetNamespace != "" {
 			return schema.TargetNamespace
@@ -1022,10 +1021,10 @@ func (g *Generator) getSchemas() []*parser.XSDSchema {
 func (g *Generator) findNameByType(typeName string) string {
 	// Remove namespace prefix from type name
 	typeName = removeNamespacePrefix(typeName)
-	
+
 	// Get schemas based on WSDL version
 	schemas := g.getSchemas()
-	
+
 	// Search for an element that has this type
 	for _, schema := range schemas {
 		for _, elem := range schema.Elements {
@@ -1036,7 +1035,7 @@ func (g *Generator) findNameByType(typeName string) string {
 			}
 		}
 	}
-	
+
 	// If no matching element found, return the original type name
 	return typeName
 }
@@ -1051,7 +1050,7 @@ func (g *Generator) isMessageElement(typeName string) bool {
 	} else if g.wsdl != nil {
 		messages = g.wsdl.Messages
 	}
-	
+
 	// Check if any message part references an element with this type name
 	for _, message := range messages {
 		for _, part := range message.Parts {
@@ -1068,6 +1067,6 @@ func (g *Generator) isMessageElement(typeName string) bool {
 			}
 		}
 	}
-	
+
 	return false
 }

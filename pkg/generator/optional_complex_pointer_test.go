@@ -70,14 +70,14 @@ func TestOptionalComplexPointerTypes(t *testing.T) {
 
 	code, err := g.Generate(context.TODO())
 	require.NoError(t, err)
-	
+
 	// Get the generated code - concatenate all files
 	var codeStr string
 	for filename, content := range code {
 		t.Logf("Generated file: %s", filename)
 		codeStr += string(content) + "\n"
 	}
-	
+
 	// Check that optional complex types use pointers to named types
 	assert.Contains(t, codeStr, "ShippingAddress *OrderTypeShippingAddressType", "Optional complex type should be a pointer to named type")
 	assert.Contains(t, codeStr, "BillingAddress OrderTypeBillingAddressType", "Required complex type should not be a pointer")
@@ -111,7 +111,7 @@ func TestOptionalComplexPointerMarshaling(t *testing.T) {
 
 	data1, err := xml.Marshal(order1)
 	require.NoError(t, err)
-	
+
 	// Should NOT contain empty shippingAddress element
 	xmlStr1 := string(data1)
 	assert.NotContains(t, xmlStr1, "<shippingAddress/>")
@@ -134,7 +134,7 @@ func TestOptionalComplexPointerMarshaling(t *testing.T) {
 
 	data2, err := xml.Marshal(order2)
 	require.NoError(t, err)
-	
+
 	// Should contain shippingAddress element with data
 	xmlStr2 := string(data2)
 	assert.Contains(t, xmlStr2, "<shippingAddress>")
@@ -158,7 +158,7 @@ func TestOptionalComplexPointerMarshaling(t *testing.T) {
 			<city>Test City</city>
 		</billingAddress>
 	</order>`
-	
+
 	var order4 OrderType
 	err = xml.Unmarshal([]byte(xmlWithoutOptional), &order4)
 	require.NoError(t, err)
@@ -176,15 +176,15 @@ func TestPointerSafetyDocumentation(t *testing.T) {
 	}
 
 	var order Order
-	
+
 	// Old code would panic:
 	// _ = order.ShippingAddress.Street // panic: nil pointer dereference
-	
+
 	// New code must check for nil:
 	if order.ShippingAddress != nil {
 		_ = order.ShippingAddress.Street // Safe
 	}
-	
+
 	// Or use a helper method (if we add them later):
 	// street := order.GetShippingAddressStreet() // Returns "" if nil
 }

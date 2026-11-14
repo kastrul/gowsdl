@@ -74,7 +74,7 @@ func TestMarshalXMLGenerationRules(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -86,22 +86,22 @@ func TestMarshalXMLGenerationRules(t *testing.T) {
 
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	typesStr := string(types)
-	
+
 	// Check that simple types don't get MarshalXML
-	assert.NotContains(t, typesStr, "func (t StatusType) MarshalXML", 
+	assert.NotContains(t, typesStr, "func (t StatusType) MarshalXML",
 		"Simple types should NOT have MarshalXML methods")
-	
+
 	// Check that complex types DO get MarshalXML
-	assert.Contains(t, typesStr, "func (t PersonType) MarshalXML", 
+	assert.Contains(t, typesStr, "func (t PersonType) MarshalXML",
 		"Complex types should have MarshalXML methods")
-	assert.Contains(t, typesStr, "func (t PriceType) MarshalXML", 
+	assert.Contains(t, typesStr, "func (t PriceType) MarshalXML",
 		"Complex types with simple content should have MarshalXML methods")
-	
+
 	// Check that inline complex types get MarshalXML
-	assert.Contains(t, typesStr, "func (t OrderType) MarshalXML", 
+	assert.Contains(t, typesStr, "func (t OrderType) MarshalXML",
 		"Inline complex types should have MarshalXML methods")
-	assert.Contains(t, typesStr, "func (t OrderTypeItemsType) MarshalXML", 
+	assert.Contains(t, typesStr, "func (t OrderTypeItemsType) MarshalXML",
 		"Nested inline complex types should have MarshalXML methods")
 }

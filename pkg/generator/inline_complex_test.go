@@ -105,7 +105,7 @@ func TestInlineComplexTypeGeneration(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -118,20 +118,20 @@ func TestInlineComplexTypeGeneration(t *testing.T) {
 	// Check types file
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	typesStr := string(types)
 	t.Logf("Generated types:\n%s", typesStr)
-	
+
 	// Check that named types are generated for inline complex types
 	assert.Contains(t, typesStr, "type OrderTypeShippingAddressType struct", "Should generate named type for optional inline complex type")
 	assert.Contains(t, typesStr, "type OrderTypeBillingAddressType struct", "Should generate named type for required inline complex type")
 	assert.Contains(t, typesStr, "type OrderTypeItemsType struct", "Should generate named type for array inline complex type")
-	
+
 	// Check that the OrderType uses pointers to named types
 	assert.Contains(t, typesStr, "ShippingAddress *OrderTypeShippingAddressType", "Optional field should be pointer to named type")
 	assert.Contains(t, typesStr, "BillingAddress OrderTypeBillingAddressType", "Required field should be value type")
 	assert.Contains(t, typesStr, "Items []OrderTypeItemsType", "Array field should use named type")
-	
+
 	// Check that inline types for elements are also handled
 	assert.Contains(t, typesStr, "type CreateOrderRequestType struct", "Should generate named type for element's inline complex type")
 	assert.Contains(t, typesStr, "type CreateOrderResponseType struct", "Should generate named type for element's inline complex type")
@@ -154,36 +154,36 @@ func TestInlineComplexTypeMarshalingWithNamedTypes(t *testing.T) {
 			<quantity>1</quantity>
 		</items>
 	</order>`
-	
+
 	// Define the expected structure with named types
 	type OrderTypeBillingAddressType struct {
 		Street string `xml:"street,omitempty"`
 		City   string `xml:"city,omitempty"`
 	}
-	
+
 	type OrderTypeShippingAddressType struct {
 		Street  string `xml:"street,omitempty"`
 		City    string `xml:"city,omitempty"`
 		ZipCode string `xml:"zipCode,omitempty"`
 	}
-	
+
 	type OrderTypeItemsType struct {
 		ItemId   string `xml:"itemId,omitempty"`
 		Quantity int    `xml:"quantity,omitempty"`
 	}
-	
+
 	type OrderType struct {
 		OrderId         string                        `xml:"orderId,omitempty"`
 		ShippingAddress *OrderTypeShippingAddressType `xml:"shippingAddress,omitempty"`
-		BillingAddress  OrderTypeBillingAddressType  `xml:"billingAddress,omitempty"`
+		BillingAddress  OrderTypeBillingAddressType   `xml:"billingAddress,omitempty"`
 		Items           []OrderTypeItemsType          `xml:"items,omitempty"`
 	}
-	
+
 	// Test unmarshaling
 	var order OrderType
 	err := xml.Unmarshal([]byte(xmlData), &order)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "12345", order.OrderId)
 	assert.Nil(t, order.ShippingAddress) // Not in XML
 	assert.Equal(t, "Main St", order.BillingAddress.Street)
@@ -191,28 +191,28 @@ func TestInlineComplexTypeMarshalingWithNamedTypes(t *testing.T) {
 	assert.Len(t, order.Items, 2)
 	assert.Equal(t, "item1", order.Items[0].ItemId)
 	assert.Equal(t, 2, order.Items[0].Quantity)
-	
+
 	// Test marshaling with optional field
 	order.ShippingAddress = &OrderTypeShippingAddressType{
 		Street:  "Ship St",
 		City:    "LA",
 		ZipCode: "90210",
 	}
-	
+
 	data, err := xml.Marshal(order)
 	require.NoError(t, err)
-	
+
 	xmlStr := string(data)
 	assert.Contains(t, xmlStr, "<shippingAddress>")
 	assert.Contains(t, xmlStr, "<street>Ship St</street>")
 	assert.Contains(t, xmlStr, "<city>LA</city>")
 	assert.Contains(t, xmlStr, "<zipCode>90210</zipCode>")
-	
+
 	// Test nil pointer is omitted
 	order.ShippingAddress = nil
 	data, err = xml.Marshal(order)
 	require.NoError(t, err)
-	
+
 	xmlStr = string(data)
 	assert.NotContains(t, xmlStr, "<shippingAddress")
 }
@@ -264,7 +264,7 @@ func TestNestedInlineComplexTypes(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -276,15 +276,15 @@ func TestNestedInlineComplexTypes(t *testing.T) {
 
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	typesStr := string(types)
 	t.Logf("Generated types:\n%s", typesStr)
-	
+
 	// Check nested type generation
 	assert.Contains(t, typesStr, "type CompanyTypeHeadquartersType struct", "Should generate type for headquarters")
 	assert.Contains(t, typesStr, "type CompanyTypeHeadquartersTypeAddressType struct", "Should generate type for nested address")
 	assert.Contains(t, typesStr, "type CompanyTypeHeadquartersTypeAddressTypeCoordinatesType struct", "Should generate type for deeply nested coordinates")
-	
+
 	// Check proper usage in parent types
 	assert.Contains(t, typesStr, "Headquarters *CompanyTypeHeadquartersType", "Optional headquarters should use pointer")
 	assert.Contains(t, typesStr, "Address CompanyTypeHeadquartersTypeAddressType", "Required address should be value type")

@@ -20,7 +20,7 @@ func TestRuleEngine(t *testing.T) {
 
 func TestRPCOperationWrapperRule(t *testing.T) {
 	rule := &RPCOperationWrapperRule{}
-	
+
 	tests := []struct {
 		name           string
 		soapXML        string
@@ -80,8 +80,8 @@ func TestRPCOperationWrapperRule(t *testing.T) {
 			expectedErrors: 0, // Should ignore document style
 		},
 		{
-			name: "Invalid XML",
-			soapXML: `<invalid xml`,
+			name:           "Invalid XML",
+			soapXML:        `<invalid xml`,
 			style:          "rpc",
 			expectedErrors: 1, // Should detect parse error
 		},
@@ -91,7 +91,7 @@ func TestRPCOperationWrapperRule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			violations := rule.Validate(tt.soapXML, tt.style)
 			assert.Len(t, violations, tt.expectedErrors, "Expected %d violations, got %d", tt.expectedErrors, len(violations))
-			
+
 			for _, violation := range violations {
 				assert.Equal(t, rule.Name(), violation.RuleName)
 				assert.NotEmpty(t, violation.Message)
@@ -103,7 +103,7 @@ func TestRPCOperationWrapperRule(t *testing.T) {
 
 func TestDocumentStyleRule(t *testing.T) {
 	rule := &DocumentStyleRule{}
-	
+
 	tests := []struct {
 		name           string
 		soapXML        string
@@ -150,8 +150,8 @@ func TestDocumentStyleRule(t *testing.T) {
 			expectedErrors: 0, // Should ignore RPC style
 		},
 		{
-			name: "Invalid XML",
-			soapXML: `<invalid xml`,
+			name:           "Invalid XML",
+			soapXML:        `<invalid xml`,
 			style:          "document",
 			expectedErrors: 1, // Should detect parse error
 		},
@@ -161,7 +161,7 @@ func TestDocumentStyleRule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			violations := rule.Validate(tt.soapXML, tt.style)
 			assert.Len(t, violations, tt.expectedErrors)
-			
+
 			for _, violation := range violations {
 				assert.Equal(t, rule.Name(), violation.RuleName)
 				assert.NotEmpty(t, violation.Message)
@@ -173,7 +173,7 @@ func TestDocumentStyleRule(t *testing.T) {
 
 func TestNamespaceConsistencyRule(t *testing.T) {
 	rule := &NamespaceConsistencyRule{}
-	
+
 	tests := []struct {
 		name           string
 		soapXML        string
@@ -225,7 +225,7 @@ func TestNamespaceConsistencyRule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			violations := rule.Validate(tt.soapXML, tt.style)
 			assert.Len(t, violations, tt.expectedErrors)
-			
+
 			for _, violation := range violations {
 				assert.Equal(t, rule.Name(), violation.RuleName)
 				assert.NotEmpty(t, violation.Message)
@@ -237,7 +237,7 @@ func TestNamespaceConsistencyRule(t *testing.T) {
 
 func TestSOAPEnvelopeRule(t *testing.T) {
 	rule := &SOAPEnvelopeRule{}
-	
+
 	tests := []struct {
 		name           string
 		soapXML        string
@@ -298,7 +298,7 @@ func TestSOAPEnvelopeRule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			violations := rule.Validate(tt.soapXML, tt.style)
 			assert.Len(t, violations, tt.expectedErrors)
-			
+
 			for _, violation := range violations {
 				assert.Equal(t, rule.Name(), violation.RuleName)
 				assert.NotEmpty(t, violation.Message)
@@ -310,7 +310,7 @@ func TestSOAPEnvelopeRule(t *testing.T) {
 
 func TestRequiredElementsRule(t *testing.T) {
 	rule := &RequiredElementsRule{}
-	
+
 	tests := []struct {
 		name           string
 		soapXML        string
@@ -357,7 +357,7 @@ func TestRequiredElementsRule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			violations := rule.Validate(tt.soapXML, tt.style)
 			assert.Len(t, violations, tt.expectedErrors)
-			
+
 			for _, violation := range violations {
 				assert.Equal(t, rule.Name(), violation.RuleName)
 				assert.NotEmpty(t, violation.Message)
@@ -369,7 +369,7 @@ func TestRequiredElementsRule(t *testing.T) {
 
 func TestRuleEngineIntegration(t *testing.T) {
 	engine := NewRuleEngine()
-	
+
 	// Test with a problematic RPC request (the namespace issue)
 	soapXML := `<?xml version="1.0"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -379,12 +379,12 @@ func TestRuleEngineIntegration(t *testing.T) {
     </tns:information>
   </soap:Body>
 </soap:Envelope>`
-	
+
 	violations := engine.ValidateSOAPRequest(soapXML, "rpc")
-	
+
 	// Should catch the tns: prefix issue
 	assert.NotEmpty(t, violations, "Should detect violations")
-	
+
 	var rpcViolation *RuleViolation
 	for _, v := range violations {
 		if v.RuleName == "RPC Operation Wrapper" {
@@ -392,12 +392,12 @@ func TestRuleEngineIntegration(t *testing.T) {
 			break
 		}
 	}
-	
+
 	require.NotNil(t, rpcViolation, "Should detect RPC operation wrapper violation")
 	// The test checks for either the tns: prefix issue OR missing xmlns issue
-	assert.True(t, 
-		strings.Contains(rpcViolation.Message, "tns:") || 
-		strings.Contains(rpcViolation.Message, "namespace"),
+	assert.True(t,
+		strings.Contains(rpcViolation.Message, "tns:") ||
+			strings.Contains(rpcViolation.Message, "namespace"),
 		"Should mention either tns: prefix or namespace issue")
 	assert.Equal(t, "error", rpcViolation.Severity)
 }
@@ -405,13 +405,13 @@ func TestRuleEngineIntegration(t *testing.T) {
 func TestRuleEngineAddRule(t *testing.T) {
 	engine := NewRuleEngine()
 	initialCount := len(engine.rules)
-	
+
 	// Create a custom rule
 	customRule := &testCustomRule{}
 	engine.AddRule(customRule)
-	
+
 	assert.Len(t, engine.rules, initialCount+1, "Should have added one rule")
-	
+
 	// Test that custom rule is called
 	violations := engine.ValidateSOAPRequest("<test/>", "rpc")
 	var customViolation *RuleViolation
@@ -421,7 +421,7 @@ func TestRuleEngineAddRule(t *testing.T) {
 			break
 		}
 	}
-	
+
 	require.NotNil(t, customViolation, "Custom rule should have been executed")
 	assert.Equal(t, "test violation", customViolation.Message)
 }

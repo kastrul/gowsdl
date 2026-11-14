@@ -172,7 +172,6 @@ func TestDownloadFileWithContext(t *testing.T) {
 	assert.Contains(t, err.Error(), "context canceled")
 }
 
-
 func TestDownloadFileRateLimit(t *testing.T) {
 	requestTimes := make([]time.Time, 0)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -234,7 +233,7 @@ func TestWSDLErrorInDownload(t *testing.T) {
 
 	config := DefaultHTTPClientConfig()
 	_, err := DownloadFile(context.Background(), server.URL, config)
-	
+
 	require.Error(t, err)
 	var wsdlErr *types.WSDLError
 	assert.ErrorAs(t, err, &wsdlErr)

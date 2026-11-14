@@ -124,16 +124,16 @@ func TestClient_Send_Correct_Headers(t *testing.T) {
 				_, _ = w.Write([]byte(`<?xml version="1.0"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body></soap:Body></soap:Envelope>`))
 			}))
 			defer ts.Close()
-			
+
 			client := NewClient(ts.URL, WithHTTPHeaders(test.reqHeaders))
 			req := &Ping{Request: &PingRequest{Message: "test"}}
 			reply := &PingResponse{}
 			err := client.Call(test.action, req, reply)
-			
+
 			if err != nil {
 				t.Fatalf("Call failed: %v", err)
 			}
-			
+
 			if !requestReceived {
 				t.Fatal("Request was not received by server")
 			}

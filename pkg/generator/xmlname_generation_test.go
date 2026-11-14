@@ -102,33 +102,33 @@ func TestXMLNameGeneration_MessageElements(t *testing.T) {
 	typesStr := string(typesCode)
 
 	// Test that message elements have XMLName with proper namespaces
-	
+
 	// Request element should have tns: prefix
 	assert.Contains(t, typesStr, "type CheckV1 struct {")
 	assert.Contains(t, typesStr, `XMLName xml.Name `+"`"+`xml:"tns:checkV1"`+"`")
-	
+
 	// Response element should use local name only
 	assert.Contains(t, typesStr, "type CheckV1Response struct {")
 	assert.Contains(t, typesStr, `XMLName xml.Name `+"`"+`xml:"checkV1Response"`+"`")
-	
+
 	// Non-message element should NOT have XMLName
 	assert.Contains(t, typesStr, "type NonMessageType struct {")
-	
+
 	// Count XMLName occurrences to ensure only message elements have them
 	checkV1XMLNameCount := strings.Count(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:checkV1"`+"`")
 	checkV1ResponseXMLNameCount := strings.Count(typesStr, `XMLName xml.Name `+"`"+`xml:"checkV1Response"`+"`")
-	
+
 	assert.Equal(t, 1, checkV1XMLNameCount, "CheckV1 should have exactly one XMLName")
 	assert.Equal(t, 1, checkV1ResponseXMLNameCount, "CheckV1Response should have exactly one XMLName")
-	
+
 	// NonMessageType should not have XMLName
 	nonMessageTypeStart := strings.Index(typesStr, "type NonMessageType struct {")
 	require.NotEqual(t, -1, nonMessageTypeStart, "NonMessageType should be defined")
-	
+
 	// Find the end of the NonMessageType struct
 	nonMessageTypeEnd := strings.Index(typesStr[nonMessageTypeStart:], "}")
 	require.NotEqual(t, -1, nonMessageTypeEnd, "NonMessageType struct should be closed")
-	
+
 	nonMessageTypeStr := typesStr[nonMessageTypeStart : nonMessageTypeStart+nonMessageTypeEnd+1]
 	assert.NotContains(t, nonMessageTypeStr, "XMLName", "NonMessageType should not have XMLName")
 }
@@ -243,14 +243,14 @@ func TestXMLNameGeneration_NoMessages(t *testing.T) {
 
 	// StandaloneType should not have XMLName since it's not used in messages
 	assert.Contains(t, typesStr, "type StandaloneType struct {")
-	
+
 	// Find the StandaloneType struct and verify it doesn't have XMLName
 	standaloneTypeStart := strings.Index(typesStr, "type StandaloneType struct {")
 	require.NotEqual(t, -1, standaloneTypeStart, "StandaloneType should be defined")
-	
+
 	standaloneTypeEnd := strings.Index(typesStr[standaloneTypeStart:], "}")
 	require.NotEqual(t, -1, standaloneTypeEnd, "StandaloneType struct should be closed")
-	
+
 	standaloneTypeStr := typesStr[standaloneTypeStart : standaloneTypeStart+standaloneTypeEnd+1]
 	assert.NotContains(t, standaloneTypeStr, "XMLName", "StandaloneType should not have XMLName when not used in messages")
 }

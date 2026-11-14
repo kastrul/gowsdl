@@ -65,7 +65,7 @@ func NewGoWSDL(file string, opts ...Option) (*GoWSDL, error) {
 
 	// Convert options to generator options
 	genOpts := make([]generator.Option, 0, len(opts))
-	
+
 	// Create generator
 	gen, err := generator.New(file, genOpts...)
 	if err != nil {

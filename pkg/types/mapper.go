@@ -10,14 +10,14 @@ import (
 
 // TypeMapper handles conversion from XSD types to Go types
 type TypeMapper struct {
-	xsdToGoTypes map[string]string
+	xsdToGoTypes  map[string]string
 	reservedWords map[string]string
 }
 
 // NewTypeMapper creates a new type mapper with default mappings
 func NewTypeMapper() *TypeMapper {
 	return &TypeMapper{
-		xsdToGoTypes: initXSDToGoTypes(),
+		xsdToGoTypes:  initXSDToGoTypes(),
 		reservedWords: initReservedWords(),
 	}
 }
@@ -28,19 +28,19 @@ func (tm *TypeMapper) MapXSDTypeToGoType(xsdType string, nillable bool) string {
 	if idx := strings.LastIndex(xsdType, ":"); idx >= 0 {
 		xsdType = xsdType[idx+1:]
 	}
-	
+
 	goType, ok := tm.xsdToGoTypes[xsdType]
 	if !ok {
 		// For unknown types, assume they are user-defined complex types
 		// and use the type name as-is (without namespace prefix)
 		goType = xsdType
 	}
-	
+
 	// Make pointer if nillable
 	if nillable && !strings.HasPrefix(goType, "*") && goType != "interface{}" {
 		goType = "*" + goType
 	}
-	
+
 	return goType
 }
 
@@ -71,59 +71,59 @@ func (tm *TypeMapper) EscapeReservedWord(word string) string {
 func initXSDToGoTypes() map[string]string {
 	return map[string]string{
 		// String types
-		"string":            "string",
-		"normalizedString":  "string",
-		"token":             "string",
-		"language":          "string",
-		"NMTOKEN":           "string",
-		"NMTOKENS":          "string",
-		"Name":              "string",
-		"NCName":            "string",
-		"ID":                "string",
-		"IDREF":             "string",
-		"IDREFS":            "string",
-		"ENTITY":            "string",
-		"ENTITIES":          "string",
-		"NOTATION":          "string",
-		"anyURI":            "string",
-		"QName":             "string",
-		
+		"string":           "string",
+		"normalizedString": "string",
+		"token":            "string",
+		"language":         "string",
+		"NMTOKEN":          "string",
+		"NMTOKENS":         "string",
+		"Name":             "string",
+		"NCName":           "string",
+		"ID":               "string",
+		"IDREF":            "string",
+		"IDREFS":           "string",
+		"ENTITY":           "string",
+		"ENTITIES":         "string",
+		"NOTATION":         "string",
+		"anyURI":           "string",
+		"QName":            "string",
+
 		// Numeric types
-		"decimal":           "float64",
-		"float":             "float32",
-		"double":            "float64",
-		"integer":           "int64",
+		"decimal":            "float64",
+		"float":              "float32",
+		"double":             "float64",
+		"integer":            "int64",
 		"nonPositiveInteger": "int64",
 		"negativeInteger":    "int64",
-		"long":              "int64",
-		"int":               "int32",
-		"short":             "int16",
-		"byte":              "int8",
+		"long":               "int64",
+		"int":                "int32",
+		"short":              "int16",
+		"byte":               "int8",
 		"nonNegativeInteger": "uint64",
-		"unsignedLong":      "uint64",
-		"unsignedInt":       "uint32",
-		"unsignedShort":     "uint16",
-		"unsignedByte":      "uint8",
-		"positiveInteger":   "uint64",
-		
+		"unsignedLong":       "uint64",
+		"unsignedInt":        "uint32",
+		"unsignedShort":      "uint16",
+		"unsignedByte":       "uint8",
+		"positiveInteger":    "uint64",
+
 		// Boolean
 		"boolean": "bool",
-		
+
 		// Binary
 		"base64Binary": "[]byte",
 		"hexBinary":    "[]byte",
-		
+
 		// Date/Time
-		"duration":      "string",
-		"dateTime":      "soap.XSDDateTime",
-		"time":          "soap.XSDTime",
-		"date":          "soap.XSDDate",
-		"gYearMonth":    "string",
-		"gYear":         "string",
-		"gMonthDay":     "string",
-		"gDay":          "string",
-		"gMonth":        "string",
-		
+		"duration":   "string",
+		"dateTime":   "soap.XSDDateTime",
+		"time":       "soap.XSDTime",
+		"date":       "soap.XSDDate",
+		"gYearMonth": "string",
+		"gYear":      "string",
+		"gMonthDay":  "string",
+		"gDay":       "string",
+		"gMonth":     "string",
+
 		// Other
 		"any":           "interface{}",
 		"anyType":       "interface{}",
@@ -158,21 +158,21 @@ func initReservedWords() map[string]string {
 		"import":      "import_",
 		// "return" is commonly used in RPC-style WSDLs for response parts
 		// Map to "result" for more idiomatic Go field names
-		"return":      "result",
-		"var":         "var_",
+		"return": "result",
+		"var":    "var_",
 		// Common standard library conflicts
-		"string":      "string_",
-		"error":       "error_",
-		"byte":        "byte_",
-		"rune":        "rune_",
-		"int":         "int_",
-		"uint":        "uint_",
-		"bool":        "bool_",
-		"float32":     "float32_",
-		"float64":     "float64_",
-		"complex64":   "complex64_",
-		"complex128":  "complex128_",
-		"uintptr":     "uintptr_",
-		"any":         "any_",
+		"string":     "string_",
+		"error":      "error_",
+		"byte":       "byte_",
+		"rune":       "rune_",
+		"int":        "int_",
+		"uint":       "uint_",
+		"bool":       "bool_",
+		"float32":    "float32_",
+		"float64":    "float64_",
+		"complex64":  "complex64_",
+		"complex128": "complex128_",
+		"uintptr":    "uintptr_",
+		"any":        "any_",
 	}
 }

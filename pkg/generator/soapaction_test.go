@@ -92,11 +92,11 @@ func TestSOAPActionInGeneratedCode(t *testing.T) {
 
 func TestFindSOAPAction(t *testing.T) {
 	tests := []struct {
-		name        string
-		operation   string
-		portType    string
-		wsdl        *parser.WSDL
-		expected    string
+		name      string
+		operation string
+		portType  string
+		wsdl      *parser.WSDL
+		expected  string
 	}{
 		{
 			name:      "finds soap action for matching operation",

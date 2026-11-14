@@ -289,10 +289,10 @@ func TestIntegrationHTTPSWSDL(t *testing.T) {
 	// Skip if no internet connection
 	ctx := context.Background()
 	testURL := "https://www.w3schools.com/xml/tempconvert.asmx?WSDL"
-	
+
 	config := DefaultHTTPClientConfig()
 	config.Timeout = 10 * time.Second
-	
+
 	_, err := downloadFile(ctx, testURL, config)
 	if err != nil {
 		t.Skipf("Cannot reach test WSDL URL: %v", err)

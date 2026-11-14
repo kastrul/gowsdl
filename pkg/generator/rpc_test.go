@@ -78,28 +78,28 @@ func TestRPCStyleWSDLGeneration(t *testing.T) {
 
 	gen, err := New(tmpFile, WithPackage("test"))
 	require.NoError(t, err)
-	
+
 	code, err := gen.Generate(context.TODO())
 	require.NoError(t, err)
-	
+
 	// Combine all generated code for testing
 	var generatedCode string
 	for _, content := range code {
 		generatedCode += string(content) + "\n"
 	}
-	
+
 	// Check that wrapper types are generated for RPC-style messages
 	assert.Contains(t, generatedCode, "type SearchRequest struct {")
 	assert.Contains(t, generatedCode, "Query string `xml:\"query\" json:\"query\"`")
 	assert.Contains(t, generatedCode, "MaxResults int32 `xml:\"maxResults\" json:\"maxResults\"`")
 	assert.Contains(t, generatedCode, "Category string `xml:\"category\" json:\"category\"`")
-	
+
 	// Check that the operations use the generated types
 	assert.Contains(t, generatedCode, "Search(ctx context.Context, request *SearchRequest) (*SearchResponse, error)")
-	
+
 	// Ensure no undefined String_ type is referenced
 	assert.NotContains(t, generatedCode, "String_")
-	
+
 	// Check for single part primitive message handling
 	assert.Contains(t, generatedCode, "type SinglePartPrimitive struct {")
 	assert.Contains(t, generatedCode, "Id string `xml:\"id\" json:\"id\"`")
@@ -183,28 +183,28 @@ func TestDocumentStyleWSDLNotAffected(t *testing.T) {
 
 	gen, err := New(tmpFile, WithPackage("test"))
 	require.NoError(t, err)
-	
+
 	code, err := gen.Generate(context.TODO())
 	require.NoError(t, err)
-	
+
 	// Combine all generated code for testing
 	var generatedCode string
 	for _, content := range code {
 		generatedCode += string(content) + "\n"
 	}
-	
+
 	// Check that document-style operations still work correctly
 	assert.Contains(t, generatedCode, "type GetUserRequest struct {")
 	assert.Contains(t, generatedCode, "UserId string")
 	assert.Contains(t, generatedCode, "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)")
-	
+
 	// Document-style messages should not generate wrapper types
 	assert.NotContains(t, generatedCode, "type GetUserRequestMessage struct")
 }
 
 func TestIsRPCStyleMessage(t *testing.T) {
 	gen := &Generator{}
-	
+
 	// Test cases
 	tests := []struct {
 		name     string
@@ -272,7 +272,7 @@ func TestIsRPCStyleMessage(t *testing.T) {
 			expected: false,
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := gen.isRPCStyleMessage(tc.message)
@@ -350,28 +350,28 @@ func TestMessageTypeGeneration(t *testing.T) {
 
 	gen, err := New(tmpFile, WithPackage("test"))
 	require.NoError(t, err)
-	
+
 	code, err := gen.Generate(context.TODO())
 	require.NoError(t, err)
-	
+
 	// Combine all generated code for testing
 	var generatedCode string
 	for _, content := range code {
 		generatedCode += string(content) + "\n"
 	}
-	
+
 	// Check that wrapper types are generated for RPC-style messages
 	assert.Contains(t, generatedCode, "type MultiPartMessage struct {")
 	assert.Contains(t, generatedCode, "Param1 string `xml:\"param1\" json:\"param1\"`")
 	assert.Contains(t, generatedCode, "Param2 int32 `xml:\"param2\" json:\"param2\"`")
-	
+
 	assert.Contains(t, generatedCode, "type SinglePrimitiveMessage struct {")
 	assert.Contains(t, generatedCode, "Id string `xml:\"id\" json:\"id\"`")
-	
+
 	// Document-style message should not generate wrapper type, but should have RequestBody type
 	assert.NotContains(t, generatedCode, "type SingleElementMessage struct {")
 	assert.Contains(t, generatedCode, "type RequestBody struct {")
-	
+
 	// Check operations use correct types
 	assert.Contains(t, generatedCode, "MultiPartOp(ctx context.Context, request *MultiPartMessage) (*MultiPartMessage, error)")
 	assert.Contains(t, generatedCode, "SinglePrimitiveOp(ctx context.Context, request *SinglePrimitiveMessage) (*SinglePrimitiveMessage, error)")

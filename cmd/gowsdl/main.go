@@ -120,7 +120,7 @@ func validatePath(path string) error {
 			Err:   errors.New("path cannot be empty"),
 		}
 	}
-	
+
 	return nil
 }
 
@@ -133,7 +133,7 @@ func validateIdentifier(name, fieldType string) error {
 			Err:   errors.New("cannot be empty"),
 		}
 	}
-	
+
 	// Check for common unsafe characters
 	if strings.ContainsAny(name, "/<>:\"|?*") {
 		return &ValidationError{
@@ -142,7 +142,7 @@ func validateIdentifier(name, fieldType string) error {
 			Err:   errors.New("contains unsafe characters"),
 		}
 	}
-	
+
 	// Check for relative path components
 	if strings.Contains(name, "..") || strings.Contains(name, "./") {
 		return &ValidationError{
@@ -151,7 +151,7 @@ func validateIdentifier(name, fieldType string) error {
 			Err:   errors.New("contains path traversal sequences"),
 		}
 	}
-	
+
 	return nil
 }
 
@@ -175,17 +175,17 @@ func main() {
 		if errors.As(err, &validationErr) {
 			log.Fatalf("Validation error: %v", validationErr)
 		}
-		
+
 		var wsdlErr *gen.WSDLError
 		if errors.As(err, &wsdlErr) {
 			log.Fatalf("WSDL error: %v", wsdlErr)
 		}
-		
-		var schemaErr *gen.SchemaError  
+
+		var schemaErr *gen.SchemaError
 		if errors.As(err, &schemaErr) {
 			log.Fatalf("Schema error: %v", schemaErr)
 		}
-		
+
 		log.Fatalf("Error: %v", err)
 	}
 }
@@ -219,11 +219,11 @@ func run() error {
 	if err := validateIdentifier(*pkg, "package name"); err != nil {
 		return fmt.Errorf("invalid package name: %w", err)
 	}
-	
+
 	if err := validateIdentifier(*outFile, "output file"); err != nil {
 		return fmt.Errorf("invalid output file: %w", err)
 	}
-	
+
 	if err := validatePath(*dir); err != nil {
 		return fmt.Errorf("invalid directory: %w", err)
 	}
@@ -299,7 +299,7 @@ func run() error {
 	}
 
 	pkgDir := filepath.Join(*dir, *pkg)
-	
+
 	// Create directory with proper permissions and handle existing directories
 	err = os.MkdirAll(pkgDir, 0755)
 	if err != nil {
@@ -379,7 +379,7 @@ func run() error {
 			}
 			return fmt.Errorf("failed to format generated server code: %w", err)
 		}
-		
+
 		if err := writeData(serverFile, serverSource); err != nil {
 			return fmt.Errorf("failed to write formatted server code: %w", err)
 		}
@@ -387,7 +387,7 @@ func run() error {
 
 	// Output what was generated
 	log.Printf("Generated %s (package %s) from %s", outputPath, *pkg, wsdlPath)
-	
+
 	if *generateServer {
 		log.Printf("Generated %s (server implementation)", serverFilePath)
 	}

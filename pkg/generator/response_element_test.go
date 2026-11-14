@@ -116,7 +116,7 @@ func TestResponseElementNamespaceHandling(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -128,20 +128,20 @@ func TestResponseElementNamespaceHandling(t *testing.T) {
 
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	typesStr := string(types)
 	t.Logf("Generated types:\n%s", typesStr)
-	
+
 	// Response elements should use local name only (no namespace prefix)
-	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"SendungsRueckmeldung"`+"`"), 
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"SendungsRueckmeldung"`+"`"),
 		"SendungsRueckmeldung should use local name only")
-	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"GetOrderResponse"`+"`"), 
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"GetOrderResponse"`+"`"),
 		"GetOrderResponse should use local name only")
-	
+
 	// Request elements should still use namespace prefix
-	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:SendungsErstellung"`+"`"), 
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:SendungsErstellung"`+"`"),
 		"SendungsErstellung should use tns: prefix")
-	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:GetOrder"`+"`"), 
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:GetOrder"`+"`"),
 		"GetOrder should use tns: prefix")
 }
 
@@ -154,7 +154,7 @@ func TestResponseUnmarshalWithDifferentPrefixes(t *testing.T) {
 		OrderID string   `xml:"OrderID,omitempty"`
 		Status  string   `xml:"Status,omitempty"`
 	}
-	
+
 	// Test with different namespace prefixes
 	testCases := []struct {
 		name      string
@@ -194,12 +194,12 @@ func TestResponseUnmarshalWithDifferentPrefixes(t *testing.T) {
 			wantError: false,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var resp GetOrderResponse
 			err := xml.Unmarshal([]byte(tc.xmlData), &resp)
-			
+
 			if tc.wantError {
 				assert.Error(t, err)
 			} else {
@@ -218,14 +218,14 @@ func TestRequestTypesRetainNamespacePrefix(t *testing.T) {
 		XMLName xml.Name `xml:"tns:GetOrder"`
 		OrderID string   `xml:"OrderID,omitempty"`
 	}
-	
+
 	// This type is used for marshaling requests, not unmarshaling responses
 	// So the tns: prefix is correct and should be retained
 	order := GetOrder{OrderID: "12345"}
-	
+
 	data, err := xml.Marshal(order)
 	require.NoError(t, err)
-	
+
 	xmlStr := string(data)
 	// Should produce <tns:GetOrder><OrderID>12345</OrderID></tns:GetOrder>
 	assert.Contains(t, xmlStr, "<tns:GetOrder>")
@@ -285,7 +285,7 @@ func TestResponseElementNamespaceHandlingWSDL2(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -297,15 +297,15 @@ func TestResponseElementNamespaceHandlingWSDL2(t *testing.T) {
 
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	typesStr := string(types)
 	t.Logf("Generated types:\n%s", typesStr)
-	
+
 	// Response elements should use local name only (no namespace prefix)
-	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"GetCustomerResponse"`+"`"), 
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"GetCustomerResponse"`+"`"),
 		"GetCustomerResponse should use local name only")
-	
+
 	// Request elements should still use namespace prefix
-	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:GetCustomer"`+"`"), 
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:GetCustomer"`+"`"),
 		"GetCustomer should use tns: prefix")
 }

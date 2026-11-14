@@ -6,7 +6,7 @@ package generator
 
 import (
 	"fmt"
-	
+
 	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/kastrul/gowsdl/pkg/types"
 	"github.com/kastrul/gowsdl/pkg/utils"

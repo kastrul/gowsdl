@@ -68,26 +68,26 @@ func (s SOAPBody) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	if err := e.EncodeToken(start); err != nil {
 		return err
 	}
-	
+
 	// Encode the body content directly without wrapper
 	if s.Body != nil {
 		if err := e.Encode(s.Body); err != nil {
 			return err
 		}
 	}
-	
+
 	// Encode fault if present
 	if s.Fault != nil {
 		if err := e.Encode(s.Fault); err != nil {
 			return err
 		}
 	}
-	
+
 	// End the soap:Body element
 	if err := e.EncodeToken(xml.EndElement{Name: start.Name}); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -578,7 +578,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	var mmaBoundary string
-	if s.opts.mma{
+	if s.opts.mma {
 		mmaBoundary, err = getMmaHeader(res.Header.Get("Content-Type"))
 		if err != nil {
 			return err

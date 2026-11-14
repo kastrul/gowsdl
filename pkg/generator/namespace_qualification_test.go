@@ -81,7 +81,7 @@ func TestElementFormDefaultUnqualified(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -93,10 +93,10 @@ func TestElementFormDefaultUnqualified(t *testing.T) {
 
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	typesStr := string(types)
 	t.Logf("Generated types:\n%s", typesStr)
-	
+
 	// Check that the generated code compiles and test XML output
 	testCode := `package main
 
@@ -134,15 +134,15 @@ func main() {
 	testFile, err := os.CreateTemp("", "test-namespace-*.go")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(testFile.Name()) }()
-	
+
 	_, err = testFile.WriteString(testCode)
 	require.NoError(t, err)
 	require.NoError(t, testFile.Close())
-	
+
 	// The key assertion: child elements should NOT have namespace prefix
 	// When elementFormDefault is unqualified, only the root element should be qualified
 	assert.Contains(t, typesStr, "CreateOrder", "Should generate CreateOrder type")
-	
+
 	// Check that XMLName is only set on global elements
 	// TODO: This is what needs to be fixed - currently all types get XMLName with namespace
 }
@@ -176,7 +176,7 @@ func TestElementFormDefaultQualified(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
-	
+
 	_, err = file.WriteString(wsdl)
 	require.NoError(t, err)
 
@@ -188,9 +188,9 @@ func TestElementFormDefaultQualified(t *testing.T) {
 
 	types, ok := files["types"]
 	require.True(t, ok, "types file should be generated")
-	
+
 	typesStr := string(types)
-	
+
 	// When elementFormDefault="qualified", all elements should be in the namespace
 	// This is the current behavior and should remain unchanged
 	assert.Contains(t, typesStr, "XMLName", "Should have XMLName fields")
@@ -204,18 +204,18 @@ func TestXMLMarshalingWithUnqualifiedElements(t *testing.T) {
 		ProductCode string `xml:"productCode,omitempty"`
 		Quantity    int    `xml:"quantity,omitempty"`
 	}
-	
+
 	type CreateOrderItems struct {
 		Item []CreateOrderItemType `xml:"item,omitempty"`
 	}
-	
+
 	// Only the root element should have namespace
 	type CreateOrder struct {
 		XMLName    xml.Name          `xml:"https://example.com/service CreateOrder"`
 		CustomerID string            `xml:"customerID,omitempty"`
 		Items      *CreateOrderItems `xml:"items,omitempty"`
 	}
-	
+
 	order := &CreateOrder{
 		CustomerID: "12345",
 		Items: &CreateOrderItems{
@@ -224,22 +224,22 @@ func TestXMLMarshalingWithUnqualifiedElements(t *testing.T) {
 			},
 		},
 	}
-	
+
 	data, err := xml.Marshal(order)
 	require.NoError(t, err)
-	
+
 	xmlStr := string(data)
 	t.Logf("Expected XML structure:\n%s", xmlStr)
-	
+
 	// The root element should have the namespace
 	assert.Contains(t, xmlStr, "CreateOrder xmlns=")
-	
+
 	// Child elements should NOT have namespace prefix
 	assert.Contains(t, xmlStr, "<customerID>")
 	assert.Contains(t, xmlStr, "<items>")
 	assert.Contains(t, xmlStr, "<item>")
 	assert.Contains(t, xmlStr, "<productCode>")
-	
+
 	// Verify no namespace prefixes on child elements
 	assert.NotContains(t, xmlStr, "tns:customerID")
 	assert.NotContains(t, xmlStr, "ns:customerID")

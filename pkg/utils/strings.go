@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	regexpNumbersOnly = regexp.MustCompile(`^\d+$`)
+	regexpNumbersOnly  = regexp.MustCompile(`^\d+$`)
 	regexpSpecialChars = regexp.MustCompile(`[\s-:/\\,\.\(\)\[\]{}#=<>]`)
 )
 
@@ -20,7 +20,7 @@ func MakePublic(id string) string {
 	if id == "" {
 		return ""
 	}
-	
+
 	runes := []rune(id)
 	for i, r := range runes {
 		if unicode.IsLetter(r) || r == '_' {
@@ -41,30 +41,30 @@ func ToGoName(s string, public bool) string {
 
 	// Replace special characters with underscores
 	s = regexpSpecialChars.ReplaceAllString(s, "_")
-	
+
 	// Remove consecutive underscores
 	for strings.Contains(s, "__") {
 		s = strings.ReplaceAll(s, "__", "_")
 	}
-	
+
 	// Trim underscores
 	s = strings.Trim(s, "_")
-	
+
 	// Handle numeric-only names
 	if regexpNumbersOnly.MatchString(s) {
 		s = "Field" + s
 	}
-	
+
 	// Ensure first character is valid
 	if s != "" && !unicode.IsLetter(rune(s[0])) && s[0] != '_' {
 		s = "Field" + s
 	}
-	
+
 	// Make public if requested
 	if public {
 		return MakePublic(s)
 	}
-	
+
 	return s
 }
 
@@ -74,7 +74,7 @@ func NormalizeXMLName(name string) string {
 	if idx := strings.LastIndex(name, ":"); idx >= 0 {
 		name = name[idx+1:]
 	}
-	
+
 	return ToGoName(name, true)
 }
 
@@ -106,8 +106,8 @@ var ReservedGoWords = map[string]string{
 	"return":      "return_",
 	"var":         "var_",
 	// Common standard library conflicts
-	"string":      "string_",
-	"error":       "error_",
-	"byte":        "byte_",
-	"rune":        "rune_",
+	"string": "string_",
+	"error":  "error_",
+	"byte":   "byte_",
+	"rune":   "rune_",
 }
