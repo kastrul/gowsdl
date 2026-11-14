@@ -456,10 +456,18 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 								{{$partName}} *{{toGoType $partType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{else if ne .Element ""}}
 								{{$elementType := .Element | removeNamespacePrefix}}
-								{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{rpcPartPath .}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{end}}
 						{{end}}
 					}
+					{{with rpcWrapperNamespace .}}
+
+					// TargetNamespace returns the namespace of the tns prefix the
+					// elements of the wrapped parts are named with.
+					func (t Operation{{$opName | makePublic}}In) TargetNamespace() string {
+						return "{{.}}"
+					}
+					{{end}}
 				{{end}}
 			{{end}}
 			
@@ -482,9 +490,9 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 							{{else if ne .Element ""}}
 								{{$elementType := .Element | removeNamespacePrefix}}
 								{{if eq .Name "return"}}
-									Return *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"return,omitempty" json:"return,omitempty"` + "`" + `
+									Return *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{rpcPartPath .}},omitempty" json:"return,omitempty"` + "`" + `
 								{{else}}
-									{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{rpcPartPath .}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
 							{{end}}
 						{{end}}

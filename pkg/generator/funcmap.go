@@ -41,6 +41,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"attrXMLName":              g.attrXMLName,
 		"isHeaderMessage":          g.isHeaderMessage,
 		"partXMLName":              g.partXMLName,
+		"bodyElementPart":          g.bodyElementPart,
 	}
 }
 

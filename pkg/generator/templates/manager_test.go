@@ -121,8 +121,9 @@ func wsdl1StubFuncMap() template.FuncMap {
 		"findType": func(message string) string {
 			return strings.TrimSuffix(message, "Message")
 		},
-		"findSOAPAction": func(operation, _ string) string { return operation },
-		"isRPCPortType":  func(_ string) bool { return false },
+		"findSOAPAction":  func(operation, _ string) string { return operation },
+		"isRPCPortType":   func(_ string) bool { return false },
+		"bodyElementPart": func(any) any { return nil },
 	}
 }
 

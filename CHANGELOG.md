@@ -68,6 +68,13 @@ not compile or did not work before.
 
 ### Fixed
 
+- RPC-style operations whose message parts are declared with `element`
+  instead of `type` now compile and work. The request and response are the
+  part's element itself, and the element is sent inside an accessor element
+  named after the part, as WSDL 1.1 section 3.5 specifies. Before, the client
+  did not compile when a message had a single element part, and failed at run
+  time with an encoding/xml name conflict when it had several; an element part
+  of a simple type was sent as the accessor's text instead of inside it.
 - A one-way operation (a WSDL 1.1 operation with no `output`, or a WSDL 2.0
   in-only operation) is now generated as a method returning only `error` that
   sends the request and expects no response. It used to be generated as
