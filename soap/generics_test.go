@@ -7,7 +7,9 @@ package soap
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -297,6 +299,9 @@ func TestBatchClientWithContextCancellation(t *testing.T) {
 		assert.NotNil(t, result.Result.Fault)
 		assert.True(t, result.Result.TransportError)
 		assert.Contains(t, result.Result.Fault.String, "context deadline exceeded")
+		assert.ErrorIs(t, result.Result.Err, context.DeadlineExceeded)
+		_, err := result.Result.Unwrap()
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	}
 }
 func TestNewGenericClientFromClient(t *testing.T) {
@@ -350,5 +355,124 @@ func TestNewGenericClientFromClient(t *testing.T) {
 		require.False(t, result.IsSuccess())
 		assert.False(t, result.TransportError)
 		assert.Equal(t, "User not found", result.Fault.String)
+	})
+}
+
+func TestClient_CallResult(t *testing.T) {
+	t.Run("infers request type and uses client options", func(t *testing.T) {
+		var gotUser, gotPass, gotAction, gotBody string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotUser, gotPass, _ = r.BasicAuth()
+			gotAction = r.Header.Get("SOAPAction")
+			body, _ := io.ReadAll(r.Body)
+			gotBody = string(body)
+			w.Header().Set("Content-Type", "text/xml")
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+				<soap:Body>
+					<getUserResponse><user><id>7</id><name>Jane</name></user></getUserResponse>
+				</soap:Body>
+			</soap:Envelope>`))
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, WithBasicAuth("alice", "secret"))
+
+		result := client.CallResult[GetUserResponse](context.Background(), "getUser", &GetUserRequest{UserID: 7})
+
+		require.True(t, result.IsSuccess(), "unexpected fault: %+v", result.Fault)
+		assert.False(t, result.TransportError)
+		assert.NoError(t, result.Err)
+		assert.Equal(t, 7, result.Value.User.ID)
+		assert.Equal(t, "Jane", result.Value.User.Name)
+		assert.Equal(t, "alice", gotUser)
+		assert.Equal(t, "secret", gotPass)
+		assert.Contains(t, gotAction, "getUser")
+		assert.Contains(t, gotBody, "<getUserRequest><userId>7</userId></getUserRequest>")
+	})
+
+	t.Run("SOAP fault is reported as fault", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/xml")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+				<soap:Body>
+					<soap:Fault><faultcode>Client</faultcode><faultstring>User not found</faultstring></soap:Fault>
+				</soap:Body>
+			</soap:Envelope>`))
+		}))
+		defer server.Close()
+
+		result := NewClient(server.URL).CallResult[GetUserResponse](context.Background(), "getUser", GetUserRequest{UserID: 1})
+
+		require.False(t, result.IsSuccess())
+		assert.False(t, result.TransportError)
+		assert.Equal(t, "Client", result.Fault.Code)
+		assert.Equal(t, "User not found", result.Fault.String)
+		assert.Same(t, result.Fault, result.Err)
+		assert.NoError(t, result.Fault.Unwrap())
+		_, err := result.Unwrap()
+		assert.ErrorIs(t, err, result.Fault)
+	})
+
+	t.Run("transport error is flagged", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		url := server.URL
+		server.Close()
+
+		result := NewClient(url).CallResult[GetUserResponse](context.Background(), "getUser", &GetUserRequest{UserID: 1})
+
+		require.False(t, result.IsSuccess())
+		assert.True(t, result.TransportError)
+		assert.Equal(t, "Client.Transport", result.Fault.Code)
+		assert.NotEmpty(t, result.Fault.String)
+		require.Error(t, result.Err)
+		assert.Equal(t, result.Err.Error(), result.Fault.String)
+		_, err := result.Unwrap()
+		assert.ErrorIs(t, err, result.Err)
+	})
+
+	t.Run("deadline exceeded is detectable", func(t *testing.T) {
+		release := make(chan struct{})
+		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			<-release
+		}))
+		defer server.Close()
+		defer close(release)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		result := NewClient(server.URL).CallResult[GetUserResponse](ctx, "getUser", &GetUserRequest{UserID: 1})
+
+		require.True(t, result.TransportError)
+		assert.ErrorIs(t, result.Err, context.DeadlineExceeded)
+		_, err := result.Unwrap()
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		fault, ok := errors.AsType[*SOAPFault](err)
+		require.True(t, ok, "Unwrap error should still be a *SOAPFault")
+		assert.Equal(t, "Client.Transport", fault.Code)
+	})
+
+	t.Run("HTTP status error is detectable", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte("no access"))
+		}))
+		defer server.Close()
+
+		result := NewClient(server.URL).CallResult[GetUserResponse](context.Background(), "getUser", &GetUserRequest{UserID: 1})
+
+		require.True(t, result.TransportError)
+		httpErr, ok := errors.AsType[*HTTPError](result.Err)
+		require.True(t, ok, "Err should be *HTTPError, got %T", result.Err)
+		assert.Equal(t, http.StatusUnauthorized, httpErr.StatusCode)
+		assert.Equal(t, "no access", string(httpErr.ResponseBody))
+
+		_, err := result.Unwrap()
+		httpErr, ok = errors.AsType[*HTTPError](err)
+		require.True(t, ok, "Unwrap error should wrap *HTTPError, got %T", err)
+		assert.Equal(t, http.StatusUnauthorized, httpErr.StatusCode)
 	})
 }

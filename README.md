@@ -76,7 +76,7 @@ Usage: gowsdl [options] myservice.wsdl
   -tls-min-version string
     	Minimum TLS version (1.0, 1.1, 1.2, 1.3) (default "1.2")
   -use-generics
-    	Generate code using Go generics (requires Go 1.18+)
+    	Generate code using Go generics (requires Go 1.27+)
   -v	Shows gowsdl version
 ```
 
@@ -106,9 +106,9 @@ g, err := gowsdl.NewGoWSDL("myservice.wsdl",
 
 ### Go Generics Support
 
-Starting with Go 1.18, gowsdl can generate code that uses generics for type-safe SOAP operations. This feature provides:
+gowsdl can generate code that uses generics for type-safe SOAP operations. The generated code calls generic methods, so it needs Go 1.27 or newer. This feature provides:
 
-* An extra `<Operation>Generic` method per operation, backed by `soap.GenericClient[TReq, TResp]`
+* An extra `<Operation>Generic` method per operation, backed by `soap.Client.CallResult`
 * A `soap.Result[T]` return value that separates successful responses from SOAP faults and transport errors
 * Backward compatibility: the standard methods are generated unchanged, and nothing generic is generated without the flag
 
@@ -143,15 +143,22 @@ if result.IsSuccess() {
     user, _ := result.Unwrap()
     // Use user
 } else if result.TransportError {
-    // Network/transport error (connection refused, timeout, etc.)
-    fmt.Printf("Transport Error: %s\n", result.Fault.String)
+    // Network/transport error (connection refused, timeout, HTTP status, etc.).
+    // result.Err is the original error, so errors.Is and errors.As work on it.
+    if errors.Is(result.Err, context.DeadlineExceeded) {
+        // Retry later
+    }
+    var httpErr *soap.HTTPError
+    if errors.As(result.Err, &httpErr) {
+        fmt.Printf("HTTP status: %d\n", httpErr.StatusCode)
+    }
 } else {
     // Business logic error from SOAP service
     fmt.Printf("SOAP Fault: %s\n", result.Fault.String)
 }
 ```
 
-The generic method provides better type safety and explicit fault handling, making it easier to distinguish between transport errors and business logic errors (SOAP faults).
+The generic method provides better type safety and explicit fault handling, making it easier to distinguish between transport errors and business logic errors (SOAP faults). The error returned by `result.Unwrap()` also wraps the original transport error, so `errors.Is(err, context.DeadlineExceeded)` works on it too.
 
 #### Generic-only Mode
 

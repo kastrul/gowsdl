@@ -33,29 +33,11 @@ const OperationsWSDL1Template = `
 
 	type {{$portType | makePrivate}} struct {
 		client *soap.Client
-		{{if and $.UseGenerics (not (isRPCPortType $portTypeName))}}
-		{{range .Operations}}
-			{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
-			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
-			{{if and (ne $requestType "") (ne $responseType "")}}
-			{{.Name | makePrivate}}Client *soap.GenericClient[{{$requestType}}, {{$responseType}}]
-			{{end}}
-		{{end}}
-		{{end}}
 	}
 
 	func New{{$portType}}(client *soap.Client) {{$portType}} {
 		return &{{$portType | makePrivate}}{
 			client: client,
-			{{if and $.UseGenerics (not (isRPCPortType $portTypeName))}}
-			{{range .Operations}}
-				{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
-				{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
-				{{if and (ne $requestType "") (ne $responseType "")}}
-				{{.Name | makePrivate}}Client: soap.NewGenericClientFromClient[{{$requestType}}, {{$responseType}}](client, "{{findSOAPAction .Name $portTypeName}}"),
-				{{end}}
-			{{end}}
-			{{end}}
 		}
 	}
 
@@ -143,7 +125,7 @@ const OperationsWSDL1Template = `
 			if request == nil {
 				return soap.Result[{{$responseType}}]{}, soap.ErrNilRequest
 			}
-			return service.{{.Name | makePrivate}}Client.CallAsResult(ctx, *request), nil
+			return service.client.CallResult[{{$responseType}}](ctx, "{{$soapAction}}", request), nil
 		}
 		{{end}}
 	{{end}}

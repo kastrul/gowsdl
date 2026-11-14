@@ -250,7 +250,7 @@ func TestGenerator_EmptyInputMessage_Generics(t *testing.T) {
 			require.NoError(t, err)
 			ops := string(code["operations"])
 
-			assert.Contains(t, ops, "soap.GenericClient[GetAlertsSoapIn, GetAlertsResponse]")
+			assert.Contains(t, ops, "service.client.CallResult[GetAlertsResponse](ctx, ")
 			assert.NotContains(t, ops, "HttpGet")
 
 			assertCompilableSource(t, code)

@@ -172,15 +172,14 @@ func TestManager_GetGenericOperationsTemplate(t *testing.T) {
 
 	withGenerics := render(true, false)
 	assert.Contains(t, withGenerics, "GetUserGeneric(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
-	assert.Contains(t, withGenerics, "getUserClient *soap.GenericClient[GetUserRequest, GetUserResponse]")
-	assert.Contains(t, withGenerics, `soap.NewGenericClientFromClient[GetUserRequest, GetUserResponse](client, "GetUser")`)
-	assert.Contains(t, withGenerics, "CallAsResult")
+	assert.Contains(t, withGenerics, `service.client.CallResult[GetUserResponse](ctx, "GetUser", request)`)
+	assert.NotContains(t, withGenerics, "GenericClient")
 
 	assert.Contains(t, withGenerics, "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)")
 
 	genericsOnly := render(true, true)
 	assert.Contains(t, genericsOnly, "GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
-	assert.Contains(t, genericsOnly, "CallAsResult")
+	assert.Contains(t, genericsOnly, `service.client.CallResult[GetUserResponse](ctx, "GetUser", request)`)
 	assert.NotContains(t, genericsOnly, "GetUserGeneric")
 	assert.NotContains(t, genericsOnly, "(*GetUserResponse, error)")
 
