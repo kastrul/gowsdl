@@ -127,49 +127,41 @@ func (g *Generator) httpOnlyPortTypes() map[string]bool {
 // filteredPortTypes returns the SOAP-reachable WSDL 1.1 port types restricted
 // to the selected operations. The parsed WSDL is not modified.
 func (g *Generator) filteredPortTypes() []*parser.WSDLPortType {
-	portTypes := g.soapPortTypes()
-	if len(g.operations) == 0 {
-		return portTypes
-	}
-
-	result := make([]*parser.WSDLPortType, 0, len(portTypes))
-	for _, pt := range portTypes {
-		var ops []*parser.WSDLOperation
-		for _, op := range pt.Operations {
-			if g.operations[op.Name] {
-				ops = append(ops, op)
-			}
-		}
-		if len(ops) == 0 {
-			continue
-		}
-		filtered := *pt
-		filtered.Operations = ops
-		result = append(result, &filtered)
-	}
-	return result
+	return filterOperations(g.soapPortTypes(), g.operations,
+		func(pt *parser.WSDLPortType) *[]*parser.WSDLOperation { return &pt.Operations },
+		func(op *parser.WSDLOperation) string { return op.Name })
 }
 
 // filteredInterfaces returns the WSDL 2.0 interfaces restricted to the
 // selected operations. The parsed WSDL is not modified.
 func (g *Generator) filteredInterfaces() []*parser.WSDL2Interface {
-	if len(g.operations) == 0 {
-		return g.wsdl2.Interfaces
+	return filterOperations(g.wsdl2.Interfaces, g.operations,
+		func(iface *parser.WSDL2Interface) *[]*parser.WSDL2Operation { return &iface.Operations },
+		func(op *parser.WSDL2Operation) string { return op.Name })
+}
+
+// filterOperations returns shallow copies of containers restricted to the
+// operations named in selected, dropping containers left without any. An
+// empty selection returns containers unchanged. The originals are not
+// modified.
+func filterOperations[C, O any](containers []*C, selected map[string]bool, operations func(*C) *[]O, name func(O) string) []*C {
+	if len(selected) == 0 {
+		return containers
 	}
 
-	result := make([]*parser.WSDL2Interface, 0, len(g.wsdl2.Interfaces))
-	for _, iface := range g.wsdl2.Interfaces {
-		var ops []*parser.WSDL2Operation
-		for _, op := range iface.Operations {
-			if g.operations[op.Name] {
+	result := make([]*C, 0, len(containers))
+	for _, c := range containers {
+		var ops []O
+		for _, op := range *operations(c) {
+			if selected[name(op)] {
 				ops = append(ops, op)
 			}
 		}
 		if len(ops) == 0 {
 			continue
 		}
-		filtered := *iface
-		filtered.Operations = ops
+		filtered := *c
+		*operations(&filtered) = ops
 		result = append(result, &filtered)
 	}
 	return result

@@ -154,87 +154,40 @@ func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 }
 
 func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error) {
-	gocode := make(map[string][]byte)
+	// The header is generated afterwards because its imports depend on the
+	// types and operations code.
+	type part struct {
+		name       string
+		serverOnly bool
+		gen        func() ([]byte, error)
+	}
+	parts := filterSlice([]part{
+		{"types", false, g.genTypes},
+		{"operations", false, g.genOperations},
+		{"server", true, g.genServer},
+		{"server_header", true, g.genServerHeader},
+		{"server_wsdl", true, func() ([]byte, error) { return g.genServerWSDL(ctx) }},
+	}, func(p part) bool { return g.generateServer || !p.serverOnly })
+
+	results := make([][]byte, len(parts))
+	errs := make([]error, len(parts))
 
 	var wg sync.WaitGroup
-	var mu sync.Mutex
-
-	// Calculate number of goroutines based on generateServer flag. The
-	// header is generated afterwards because its imports depend on the
-	// types and operations code.
-	numGoroutines := 2 // types, operations
-	if g.generateServer {
-		numGoroutines = 5 // add server, server_header, server_wsdl
-	}
-	errChan := make(chan error, numGoroutines)
-
-	// Generate all components in parallel
-	wg.Add(numGoroutines)
-
-	go func() {
-		defer wg.Done()
-		if data, err := g.genTypes(); err != nil {
-			errChan <- err
-		} else {
-			mu.Lock()
-			gocode["types"] = data
-			mu.Unlock()
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		if data, err := g.genOperations(); err != nil {
-			errChan <- err
-		} else {
-			mu.Lock()
-			gocode["operations"] = data
-			mu.Unlock()
-		}
-	}()
-
-	// Only generate server files if generateServer is enabled
-	if g.generateServer {
+	wg.Add(len(parts))
+	for i, part := range parts {
 		go func() {
 			defer wg.Done()
-			if data, err := g.genServer(); err != nil {
-				errChan <- err
-			} else {
-				mu.Lock()
-				gocode["server"] = data
-				mu.Unlock()
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			if data, err := g.genServerHeader(); err != nil {
-				errChan <- err
-			} else {
-				mu.Lock()
-				gocode["server_header"] = data
-				mu.Unlock()
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			if data, err := g.genServerWSDL(ctx); err != nil {
-				errChan <- err
-			} else {
-				mu.Lock()
-				gocode["server_wsdl"] = data
-				mu.Unlock()
-			}
+			results[i], errs[i] = part.gen()
 		}()
 	}
-
 	wg.Wait()
-	close(errChan)
 
-	// Check for errors
-	for err := range errChan {
-		return nil, err
+	gocode := make(map[string][]byte, len(parts)+1)
+	for i, part := range parts {
+		if errs[i] != nil {
+			return nil, errs[i]
+		}
+		gocode[part.name] = results[i]
 	}
 
 	header, err := g.genHeader(gocode["types"], gocode["operations"])

@@ -17,16 +17,26 @@ import (
 	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
+// renderTemplate parses text as a template named name with funcMap and
+// executes it with data. Errors are wrapped with the template name.
+func renderTemplate(name, text string, funcMap template.FuncMap, data any) ([]byte, error) {
+	tmpl, err := template.New(name).Funcs(funcMap).Parse(text)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s template: %w", name, err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to execute %s template: %w", name, err)
+	}
+
+	return buf.Bytes(), nil
+}
+
 // Template generation methods
 // genHeader renders the file header, importing context and soap only when
 // the given generated code refers to them.
 func (g *Generator) genHeader(code ...[]byte) ([]byte, error) {
-	funcMap := g.createFuncMap()
-	tmpl, err := template.New("header").Funcs(funcMap).Parse(templates.HeaderTemplate)
-	if err != nil {
-		return nil, err
-	}
-
 	used := referencedPackages(code...)
 	data := templates.HeaderData{
 		Package: g.pkg,
@@ -34,12 +44,7 @@ func (g *Generator) genHeader(code ...[]byte) ([]byte, error) {
 		SOAP:    used["soap"],
 	}
 
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return renderTemplate("header", templates.HeaderTemplate, g.createFuncMap(), data)
 }
 
 func (g *Generator) genTypes() ([]byte, error) {
@@ -220,13 +225,6 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return dict, nil
 	}
 
-	tmpl, err := template.New("types").Funcs(funcMap).Parse(templates.TypesTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-
 	// Merge all schemas into a single data structure
 	data := struct {
 		SimpleType   []*parser.XSDSimpleType
@@ -278,11 +276,12 @@ func (g *Generator) genTypes() ([]byte, error) {
 		data.InlineTypes = used
 	}
 
-	if err := tmpl.Execute(&buf, data); err != nil {
+	code, err := renderTemplate("types", templates.TypesTemplate, funcMap, data)
+	if err != nil {
 		return nil, err
 	}
 
-	return fixStructOmitempty(breakRecursiveStructs(dedupeStructFields(buf.Bytes()))), nil
+	return fixStructOmitempty(breakRecursiveStructs(dedupeStructFields(code))), nil
 }
 
 // filterSlice returns the elements of items for which keep returns true.
@@ -297,8 +296,6 @@ func filterSlice[T any](items []T, keep func(T) bool) []T {
 }
 
 func (g *Generator) genOperations() ([]byte, error) {
-	funcMap := g.createFuncMap()
-
 	// Choose template based on WSDL version
 	var tmplText string
 	var data interface{}
@@ -327,22 +324,10 @@ func (g *Generator) genOperations() ([]byte, error) {
 		return []byte{}, nil
 	}
 
-	tmpl, err := template.New("operations").Funcs(funcMap).Parse(tmplText)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return renderTemplate("operations", tmplText, g.createFuncMap(), data)
 }
 
 func (g *Generator) genServer() ([]byte, error) {
-	funcMap := g.createFuncMap()
-
 	// Choose template based on WSDL version
 	var tmplText string
 	var data interface{}
@@ -357,32 +342,11 @@ func (g *Generator) genServer() ([]byte, error) {
 		return nil, errors.New("no WSDL data available")
 	}
 
-	tmpl, err := template.New("server").Funcs(funcMap).Parse(tmplText)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return renderTemplate("server", tmplText, g.createFuncMap(), data)
 }
 
 func (g *Generator) genServerHeader() ([]byte, error) {
-	funcMap := g.createFuncMap()
-	tmpl, err := template.New("server_header").Funcs(funcMap).Parse(templates.ServerHeaderTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, g.pkg); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return renderTemplate("server_header", templates.ServerHeaderTemplate, g.createFuncMap(), g.pkg)
 }
 
 func (g *Generator) genServerWSDL(ctx context.Context) ([]byte, error) {
@@ -392,16 +356,5 @@ func (g *Generator) genServerWSDL(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read WSDL file: %w", err)
 	}
 
-	funcMap := g.createFuncMap()
-	tmpl, err := template.New("server_wsdl").Funcs(funcMap).Parse(templates.ServerWSDLTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, string(wsdlContent)); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return renderTemplate("server_wsdl", templates.ServerWSDLTemplate, g.createFuncMap(), string(wsdlContent))
 }
