@@ -238,13 +238,28 @@ type WSDLSOAPAddress struct {
 	Location string `xml:"location,attr"`
 }
 
-// WSDLBinding defines only a SOAP binding and its operations
+// WSDLHTTPBinding represents an HTTP GET/POST binding (http:binding).
+type WSDLHTTPBinding struct {
+	Verb string `xml:"verb,attr"`
+}
+
+// WSDLBinding defines a binding and its operations. SOAPBinding holds the
+// SOAP 1.1 binding; SOAP12Binding and HTTPBinding are set only when the
+// binding declares a soap12:binding or http:binding respectively.
 type WSDLBinding struct {
-	Name        string           `xml:"name,attr"`
-	Type        string           `xml:"type,attr"`
-	Doc         string           `xml:"documentation"`
-	SOAPBinding WSDLSOAPBinding  `xml:"http://schemas.xmlsoap.org/wsdl/soap/ binding"`
-	Operations  []*WSDLOperation `xml:"http://schemas.xmlsoap.org/wsdl/ operation"`
+	Name          string           `xml:"name,attr"`
+	Type          string           `xml:"type,attr"`
+	Doc           string           `xml:"documentation"`
+	SOAPBinding   WSDLSOAPBinding  `xml:"http://schemas.xmlsoap.org/wsdl/soap/ binding"`
+	SOAP12Binding *WSDLSOAPBinding `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ binding"`
+	HTTPBinding   *WSDLHTTPBinding `xml:"http://schemas.xmlsoap.org/wsdl/http/ binding"`
+	Operations    []*WSDLOperation `xml:"http://schemas.xmlsoap.org/wsdl/ operation"`
+}
+
+// IsHTTPOnly reports whether the binding is an HTTP GET/POST binding with no
+// SOAP 1.1 or SOAP 1.2 binding, so a SOAP client cannot reach it.
+func (b *WSDLBinding) IsHTTPOnly() bool {
+	return b.HTTPBinding != nil && b.SOAP12Binding == nil && b.SOAPBinding == (WSDLSOAPBinding{})
 }
 
 // WSDLPort defines the properties for a SOAP port only.

@@ -491,7 +491,14 @@ const TypesTemplate = `
 
 {{/* Generate wrapper types for RPC-style messages */}}
 {{range .Messages}}
-	{{if isRPCStyleMessage .}}
+	{{if isEmptyMessage .}}
+		{{$type := replaceReservedWords .Name | makePublic}}
+		// {{$type}} is the empty {{.Name}} message. It marshals to no XML, so the SOAP body stays empty.
+		type {{$type}} struct{}
+
+		// MarshalXML implements xml.Marshaler and writes nothing.
+		func ({{$type}}) MarshalXML(*xml.Encoder, xml.StartElement) error { return nil }
+	{{else if isRPCStyleMessage .}}
 		{{$type := replaceReservedWords .Name | makePublic}}
 		type {{$type}} struct {
 			{{range .Parts}}
