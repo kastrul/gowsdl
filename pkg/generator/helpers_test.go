@@ -138,6 +138,34 @@ func (g generated) typeNames(tb testing.TB) []string {
 	return names
 }
 
+// declNames returns the names of the formatted client's type and function
+// declarations, with methods as "Recv.Method", in declaration order.
+func (g generated) declNames(tb testing.TB) []string {
+	tb.Helper()
+
+	file, err := parser.ParseFile(token.NewFileSet(), "client.go", g.client(tb), 0)
+	require.NoError(tb, err)
+
+	var names []string
+	for _, d := range file.Decls {
+		switch d := d.(type) {
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				if ts, ok := spec.(*ast.TypeSpec); ok {
+					names = append(names, ts.Name.Name)
+				}
+			}
+		case *ast.FuncDecl:
+			if recv := receiverName(d); recv != "" {
+				names = append(names, recv+"."+d.Name.Name)
+			} else {
+				names = append(names, d.Name.Name)
+			}
+		}
+	}
+	return names
+}
+
 // moduleFiles returns the unformatted output as files for goModule:
 // client.go, and server.go when server code was generated, under dir.
 func (g generated) moduleFiles(dir string) map[string]string {
