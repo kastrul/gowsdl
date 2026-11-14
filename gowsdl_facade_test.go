@@ -40,6 +40,10 @@ func TestWithOptions(t *testing.T) {
 			name:   "WithServerGeneration",
 			option: WithServerGeneration(true),
 		},
+		{
+			name:   "WithOperations",
+			option: WithOperations("TestOperation"),
+		},
 	}
 
 	// Create a temporary WSDL file for testing
@@ -291,4 +295,9 @@ func createTempWSDLFile(t *testing.T) string {
 	require.NoError(t, err)
 
 	return tmpFile.Name()
+}
+
+func TestParseOperationList(t *testing.T) {
+	assert.Equal(t, []string{"A", "B"}, ParseOperationList(" A, ,B "))
+	assert.Nil(t, ParseOperationList(""))
 }

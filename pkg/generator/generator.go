@@ -36,6 +36,7 @@ type Generator struct {
 	httpConfig       http.HTTPConfig
 	useGenerics      bool
 	generateServer   bool
+	operations       map[string]bool
 	namespaceManager *core.NamespaceManager
 	typeMapper       *types.TypeMapper
 }
@@ -118,6 +119,10 @@ func New(file string, opts ...Option) (*Generator, error) {
 // Generate initiates the code generation process
 func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 	if err := g.unmarshal(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := g.validateOperationFilter(); err != nil {
 		return nil, err
 	}
 
@@ -594,7 +599,7 @@ func (g *Generator) genOperations() ([]byte, error) {
 
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
 		tmplText = templates.OperationsWSDL2Template
-		data = g.wsdl2.Interfaces
+		data = g.filteredInterfaces()
 	} else if g.wsdl != nil {
 		tmplText = templates.OperationsWSDL1Template
 		// Wrap data to include both PortTypes and Messages for RPC operations
@@ -602,7 +607,7 @@ func (g *Generator) genOperations() ([]byte, error) {
 			PortTypes []*parser.WSDLPortType
 			Messages  []*parser.WSDLMessage
 		}{
-			PortTypes: g.wsdl.PortTypes,
+			PortTypes: g.filteredPortTypes(),
 			Messages:  g.wsdl.Messages,
 		}
 	} else {

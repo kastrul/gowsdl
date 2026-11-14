@@ -46,6 +46,8 @@ Usage: gowsdl [options] myservice.wsdl
   -v    Shows gowsdl version
   -use-generics
         Generate code using Go generics (requires Go 1.18+ for generic features)
+  -operations string
+        Comma-separated list of operation names to generate client methods for (default: all)
   -insecure-skip-verify
         Skip TLS certificate verification when downloading WSDLs
   -ca-cert string
@@ -60,6 +62,28 @@ Usage: gowsdl [options] myservice.wsdl
         HTTP client timeout (default 30s)
   -server
         Generate server-side code in addition to client code
+```
+
+### Generating Only Selected Operations
+
+Large WSDLs often expose far more operations than you need. Use `-operations` to generate client methods only for the operations you list:
+
+```bash
+gowsdl -operations "GetUser,UpdateUser" -p myservice -o myservice.go myservice.wsdl
+```
+
+* Names match the WSDL `operation` name exactly (case-sensitive).
+* Port types / interfaces with none of the listed operations are left out of the client.
+* All schema types are still generated, and server code (`-generate-server`) is not filtered.
+* An unknown name fails generation and lists the available operations.
+
+From Go, use the `WithOperations` option:
+
+```go
+g, err := gowsdl.NewGoWSDL("myservice.wsdl",
+    gowsdl.WithPackage("myservice"),
+    gowsdl.WithOperations("GetUser", "UpdateUser"),
+)
 ```
 
 ### Go Generics Support
