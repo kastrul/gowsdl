@@ -126,13 +126,13 @@ func (fr *FixtureRunner) loadFixturesFromDir(dir, style string) error {
 			case strings.HasSuffix(file, ".wsdl"):
 				testCase.WSDLPath = fullPath
 			case strings.HasSuffix(file, "_request.xml"):
-				content, err := os.ReadFile(fullPath)
+				content, err := os.ReadFile(fullPath) //nolint:gosec // fullPath is a file listed from the fixture directory
 				if err != nil {
 					return err
 				}
 				testCase.ExpectedRequest = string(content)
 			case strings.HasSuffix(file, "_test_data.json"):
-				content, err := os.ReadFile(fullPath)
+				content, err := os.ReadFile(fullPath) //nolint:gosec // fullPath is a file listed from the fixture directory
 				if err != nil {
 					return err
 				}
@@ -277,7 +277,7 @@ func (fr *FixtureRunner) executeRealSOAPRequest(fixture FixtureTestCase) (string
 	// Create package-specific directory
 	packageName := fmt.Sprintf("fixture_%s", strings.ReplaceAll(fixture.Name, "-", "_"))
 	packageDir := filepath.Join(fr.tempDir, packageName)
-	if err := os.MkdirAll(packageDir, 0755); err != nil {
+	if err := os.MkdirAll(packageDir, 0o750); err != nil {
 		return "", fmt.Errorf("failed to create package directory: %w", err)
 	}
 
@@ -298,7 +298,7 @@ func (fr *FixtureRunner) executeRealSOAPRequest(fixture FixtureTestCase) (string
 	// Write generated code to files
 	for filename, content := range gocode {
 		filePath := filepath.Join(packageDir, filename+".go")
-		if err := os.WriteFile(filePath, content, 0644); err != nil {
+		if err := os.WriteFile(filePath, content, 0o600); err != nil {
 			return "", fmt.Errorf("failed to write file %s: %w", filePath, err)
 		}
 	}
@@ -310,7 +310,7 @@ func (fr *FixtureRunner) executeRealSOAPRequest(fixture FixtureTestCase) (string
 	}
 
 	testFilePath := filepath.Join(packageDir, "fixture_test.go")
-	if err := os.WriteFile(testFilePath, []byte(testCode), 0644); err != nil {
+	if err := os.WriteFile(testFilePath, []byte(testCode), 0o600); err != nil {
 		return "", fmt.Errorf("failed to write test file: %w", err)
 	}
 

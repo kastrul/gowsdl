@@ -116,7 +116,8 @@ func NewGoWSDL(file string, opts ...Option) (*GoWSDL, error) {
 	return g, nil
 }
 
-// Legacy constructors for backward compatibility
+// NewGoWSDLWithConfig creates a GoWSDL with server generation enabled. It is
+// kept for backward compatibility; new code should call NewGoWSDL with options.
 func NewGoWSDLWithConfig(file, pkg string, httpConfig *HTTPClientConfig, exportAllTypes bool) (*GoWSDL, error) {
 	opts := []Option{
 		WithPackage(pkg),
@@ -127,6 +128,9 @@ func NewGoWSDLWithConfig(file, pkg string, httpConfig *HTTPClientConfig, exportA
 	return NewGoWSDL(file, opts...)
 }
 
+// NewGoWSDLWithOptions creates a GoWSDL with server generation enabled and,
+// if useGenerics is true, generic client operations. It is kept for backward
+// compatibility; new code should call NewGoWSDL with options.
 func NewGoWSDLWithOptions(file, pkg string, httpConfig *HTTPClientConfig, exportAllTypes bool, useGenerics bool) (*GoWSDL, error) {
 	opts := []Option{
 		WithPackage(pkg),

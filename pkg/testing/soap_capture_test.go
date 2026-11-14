@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -145,7 +146,7 @@ func TestSOAPCaptureThreadSafety(t *testing.T) {
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <getUser xmlns="http://example.com/test">
-      <userId>` + string(rune('0'+goroutineID)) + string(rune('0'+j)) + `</userId>
+      <userId>` + strconv.Itoa(goroutineID) + strconv.Itoa(j) + `</userId>
     </getUser>
   </soap:Body>
 </soap:Envelope>`
@@ -343,7 +344,7 @@ func TestSOAPCaptureReadError(t *testing.T) {
 // errorReader is a test helper that always returns an error on Read
 type errorReader struct{}
 
-func (e *errorReader) Read(p []byte) (n int, err error) {
+func (e *errorReader) Read(_ []byte) (n int, err error) {
 	return 0, io.ErrUnexpectedEOF
 }
 

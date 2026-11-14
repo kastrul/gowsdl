@@ -33,7 +33,7 @@ func countGoroutinesIn(fn string) int {
 }
 
 func TestBatchClient_CancelledBatchDoesNotLeakGoroutines(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
 		<-r.Context().Done()
 	}))
