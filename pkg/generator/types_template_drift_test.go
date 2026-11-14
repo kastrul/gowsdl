@@ -298,3 +298,29 @@ func TestGenerator_IDAttribute_IsRenamedAtEverySite(t *testing.T) {
 		assert.Regexp(t, `\sLang string .xml:"lang,attr,omitempty"`, body, name)
 	}
 }
+
+func TestGenerator_SimpleContentValueField_HasJSONTagAtEverySite(t *testing.T) {
+	const simpleContent = `<xsd:simpleContent><xsd:extension base="xsd:decimal"><xsd:attribute name="currency" type="xsd:string"/></xsd:extension></xsd:simpleContent>`
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Money">`+simpleContent+`</xsd:complexType>
+            <xsd:complexType name="Holder">
+                <xsd:sequence><xsd:element name="amount"><xsd:complexType>`+simpleContent+`</xsd:complexType></xsd:element></xsd:sequence>
+            </xsd:complexType>
+            <xsd:element name="Price"><xsd:complexType>`+simpleContent+`</xsd:complexType></xsd:element>
+        </xsd:schema>
+    </types>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+	types := string(formatted)
+
+	for _, name := range []string{"Money", "HolderAmountType", "Price"} {
+		assert.Contains(t, structBody(t, types, name), "Value float64 `xml:\",chardata\" json:\"value\"`", name)
+	}
+}

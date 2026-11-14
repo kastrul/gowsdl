@@ -130,6 +130,14 @@ field of an element of that name.
 	{{end}}
 {{end}}
 
+{{/*
+ValueField emits the field holding the text of a simpleContent extension. It is
+called with the extension's base type.
+*/}}
+{{define "ValueField"}}
+	Value {{toGoType . false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
+{{end}}
+
 {{/* ExtensionBase embeds the base type of a complexContent extension. */}}
 {{define "ExtensionBase"}}
 	{{if ne .Extension.Base ""}}
@@ -212,7 +220,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 		{{end}}
 		{{with .SimpleContent}}
 			{{if ne .Extension.Base ""}}
-				Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata"` + "`" + `
+				{{template "ValueField" .Extension.Base}}
 			{{end}}
 			{{template "AttributeFields" .Extension.Attributes}}
 		{{end}}
@@ -242,7 +250,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	type {{$type}} struct {
 		{{if $inline.ComplexType.SimpleContent.Extension.Base}}
 			{{/* Simple content with attributes */}}
-			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
+			{{template "ValueField" $inline.ComplexType.SimpleContent.Extension.Base}}
 			{{template "AttributeFields" $inline.ComplexType.SimpleContent.Extension.Attributes}}
 		{{else}}
 			{{template "ComplexTypeInlineNamed" $inline.ComplexType}}
@@ -320,7 +328,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 					{{template "ComplexTypeInline" .ComplexType}}
 					{{with .ComplexType.SimpleContent}}
 						{{if ne .Extension.Base ""}}
-							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
+							{{template "ValueField" .Extension.Base}}
 						{{end}}
 						{{template "AttributeFields" .Extension.Attributes}}
 					{{end}}
