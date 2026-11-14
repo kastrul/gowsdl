@@ -649,7 +649,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return nil, err
 	}
 
-	return buf.Bytes(), nil
+	return fixStructOmitempty(buf.Bytes()), nil
 }
 
 // filterSlice returns the elements of items for which keep returns true.
