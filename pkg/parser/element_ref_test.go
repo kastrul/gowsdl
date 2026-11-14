@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/xml"
 	"testing"
 )
 
@@ -133,4 +134,21 @@ func TestElementReferenceResolution(t *testing.T) {
 			t.Errorf("Expected 2 sequence elements, got %d", len(element.ComplexType.Sequence))
 		}
 	})
+}
+
+func TestXSDSchema_UnmarshalRecordsDefaultNamespace(t *testing.T) {
+	data := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+		xmlns="urn:default" xmlns:p="urn:prefixed" targetNamespace="urn:default"/>`
+
+	var schema XSDSchema
+	if err := xml.Unmarshal([]byte(data), &schema); err != nil {
+		t.Fatalf("unmarshal schema: %v", err)
+	}
+
+	if got := schema.Xmlns[""]; got != "urn:default" {
+		t.Errorf("default namespace = %q, want %q", got, "urn:default")
+	}
+	if got := schema.Xmlns["p"]; got != "urn:prefixed" {
+		t.Errorf("prefixed namespace = %q, want %q", got, "urn:prefixed")
+	}
 }

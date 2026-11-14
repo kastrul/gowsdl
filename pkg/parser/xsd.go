@@ -13,7 +13,7 @@ const xmlschema11 = "http://www.w3.org/2001/XMLSchema"
 // XSDSchema represents an entire Schema structure.
 type XSDSchema struct {
 	XMLName            xml.Name          `xml:"schema"`
-	Xmlns              map[string]string `xml:"-"`
+	Xmlns              map[string]string `xml:"-"` // prefix -> namespace URI; "" holds the default namespace
 	Tns                string            `xml:"xmlns tns,attr"`
 	Xs                 string            `xml:"xmlns xs,attr"`
 	Version            string            `xml:"version,attr"`
@@ -34,6 +34,10 @@ func (s *XSDSchema) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	for _, attr := range start.Attr {
 		if attr.Name.Space == "xmlns" {
 			s.Xmlns[attr.Name.Local] = attr.Value
+			continue
+		}
+		if attr.Name.Space == "" && attr.Name.Local == "xmlns" {
+			s.Xmlns[""] = attr.Value
 			continue
 		}
 

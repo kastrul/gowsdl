@@ -41,6 +41,7 @@ type Generator struct {
 	keepUnusedTypes  bool
 	namespaceManager *core.NamespaceManager
 	typeMapper       *types.TypeMapper
+	refNamespaces    map[*parser.XSDElement]string
 }
 
 // Option defines a function that configures Generator
@@ -308,6 +309,7 @@ func (g *Generator) unmarshal(ctx context.Context) error {
 
 	g.resolveSchemaExternals(ctx)
 	ResolveAttributeRefs(g.getSchemas())
+	g.refNamespaces = resolveElementRefNamespaces(g.getSchemas())
 
 	return nil
 }
@@ -649,7 +651,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return nil, err
 	}
 
-	return dedupeStructFields(buf.Bytes()), nil
+	return fixStructOmitempty(dedupeStructFields(buf.Bytes())), nil
 }
 
 // filterSlice returns the elements of items for which keep returns true.
@@ -798,6 +800,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"isRPCPortType":            g.isRPCPortType,
 		"findNameByType":           g.findNameByType,
 		"isMessageElement":         g.isMessageElement,
+		"refXMLName":               g.refXMLName,
 	}
 }
 
