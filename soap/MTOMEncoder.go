@@ -1,6 +1,7 @@
 package soap
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -77,7 +78,7 @@ func (b *Binary) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
 			},
 		}, start)
 	}
-	return enc.EncodeElement(b.Bytes, start)
+	return enc.EncodeElement(base64.StdEncoding.EncodeToString(b.Bytes()), start)
 }
 
 // UnmarshalXML implements the xml.Unmarshaler interface to decode a Binary form XML
