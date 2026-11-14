@@ -316,14 +316,7 @@ const TypesTemplate = `
 		{{end}}
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
-			{{if ne .Extension.Base ""}}
-				{{if eq .Extension.Base "soap:Header"}}
-					soap.Header
-				{{else}}
-					{{toGoType .Extension.Base false}}
-				{{end}}
-			{{end}}
-			{{template "Elements" .Extension.Sequence}}
+			{{template "Elements" (dict "ParentTypeName" $.Name "Elements" .Extension.Sequence)}}
 			{{range .Extension.Attributes}}
 				{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
 			{{end}}
@@ -578,13 +571,15 @@ const TypesTemplate = `
 {{end}}
 
 {{define "Elements"}}
-	{{range .}}
+	{{$parentTypeName := .ParentTypeName}}
+	{{range .Elements}}
 		{{if ne .Ref ""}}
 			{{removeNamespacePrefix .Ref | replaceReservedWords | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 		{{else}}
 			{{if not .Type}}
 				{{if .ComplexType}}
-					{{template "ComplexTypeInline" .}}
+					{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
+					{{replaceReservedWords .Name | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
 				{{end}}
 			{{else}}
 				{{replaceReservedWords .Name | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
