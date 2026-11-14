@@ -6,17 +6,29 @@ package parser
 
 import "encoding/xml"
 
-const wsdl2Namespace = "http://www.w3.org/ns/wsdl/"
+const (
+	// wsdl2Namespace is the WSDL 2.0 namespace defined by the W3C specification.
+	wsdl2Namespace = "http://www.w3.org/ns/wsdl"
+	// wsdl2LegacyNamespace is the non-standard trailing-slash form of the WSDL 2.0
+	// namespace, accepted for backward compatibility.
+	wsdl2LegacyNamespace = "http://www.w3.org/ns/wsdl/"
+)
+
+// isWSDL2Namespace reports whether ns identifies the WSDL 2.0 namespace,
+// accepting both the spec form and the legacy trailing-slash form.
+func isWSDL2Namespace(ns string) bool {
+	return ns == wsdl2Namespace || ns == wsdl2LegacyNamespace
+}
 
 // WSDL2 represents the structure of a WSDL 2.0 document
 type WSDL2 struct {
 	Xmlns           map[string]string `xml:"-"`
 	Name            string            `xml:"name,attr"`
 	TargetNamespace string            `xml:"targetNamespace,attr"`
-	Types           WSDLType          `xml:"http://www.w3.org/ns/wsdl/ types"`
-	Interfaces      []*WSDL2Interface `xml:"http://www.w3.org/ns/wsdl/ interface"`
-	Bindings        []*WSDL2Binding   `xml:"http://www.w3.org/ns/wsdl/ binding"`
-	Services        []*WSDL2Service   `xml:"http://www.w3.org/ns/wsdl/ service"`
+	Types           WSDLType          `xml:"types"`
+	Interfaces      []*WSDL2Interface `xml:"interface"`
+	Bindings        []*WSDL2Binding   `xml:"binding"`
+	Services        []*WSDL2Service   `xml:"service"`
 	Imports         []*WSDLImport     `xml:"import"`
 	Includes        []*WSDL2Include   `xml:"include"`
 	Doc             string            `xml:"documentation"`
@@ -198,7 +210,7 @@ Loop:
 				if err := d.DecodeElement(&w.Doc, &t); err != nil {
 					return err
 				}
-			case t.Name.Space == wsdl2Namespace:
+			case isWSDL2Namespace(t.Name.Space):
 				switch t.Name.Local {
 				case "types":
 					if err := d.DecodeElement(&w.Types, &t); err != nil {
