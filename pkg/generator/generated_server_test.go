@@ -139,3 +139,37 @@ const wsdl2StockQuote = `<?xml version="1.0" encoding="UTF-8"?>
               address="http://example.com/stockquote"/>
   </service>
 </description>`
+
+const wsdl11ServerContentTypeTest = `package stock
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestEndpointRejectsWrongContentTypeOnce(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	Endpoint(rec, req)
+
+	got, _ := io.ReadAll(rec.Result().Body)
+	if n := strings.Count(string(got), "<soap:Envelope"); n != 1 {
+		t.Fatalf("expected exactly one envelope, got %d: %s", n, got)
+	}
+	if !strings.Contains(string(got), "<faultcode>soap:Client</faultcode>") {
+		t.Fatalf("expected a client fault: %s", got)
+	}
+}
+`
+
+func TestGenerator_WSDL11Server_WrongContentTypeWritesOneEnvelope(t *testing.T) {
+	_, out := generateCode(t, filepath.Join("..", "..", "fixtures", "stock.wsdl"),
+		WithPackage("stock"), WithServerGeneration(true))
+
+	runGeneratedModuleTests(t, "stock", out, map[string]string{"server_test.go": wsdl11ServerContentTypeTest})
+}

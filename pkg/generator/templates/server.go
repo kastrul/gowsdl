@@ -129,7 +129,6 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 			String: "Invalid content type for SOAP 1.1; expected 'text/xml'",
 			Detail: "Invalid content type for SOAP 1.1; expected 'text/xml'",
 		}
-		xml.NewEncoder(w).Encode(resp)
 		return
 	}
 
