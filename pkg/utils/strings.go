@@ -33,6 +33,22 @@ func MakePublic(id string) string {
 	return string(runes)
 }
 
+// MakeExportedField converts an XML name into an exported Go identifier for
+// use as a struct field. Unlike MakePublic, it strips leading underscores and
+// prefixes "X" when the remaining name cannot start an exported identifier,
+// so "_this" becomes "This" and "_1st" becomes "X1st".
+func MakeExportedField(id string) string {
+	runes := []rune(strings.TrimLeft(id, "_"))
+	if len(runes) == 0 || !unicode.IsLetter(runes[0]) {
+		return "X" + string(runes)
+	}
+	runes[0] = unicode.ToUpper(runes[0])
+	if !unicode.IsUpper(runes[0]) {
+		return "X" + string(runes)
+	}
+	return string(runes)
+}
+
 // ToGoName converts a string to a valid Go identifier
 func ToGoName(s string, public bool) string {
 	if s == "" {
