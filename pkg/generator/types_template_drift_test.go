@@ -324,3 +324,34 @@ func TestGenerator_SimpleContentValueField_HasJSONTagAtEverySite(t *testing.T) {
 		assert.Contains(t, structBody(t, types, name), "Value float64 `xml:\",chardata\" json:\"value\"`", name)
 	}
 }
+
+func TestGenerator_TargetNamespaceMethod_IsDocumentedAtEverySite(t *testing.T) {
+	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Payload"><xsd:sequence><xsd:element name="v" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:element name="Payload" type="tns:Payload"/>
+            <xsd:element name="Aliased" type="tns:Payload"/>
+            <xsd:element name="Anonymous">
+                <xsd:complexType><xsd:sequence><xsd:element name="v" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+    <message name="PayloadIn"><part name="parameters" element="tns:Payload"/></message>
+    <message name="AliasedIn"><part name="parameters" element="tns:Aliased"/></message>
+    <message name="AnonymousIn"><part name="parameters" element="tns:Anonymous"/></message>
+</definitions>`)
+	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
+	require.NoError(t, err)
+	types := string(formatted)
+
+	for _, name := range []string{"Payload", "Aliased", "Anonymous"} {
+		assert.Contains(t, types,
+			"// TargetNamespace returns the target namespace for SOAP envelope configuration\n"+
+				"func (t "+name+") TargetNamespace() string {\n\treturn \"http://example.com/x\"\n}", name)
+	}
+}

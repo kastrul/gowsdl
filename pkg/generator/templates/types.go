@@ -131,6 +131,18 @@ field of an element of that name.
 {{end}}
 
 {{/*
+TargetNamespaceMethod emits the TargetNamespace method of a message type. It is
+called with a dict: Type is the Go type, Namespace the target namespace of its
+declaration.
+*/}}
+{{define "TargetNamespaceMethod"}}
+	// TargetNamespace returns the target namespace for SOAP envelope configuration
+	func (t {{.Type}}) TargetNamespace() string {
+		return "{{.Namespace}}"
+	}
+{{end}}
+
+{{/*
 ValueField emits the field holding the text of a simpleContent extension. It is
 called with the extension's base type.
 */}}
@@ -228,10 +240,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	
 	{{if isMessageElement .Name}}
 		{{if not (isQualified .)}}
-		// TargetNamespace returns the target namespace for SOAP envelope configuration
-		func (t {{$type}}) TargetNamespace() string {
-			return "{{complexTypeNamespace .}}"
-		}
+		{{template "TargetNamespaceMethod" (dict "Type" $type "Namespace" (complexTypeNamespace .))}}
 		{{end}}
 	{{end}}
 {{end}}
@@ -279,9 +288,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				}
 				
 				{{if not (isQualified .)}}
-				func (t {{$type}}) TargetNamespace() string {
-					return "{{elementNamespace .}}"
-				}
+				{{template "TargetNamespaceMethod" (dict "Type" $type "Namespace" (elementNamespace .))}}
 				{{end}}
 			{{else}}
 				type {{$type}} {{$goType}}
@@ -335,9 +342,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				}
 
 				{{if not (isQualified .)}}
-				func (t {{$outerType}}) TargetNamespace() string {
-					return "{{elementNamespace .}}"
-				}
+				{{template "TargetNamespaceMethod" (dict "Type" $outerType "Namespace" (elementNamespace .))}}
 				{{end}}
 			{{end}}
 		{{else}}
