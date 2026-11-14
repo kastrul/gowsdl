@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/kastrul/gowsdl/pkg/parser"
-	"github.com/kastrul/gowsdl/pkg/utils"
 )
 
 // WithOperations restricts client code generation to the named WSDL operations.
@@ -109,17 +108,15 @@ func (g *Generator) soapPortTypes() []*parser.WSDLPortType {
 // bound only through HTTP-only bindings.
 func (g *Generator) httpOnlyPortTypes() map[string]bool {
 	httpOnly := make(map[string]bool)
-	soap := make(map[string]bool)
-	for _, b := range g.wsdl.Binding {
-		name := utils.LocalName(b.Type)
-		if b.IsHTTPOnly() {
-			httpOnly[name] = true
-		} else {
-			soap[name] = true
+	for _, pt := range g.wsdl.PortTypes {
+		bindings := g.bindingsForPortType(pt.Name)
+		if len(bindings) == 0 {
+			continue
 		}
-	}
-	for name := range soap {
-		delete(httpOnly, name)
+		soap := filterSlice(bindings, func(b *parser.WSDLBinding) bool { return !b.IsHTTPOnly() })
+		if len(soap) == 0 {
+			httpOnly[pt.Name] = true
+		}
 	}
 	return httpOnly
 }

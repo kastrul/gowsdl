@@ -107,19 +107,21 @@ func (g *Generator) collectTypeUsage() *typeUsage {
 		}
 
 		for _, pt := range g.filteredPortTypes() {
+			selected := make(map[string]bool, len(pt.Operations))
 			for _, op := range pt.Operations {
+				selected[op.Name] = true
 				useMessage(op.Input.Message)
 				useMessage(op.Output.Message)
 				for _, f := range op.Faults {
 					useMessage(f.Message)
 				}
 			}
-		}
-		for _, b := range g.wsdl.Binding {
-			for _, op := range b.Operations {
-				if g.operations[op.Name] {
-					useHeaders(op.Input.SOAPHeader)
-					useHeaders(op.Output.SOAPHeader)
+			for _, b := range g.bindingsForPortType(pt.Name) {
+				for _, op := range b.Operations {
+					if selected[op.Name] {
+						useHeaders(op.Input.SOAPHeader)
+						useHeaders(op.Output.SOAPHeader)
+					}
 				}
 			}
 		}

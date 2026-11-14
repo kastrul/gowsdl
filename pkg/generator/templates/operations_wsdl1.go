@@ -7,12 +7,12 @@ package templates
 // OperationsWSDL1Template is the template for WSDL 1.1 operations
 const OperationsWSDL1Template = `
 {{range .PortTypes}}
-	{{$portType := .Name | makePublic}}
+	{{$portType := .Name | makePublic}}{{$portTypeName := .Name}}
 
 	type {{$portType}} interface {
 		{{range .Operations}}
 			{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
-			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}{{$generic := and $.UseGenerics (not (isRPCPortType $portType)) (ne $requestType "") (ne $responseType "")}}
+			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}{{$generic := and $.UseGenerics (not (isRPCPortType $portTypeName)) (ne $requestType "") (ne $responseType "")}}
 
 			{{if .Faults}}
 			// Error can be either of the following types:
@@ -33,7 +33,7 @@ const OperationsWSDL1Template = `
 
 	type {{$portType | makePrivate}} struct {
 		client *soap.Client
-		{{if and $.UseGenerics (not (isRPCPortType $portType))}}
+		{{if and $.UseGenerics (not (isRPCPortType $portTypeName))}}
 		{{range .Operations}}
 			{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
 			{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
@@ -47,12 +47,12 @@ const OperationsWSDL1Template = `
 	func New{{$portType}}(client *soap.Client) {{$portType}} {
 		return &{{$portType | makePrivate}}{
 			client: client,
-			{{if and $.UseGenerics (not (isRPCPortType $portType))}}
+			{{if and $.UseGenerics (not (isRPCPortType $portTypeName))}}
 			{{range .Operations}}
 				{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
 				{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
 				{{if and (ne $requestType "") (ne $responseType "")}}
-				{{.Name | makePrivate}}Client: soap.NewGenericClientFromClient[{{$requestType}}, {{$responseType}}](client, "{{findSOAPAction .Name $portType}}"),
+				{{.Name | makePrivate}}Client: soap.NewGenericClientFromClient[{{$requestType}}, {{$responseType}}](client, "{{findSOAPAction .Name $portTypeName}}"),
 				{{end}}
 			{{end}}
 			{{end}}
@@ -62,11 +62,11 @@ const OperationsWSDL1Template = `
 	{{range .Operations}}
 		{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
 		{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
-		{{$soapAction := findSOAPAction .Name $portType}}{{$generic := and $.UseGenerics (not (isRPCPortType $portType)) (ne $requestType "") (ne $responseType "")}}
+		{{$soapAction := findSOAPAction .Name $portTypeName}}{{$generic := and $.UseGenerics (not (isRPCPortType $portTypeName)) (ne $requestType "") (ne $responseType "")}}
 
 		{{if not (and $generic $.GenericsOnly) -}}
 		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
-			{{if isRPCPortType $portType}}
+			{{if isRPCPortType $portTypeName}}
 				// RPC-style operation: wrap request in operation element
 				{{$opName := .Name}}
 				{{$inputMsgName := .Input.Message | removeNamespacePrefix}}

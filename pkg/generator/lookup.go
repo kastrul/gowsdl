@@ -51,23 +51,59 @@ func (g *Generator) resolveBuiltinBase(xsdType string) string {
 	return xsdType
 }
 
+// trimPortTypeSuffix removes the common "PortType", "Port" and "Type"
+// suffixes, in that order, for the fuzzy comparison in matchByLocalName.
+func trimPortTypeSuffix(name string) string {
+	name = strings.TrimSuffix(name, "PortType")
+	name = strings.TrimSuffix(name, "Port")
+	return strings.TrimSuffix(name, "Type")
+}
+
+// matchByLocalName returns, in order, the items whose QName reference (as
+// returned by ref) has exactly the local name name. When no item matches
+// exactly and fuzzyFallback is set, it returns the items whose reference
+// equals name case-insensitively once trimPortTypeSuffix has been applied to
+// both.
+func matchByLocalName[T any](items []T, ref func(T) string, name string, fuzzyFallback bool) []T {
+	exact := filterSlice(items, func(item T) bool { return utils.LocalName(ref(item)) == name })
+	if len(exact) > 0 || !fuzzyFallback {
+		return exact
+	}
+
+	normalized := trimPortTypeSuffix(name)
+	return filterSlice(items, func(item T) bool {
+		return strings.EqualFold(trimPortTypeSuffix(utils.LocalName(ref(item))), normalized)
+	})
+}
+
+// bindingsForPortType returns the WSDL 1.1 bindings of the named port type,
+// in document order. It is the single place a port type is matched to its
+// bindings: by exact local name, falling back to the fuzzy suffix-trimming
+// match only when no binding matches exactly. portType is the name as
+// declared in the WSDL, not the exported Go name.
+func (g *Generator) bindingsForPortType(portType string) []*parser.WSDLBinding {
+	if g.wsdl == nil {
+		return nil
+	}
+	return matchByLocalName(g.wsdl.Binding, func(b *parser.WSDLBinding) string { return b.Type }, portType, true)
+}
+
+// bindingsForInterface returns the WSDL 2.0 bindings of the named interface,
+// in document order, matched by exact local name.
+func (g *Generator) bindingsForInterface(iface string) []*parser.WSDL2Binding {
+	if g.wsdl2 == nil {
+		return nil
+	}
+	return matchByLocalName(g.wsdl2.Bindings, func(b *parser.WSDL2Binding) string { return b.Interface }, iface, false)
+}
+
 // isRPCPortType checks if a port type is used in an RPC-style binding
 func (g *Generator) isRPCPortType(portTypeName string) bool {
-	if g.wsdl == nil {
-		return false
-	}
-
-	// Check all bindings to see if any RPC binding references this port type
-	for _, binding := range g.wsdl.Binding {
+	for _, binding := range g.bindingsForPortType(portTypeName) {
 		if binding.SOAPBinding.Style == "rpc" {
-			// Extract port type name from binding type
-			bindingType := utils.LocalName(binding.Type)
-			if bindingType == portTypeName {
-				return true
-			}
+			return true
 		}
 	}
-
 	return false
 }
 
@@ -150,33 +186,14 @@ func (g *Generator) findType(message string) string {
 	return message
 }
 
+// findSOAPAction returns the SOAP action declared for the named operation by
+// the first binding of the named port type that has the operation, or "" if
+// none does.
 func (g *Generator) findSOAPAction(operation, portType string) string {
-	if g.wsdl == nil {
-		return ""
-	}
-
-	// Find the binding that references the port type
-	for _, binding := range g.wsdl.Binding {
-		// Check if this binding is for the port type we're looking for
-		bindingPortType := utils.LocalName(binding.Type)
-
-		// Normalize names by removing common suffixes to provide a more robust comparison
-		normalizedBindingPortType := bindingPortType
-		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "PortType")
-		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "Port")
-		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "Type")
-
-		normalizedPortType := portType
-		normalizedPortType = strings.TrimSuffix(normalizedPortType, "PortType")
-		normalizedPortType = strings.TrimSuffix(normalizedPortType, "Port")
-		normalizedPortType = strings.TrimSuffix(normalizedPortType, "Type")
-
-		if strings.EqualFold(normalizedBindingPortType, normalizedPortType) {
-			// Find the operation in this binding
-			for _, op := range binding.Operations {
-				if op.Name == operation {
-					return op.SOAPOperation.SOAPAction
-				}
+	for _, binding := range g.bindingsForPortType(portType) {
+		for _, op := range binding.Operations {
+			if op.Name == operation {
+				return op.SOAPOperation.SOAPAction
 			}
 		}
 	}
@@ -187,13 +204,7 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 // findWSDL2SOAPAction returns the SOAP action that a WSDL 2.0 binding of the
 // named interface declares for the named operation, or "" if none does.
 func (g *Generator) findWSDL2SOAPAction(operation, iface string) string {
-	if g.wsdl2 == nil {
-		return ""
-	}
-	for _, binding := range g.wsdl2.Bindings {
-		if utils.LocalName(binding.Interface) != iface {
-			continue
-		}
+	for _, binding := range g.bindingsForInterface(iface) {
 		for _, op := range binding.Operations {
 			if utils.LocalName(op.Ref) != operation {
 				continue
