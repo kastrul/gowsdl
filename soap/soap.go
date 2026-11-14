@@ -521,15 +521,9 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	buffer := new(bytes.Buffer)
-	var encoder SOAPEncoder
-	if s.opts.mtom && s.opts.mma {
-		return fmt.Errorf("cannot use MTOM (XOP) and MMA (MIME Multipart Attachments) option at the same time")
-	} else if s.opts.mtom {
-		encoder = newMtomEncoder(buffer)
-	} else if s.opts.mma {
-		encoder = newMmaEncoder(buffer, s.attachments)
-	} else {
-		encoder = xml.NewEncoder(buffer)
+	encoder, err := s.newRequestEncoder(buffer)
+	if err != nil {
+		return err
 	}
 
 	if err := encoder.Encode(envelope); err != nil {
@@ -550,13 +544,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	req = req.WithContext(ctx)
 
-	if s.opts.mtom {
-		req.Header.Add("Content-Type", fmt.Sprintf(mtomContentType, encoder.(*mtomEncoder).Boundary()))
-	} else if s.opts.mma {
-		req.Header.Add("Content-Type", fmt.Sprintf(mmaContentType, encoder.(*mmaEncoder).Boundary()))
-	} else {
-		req.Header.Add("Content-Type", "text/xml; charset=\"utf-8\"")
-	}
+	req.Header.Add("Content-Type", encoder.ContentType())
 	req.Header.Add("SOAPAction", soapAction)
 	req.Header.Set("User-Agent", "gowsdl/0.1")
 	if s.opts.httpHeaders != nil {
@@ -605,17 +593,9 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		},
 	}
 
-	mtomBoundary, err := getMtomHeader(res.Header.Get("Content-Type"))
+	newDecoder, err := s.newResponseDecoder(res.Header.Get("Content-Type"))
 	if err != nil {
 		return err
-	}
-
-	var mmaBoundary string
-	if s.opts.mma {
-		mmaBoundary, err = getMmaHeader(res.Header.Get("Content-Type"))
-		if err != nil {
-			return err
-		}
 	}
 
 	// we need to store the body in case of an error
@@ -630,14 +610,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		body = io.NopCloser(bytes.NewReader(cachedErrorBody))
 	}
 
-	var dec SOAPDecoder
-	if mtomBoundary != "" {
-		dec = newMtomDecoder(body, mtomBoundary)
-	} else if mmaBoundary != "" {
-		dec = newMmaDecoder(body, mmaBoundary)
-	} else {
-		dec = xml.NewDecoder(body)
-	}
+	dec := newDecoder(body)
 
 	if err := dec.Decode(respEnvelope); err != nil {
 		// the response doesn't contain a Fault/SOAPBody, so we return the original body

@@ -27,7 +27,40 @@ const ServerWSDLTemplate = `
 const wsdl = ` + "`" + `{{.}}` + "`" + `
 `
 
-// ServerTemplate is the template for generating the server implementation
+// ServerOperation names the Go types of one operation in generated server
+// code.
+type ServerOperation struct {
+	// Request is the Go type of the operation's request body element.
+	Request string
+	// Response is the Go type of the operation's response body element.
+	Response string
+	// HasRequest reports whether the operation declares an input. Operations
+	// without one get no dispatch entry.
+	HasRequest bool
+	// HasResponse reports whether the operation declares an output.
+	// Operations without one get no response field and no handler stub.
+	HasResponse bool
+}
+
+// ServerData is the data ServerTemplate and ServerWSDL2Template are executed
+// with. Its flags hold the points on which generated WSDL 1.1 and WSDL 2.0
+// servers differ.
+type ServerData struct {
+	// Operations lists the operations of every port type or interface, in
+	// document order.
+	Operations []ServerOperation
+	// AcceptSOAP12ContentType makes the server accept application/soap+xml
+	// requests besides text/xml, and report other content types with the
+	// fault WSDL 2.0 servers have always sent (without a detail element).
+	AcceptSOAP12ContentType bool
+	// WSDL2Layout keeps a blank line that WSDL 2.0 servers have always had
+	// in the dispatch loop. It does not affect behaviour.
+	WSDL2Layout bool
+}
+
+// ServerTemplate is the template for generating the server implementation.
+// It is executed with a ServerData value; the same text serves WSDL 1.1 and
+// WSDL 2.0.
 const ServerTemplate = `
 var WSDLUndefinedError = errors.New("Server was unable to process request. --> Object reference not set to an instance of an object.")
 
@@ -38,10 +71,9 @@ type SOAPEnvelopeRequest struct {
 
 type SOAPBodyRequest struct {
 	XMLName xml.Name ` + "`" + `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"` + "`" + `
-	{{range .}}
-		{{range .Operations}}
-			{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}} ` + `
-			{{$requestType}} *{{$requestType}} ` + "`" + `xml:",omitempty"` + "`" + `
+	{{range .Operations}}
+		{{if .HasRequest}}
+			{{.Request}} *{{.Request}} ` + "`" + `xml:",omitempty"` + "`" + `
 		{{end}}
 	{{end}}
 }
@@ -76,21 +108,16 @@ type Fault struct { ` + `
 type SOAPBodyResponse struct { ` + `
 	XMLName xml.Name   ` + "`" + `xml:"soap:Body"` + "`" + `
 	Fault   *Fault ` + "`" + `xml:",omitempty"` + "`" + `
-{{range .}}
-	{{range .Operations}}
-		{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
-		{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}} ` + `
-		{{$requestType}} *{{$responseType}} ` + "`" + `xml:",omitempty"` + "`" + `
+{{range .Operations}}
+	{{if and .HasRequest .HasResponse}}
+		{{.Request}} *{{.Response}} ` + "`" + `xml:",omitempty"` + "`" + `
 	{{end}}
 {{end}}
 }
 
-{{range .}}
-	{{range .Operations}}
-		{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
-		{{$requestType := findType .Input.Message | replaceReservedWords | makePublic}}
-		{{$requestTypeSource := findType .Input.Message | replaceReservedWords }}
-func (service *SOAPBodyRequest) {{$requestType}}Func(request *{{$requestType}}) (*{{$responseType}}, error) {
+{{range .Operations}}
+	{{if and .HasRequest .HasResponse}}
+func (service *SOAPBodyRequest) {{.Request}}Func(request *{{.Request}}) (*{{.Response}}, error) {
 	return nil, WSDLUndefinedError
 }
 	{{end}}
@@ -122,6 +149,15 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 	}()
 
 	header := r.Header.Get("Content-Type")
+	{{if .AcceptSOAP12ContentType -}}
+	if !strings.Contains(header, "text/xml") && !strings.Contains(header, "application/soap+xml") {
+		resp.Body.Fault = &Fault{}
+		resp.Body.Fault.Space = "http://schemas.xmlsoap.org/soap/envelope/"
+		resp.Body.Fault.Code = "soap:Client"
+		resp.Body.Fault.String = "Invalid content type, expected text/xml or application/soap+xml"
+		return
+	}
+	{{- else -}}
 	if !strings.Contains(header, "text/xml") {
 		resp.Body.Fault = &Fault{
 			Space:  "http://schemas.xmlsoap.org/soap/envelope/",
@@ -131,6 +167,7 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+	{{- end}}
 
 	err := xml.NewDecoder(r.Body).Decode(service)
 	if err != nil {
@@ -140,7 +177,8 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 	for i := 0; i < n; i++ {
 		field = val.Field(i)
 		name = val.Type().Field(i).Name
-		if field.Kind() == reflect.Ptr && !field.IsNil() {
+{{if .WSDL2Layout}}
+{{end}}		if field.Kind() == reflect.Ptr && !field.IsNil() {
 			find = true
 			break
 		}
@@ -169,153 +207,7 @@ func Endpoint(w http.ResponseWriter, r *http.Request) {
 }
 `
 
-// ServerWSDL2Template is the template for WSDL 2.0 server implementation
-const ServerWSDL2Template = `
-var WSDLUndefinedError = errors.New("Server was unable to process request. --> Object reference not set to an instance of an object.")
-
-type SOAPEnvelopeRequest struct {
-	XMLName xml.Name ` + "`" + `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"` + "`" + `
-	Body SOAPBodyRequest
-}
-
-type SOAPBodyRequest struct {
-	XMLName xml.Name ` + "`" + `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"` + "`" + `
-	{{range .}}
-		{{range .Operations}}
-			{{if .Input}}
-				{{$requestType := findType .Input.Element | replaceReservedWords | makePublic}} ` + `
-				{{$requestType}} *{{$requestType}} ` + "`" + `xml:",omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-	{{end}}
-}
-
-type SOAPEnvelopeResponse struct { ` + `
-	XMLName    xml.Name` + "`" + `xml:"soap:Envelope"` + "`" + `
-	PrefixSoap string  ` + "`" + `xml:"xmlns:soap,attr"` + "`" + `
-	PrefixXsi  string  ` + "`" + `xml:"xmlns:xsi,attr"` + "`" + `
-	PrefixXsd  string  ` + "`" + `xml:"xmlns:xsd,attr"` + "`" + `
-
-	Body SOAPBodyResponse
-}
-
-func NewSOAPEnvelopeResponse() *SOAPEnvelopeResponse {
-	return &SOAPEnvelopeResponse{
-		PrefixSoap: "http://schemas.xmlsoap.org/soap/envelope/",
-		PrefixXsd:  "http://www.w3.org/2001/XMLSchema",
-		PrefixXsi:  "http://www.w3.org/2001/XMLSchema-instance",
-	}
-}
-
-type Fault struct { ` + `
-	XMLName xml.Name ` + "`" + `xml:"SOAP-ENV:Fault"` + "`" + `
-	Space   string   ` + "`" + `xml:"xmlns:SOAP-ENV,omitempty,attr"` + "`" + `
-
-	Code   string    ` + "`" + `xml:"faultcode,omitempty"` + "`" + `
-	String string    ` + "`" + `xml:"faultstring,omitempty"` + "`" + `
-	Actor  string 	 ` + "`" + `xml:"faultactor,omitempty"` + "`" + `
-	Detail string    ` + "`" + `xml:"detail,omitempty"` + "`" + `
-}
-
-type SOAPBodyResponse struct { ` + `
-	XMLName xml.Name   ` + "`" + `xml:"soap:Body"` + "`" + `
-	Fault   *Fault ` + "`" + `xml:",omitempty"` + "`" + `
-{{range .}}
-	{{range .Operations}}
-		{{$requestType := ""}}
-		{{$responseType := ""}}
-		{{if .Input}}{{$requestType = findType .Input.Element | replaceReservedWords | makePublic}}{{end}}
-		{{if .Output}}{{$responseType = findType .Output.Element | replaceReservedWords | makePublic}}{{end}}
-		{{if and .Input .Output}} ` + `
-			{{$requestType}} *{{$responseType}} ` + "`" + `xml:",omitempty"` + "`" + `
-		{{end}}
-	{{end}}
-{{end}}
-}
-
-{{range .}}
-	{{range .Operations}}
-		{{$requestType := ""}}
-		{{$responseType := ""}}
-		{{if .Input}}{{$requestType = findType .Input.Element | replaceReservedWords | makePublic}}{{end}}
-		{{if .Output}}{{$responseType = findType .Output.Element | replaceReservedWords | makePublic}}{{end}}
-		{{if and .Input .Output}}
-			{{$requestTypeSource := findType .Input.Element | replaceReservedWords }}
-func (service *SOAPBodyRequest) {{$requestType}}Func(request *{{$requestType}}) (*{{$responseType}}, error) {
-	return nil, WSDLUndefinedError
-}
-		{{end}}
-	{{end}}
-{{end}}
-
-func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/xml; charset=utf-8")
-	val := reflect.ValueOf(&service.Body).Elem()
-	n := val.NumField()
-	var field reflect.Value
-	var name string
-	find := false
-
-	if r.Method == http.MethodGet {
-		w.Write([]byte(wsdl))
-		return
-	}
-
-	resp := NewSOAPEnvelopeResponse()
-	defer func() {
-		if r := recover(); r != nil {
-			resp.Body.Fault = &Fault{}
-			resp.Body.Fault.Space = "http://schemas.xmlsoap.org/soap/envelope/"
-			resp.Body.Fault.Code = "soap:Server"
-			resp.Body.Fault.Detail = fmt.Sprintf("%v", r)
-			resp.Body.Fault.String = fmt.Sprintf("%v", r)
-		}
-		xml.NewEncoder(w).Encode(resp)
-	}()
-
-	header := r.Header.Get("Content-Type")
-	if !strings.Contains(header, "text/xml") && !strings.Contains(header, "application/soap+xml") {
-		resp.Body.Fault = &Fault{}
-		resp.Body.Fault.Space = "http://schemas.xmlsoap.org/soap/envelope/"
-		resp.Body.Fault.Code = "soap:Client"
-		resp.Body.Fault.String = "Invalid content type, expected text/xml or application/soap+xml"
-		return
-	}
-
-	err := xml.NewDecoder(r.Body).Decode(service)
-	if err != nil {
-		panic(err)
-	}
-
-	for i := 0; i < n; i++ {
-		field = val.Field(i)
-		name = val.Type().Field(i).Name
-
-		if field.Kind() == reflect.Ptr && !field.IsNil() {
-			find = true
-			break
-		}
-	}
-
-	if !find {
-		panic(WSDLUndefinedError)
-	} else {
-		m := val.Addr().MethodByName(name + "Func")
-		if !m.IsValid() {
-			panic(WSDLUndefinedError)
-		}
-
-		vals := m.Call([]reflect.Value{field})
-		if vals[1].IsNil() {
-			reflect.ValueOf(&resp.Body).Elem().FieldByName(name).Set(vals[0])
-		} else {
-			panic(vals[1].Interface())
-		}
-	}
-}
-
-func Endpoint(w http.ResponseWriter, r *http.Request) {
-	request := SOAPEnvelopeRequest{}
-	request.call(w, r)
-}
-`
+// ServerWSDL2Template is the template for WSDL 2.0 server implementation. It
+// is the same text as ServerTemplate; the per-version differences are the
+// flags of the ServerData it is executed with.
+const ServerWSDL2Template = ServerTemplate
