@@ -6,6 +6,7 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -193,7 +194,7 @@ func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error)
 
 	header, err := g.genHeader(gocode["types"], gocode["operations"])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generating header: %w", err)
 	}
 	gocode["header"] = header
 

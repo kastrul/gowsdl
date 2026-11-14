@@ -6,6 +6,7 @@ package soap
 
 import (
 	"encoding/xml"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -87,17 +88,25 @@ func (xdt *XSDDateTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 	var content string
 	err := d.DecodeElement(&content, &start)
 	if err != nil {
-		return err
+		return fmt.Errorf("decoding xsd:dateTime element: %w", err)
 	}
 	xdt.innerTime, xdt.hasTz, err = fromString(content, time.RFC3339Nano)
-	return err
+	return wrapParse("xsd:dateTime", err)
 }
 
 // UnmarshalXMLAttr implements xml.UnmarshalerAttr on XSDDateTime to use time.RFC3339Nano
 func (xdt *XSDDateTime) UnmarshalXMLAttr(attr xml.Attr) error {
 	var err error
 	xdt.innerTime, xdt.hasTz, err = fromString(attr.Value, time.RFC3339Nano)
-	return err
+	return wrapParse("xsd:dateTime", err)
+}
+
+// wrapParse adds the xsd type to a parse error and passes nil through.
+func wrapParse(xsdType string, err error) error {
+	if err != nil {
+		return fmt.Errorf("parsing %s: %w", xsdType, err)
+	}
+	return nil
 }
 
 func fromString(content string, format string) (time.Time, bool, error) {
@@ -209,17 +218,17 @@ func (xd *XSDDate) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var content string
 	err := d.DecodeElement(&content, &start)
 	if err != nil {
-		return err
+		return fmt.Errorf("decoding xsd:date element: %w", err)
 	}
 	xd.innerDate, xd.hasTz, err = fromString(content, dateLayout)
-	return err
+	return wrapParse("xsd:date", err)
 }
 
 // UnmarshalXMLAttr implements xml.UnmarshalerAttr on XSDDate to use dateLayout
 func (xd *XSDDate) UnmarshalXMLAttr(attr xml.Attr) error {
 	var err error
 	xd.innerDate, xd.hasTz, err = fromString(attr.Value, dateLayout)
-	return err
+	return wrapParse("xsd:date", err)
 }
 
 // CreateXsdDate creates an object representing an xsd:date in Golang
@@ -283,14 +292,14 @@ func (xt *XSDTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var content string
 	err = d.DecodeElement(&content, &start)
 	if err != nil {
-		return err
+		return fmt.Errorf("decoding xsd:time element: %w", err)
 	}
-	return xt.fromString(content)
+	return wrapParse("xsd:time", xt.fromString(content))
 }
 
 // UnmarshalXMLAttr implements xml.UnmarshalerAttr on XSDTime to use timeLayout
 func (xt *XSDTime) UnmarshalXMLAttr(attr xml.Attr) error {
-	return xt.fromString(attr.Value)
+	return wrapParse("xsd:time", xt.fromString(attr.Value))
 }
 
 func (xt *XSDTime) fromString(content string) error {

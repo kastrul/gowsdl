@@ -258,7 +258,7 @@ func NewTypedSOAPDecoder[T any](r io.Reader) *TypedSOAPDecoder[T] {
 func (d *TypedSOAPDecoder[T]) Decode() (*T, error) {
 	var envelope GenericEnvelope[T]
 	if err := d.decoder.Decode(&envelope); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decoding SOAP response: %w", err)
 	}
 
 	if envelope.Body.Fault != nil {

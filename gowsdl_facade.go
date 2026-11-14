@@ -7,6 +7,7 @@ package gowsdl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/kastrul/gowsdl/pkg/generator"
@@ -99,7 +100,7 @@ func NewGoWSDL(file string, opts ...Option) (*GoWSDL, error) {
 	// Create generator
 	gen, err := generator.New(file, genOpts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating generator: %w", err)
 	}
 
 	g := &GoWSDL{

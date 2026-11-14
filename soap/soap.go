@@ -76,26 +76,26 @@ type SOAPBody struct {
 func (b SOAPBody) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	// Start the soap:Body element
 	if err := e.EncodeToken(start); err != nil {
-		return err
+		return fmt.Errorf("encoding soap:Body start: %w", err)
 	}
 
 	// Encode the body content directly without wrapper
 	if b.Body != nil {
 		if err := e.Encode(b.Body); err != nil {
-			return err
+			return fmt.Errorf("encoding soap:Body content: %w", err)
 		}
 	}
 
 	// Encode fault if present
 	if b.Fault != nil {
 		if err := e.Encode(b.Fault); err != nil {
-			return err
+			return fmt.Errorf("encoding soap:Fault: %w", err)
 		}
 	}
 
 	// End the soap:Body element
 	if err := e.EncodeToken(xml.EndElement{Name: start.Name}); err != nil {
-		return err
+		return fmt.Errorf("encoding soap:Body end: %w", err)
 	}
 
 	return nil
@@ -137,7 +137,7 @@ func (b *SOAPBodyResponse) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) erro
 Loop:
 	for {
 		if token, err = d.Token(); err != nil {
-			return err
+			return fmt.Errorf("reading soap:Body: %w", err)
 		}
 
 		if token == nil {
@@ -154,13 +154,13 @@ Loop:
 				b.faultOccurred = true
 				err = d.DecodeElement(b.Fault, &se)
 				if err != nil {
-					return err
+					return fmt.Errorf("decoding soap:Fault: %w", err)
 				}
 
 				consumed = true
 			} else {
 				if err = d.DecodeElement(b.Body, &se); err != nil {
-					return err
+					return fmt.Errorf("decoding soap:Body content: %w", err)
 				}
 
 				consumed = true
@@ -541,20 +541,20 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 	buffer := new(bytes.Buffer)
 	encoder, err := c.newRequestEncoder(buffer)
 	if err != nil {
-		return err
+		return fmt.Errorf("soap: creating request encoder: %w", err)
 	}
 
 	if err := encoder.Encode(envelope); err != nil {
-		return err
+		return fmt.Errorf("soap: encoding request: %w", err)
 	}
 
 	if err := encoder.Flush(); err != nil {
-		return err
+		return fmt.Errorf("soap: encoding request: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", c.url, buffer)
 	if err != nil {
-		return err
+		return fmt.Errorf("soap: building request: %w", err)
 	}
 	if c.opts.auth != nil {
 		req.SetBasicAuth(c.opts.auth.Login, c.opts.auth.Password)
@@ -587,6 +587,7 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 
 	res, err := client.Do(req)
 	if err != nil {
+		// Returned as is: callers may type-assert on the transport error.
 		return err
 	}
 	defer func() {
@@ -631,7 +632,7 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 
 	newDecoder, err := c.newResponseDecoder(res.Header.Get("Content-Type"))
 	if err != nil {
-		return err
+		return fmt.Errorf("soap: decoding response: %w", err)
 	}
 
 	// we need to store the body in case of an error
@@ -656,7 +657,7 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 				ResponseBody: cachedErrorBody,
 			}
 		}
-		return err
+		return fmt.Errorf("soap: decoding response: %w", err)
 	}
 
 	if respEnvelope.Attachments != nil && retAttachments != nil {

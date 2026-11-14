@@ -65,12 +65,12 @@ func (d *multipartDecoder) decodeParts(v any, isRoot func(contentType string) bo
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return fmt.Errorf("reading multipart part: %w", err)
 		}
 		contentType := p.Header.Get("Content-Type")
 		if isRoot(contentType) {
 			if err := NewDecoder(p).Decode(v); err != nil {
-				return err
+				return fmt.Errorf("decoding envelope part: %w", err)
 			}
 			continue
 		}
@@ -81,7 +81,7 @@ func (d *multipartDecoder) decodeParts(v any, isRoot func(contentType string) bo
 		}
 		content, err := io.ReadAll(p)
 		if err != nil {
-			return err
+			return fmt.Errorf("reading multipart part %q: %w", contentID, err)
 		}
 		attach(strings.Trim(contentID, "<>"), contentType, content)
 	}
@@ -93,7 +93,7 @@ func (d *multipartDecoder) decodeParts(v any, isRoot func(contentType string) bo
 func multipartParams(contentType string) (boundary string, params map[string]string, err error) {
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("parsing Content-Type %q: %w", contentType, err)
 	}
 
 	if !strings.HasPrefix(mediaType, "multipart/") {

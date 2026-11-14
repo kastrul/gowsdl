@@ -46,11 +46,11 @@ func (e *mmaEncoder) Encode(v any) error {
 	headers.Set("Content-Transfer-Encoding", "8bit")
 	headers.Set("Content-ID", "<soaprequest@gowsdl.lib>")
 	if soapPartWriter, err = e.writer.CreatePart(headers); err != nil {
-		return err
+		return fmt.Errorf("creating MIME part for the envelope: %w", err)
 	}
 	xmlEncoder := xml.NewEncoder(soapPartWriter)
 	if err := xmlEncoder.Encode(v); err != nil {
-		return err
+		return fmt.Errorf("encoding the envelope: %w", err)
 	}
 
 	// 2. write attachments parts
@@ -64,11 +64,11 @@ func (e *mmaEncoder) Encode(v any) error {
 		var attachmentPartWriter io.Writer
 		attachmentPartWriter, err := e.writer.CreatePart(attHeader)
 		if err != nil {
-			return err
+			return fmt.Errorf("creating MIME part for attachment %q: %w", attachment.Name, err)
 		}
 		_, err = io.Copy(attachmentPartWriter, bytes.NewReader(attachment.Data))
 		if err != nil {
-			return err
+			return fmt.Errorf("writing attachment %q: %w", attachment.Name, err)
 		}
 	}
 
@@ -99,7 +99,7 @@ func (d *mmaDecoder) Decode(v any) error {
 		})
 	}
 	if err := d.decodeParts(v, isRoot, attach); err != nil {
-		return err
+		return fmt.Errorf("decoding MIME multipart response: %w", err)
 	}
 	if len(attachments) > 0 {
 		soapEnvResp.Attachments = attachments
