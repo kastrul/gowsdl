@@ -48,7 +48,7 @@ func TestGenerator_ComplexContentExtensionOfAnyType(t *testing.T) {
 
 	attr := structBody(t, code, "Attribute")
 	assert.Regexp(t, `InnerXML string `+"`"+`xml:",innerxml"`+"`", attr)
-	assert.Regexp(t, `Id string `+"`"+`xml:"id,attr`, attr)
+	assert.Regexp(t, `IdAttr string `+"`"+`xml:"id,attr`, attr)
 	assert.NotContains(t, code, "interface{}\n")
 
 	assertGeneratedCodeBuilds(t, "anyext", out)
