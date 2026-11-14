@@ -118,3 +118,13 @@ func TestMTOMDecoder_MissingXOPPartReturnsError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "absent")
 }
+
+func TestClient_MTOM_NilBinaryField(t *testing.T) {
+	ts := echoServer()
+	defer ts.Close()
+
+	reply := &PingRequest{}
+	require.NoError(t, NewClient(ts.URL, WithMTOM()).Call("GetData", &PingRequest{Message: "hi"}, reply))
+	assert.Equal(t, "hi", reply.Message)
+	assert.Nil(t, reply.Attachment)
+}

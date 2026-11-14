@@ -163,8 +163,10 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 				continue
 			}
 			f := v.Field(i)
-			if _, ok := f.Interface().(*Binary); ok {
-				*fields = append(*fields, f)
+			if b, ok := f.Interface().(*Binary); ok {
+				if b != nil {
+					*fields = append(*fields, f)
+				}
 			} else {
 				getBinaryFields(f.Interface(), fields)
 			}
@@ -175,8 +177,10 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 			if !e.CanInterface() {
 				continue
 			}
-			if _, ok := e.Interface().(*Binary); ok {
-				*fields = append(*fields, e)
+			if b, ok := e.Interface().(*Binary); ok {
+				if b != nil {
+					*fields = append(*fields, e)
+				}
 			} else {
 				getBinaryFields(e.Interface(), fields)
 			}
@@ -274,7 +278,7 @@ func (d *mtomDecoder) Decode(v interface{}) error {
 	// Set binary fields with correct content
 	for _, f := range fields {
 		b := f.Interface().(*Binary)
-		if b == nil || !b.useMTOM {
+		if !b.useMTOM {
 			continue
 		}
 		pkg, ok := packages[b.packageID]
