@@ -227,7 +227,7 @@ type SimpleNode struct {
 
 func (s SimpleNode) ErrorString() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%.2f: %s", s.Num, s.Detail))
+	fmt.Fprintf(&sb, "%.2f: %s", s.Num, s.Detail)
 	if s.Nested != nil {
 		sb.WriteString("\n" + s.Nested.ErrorString())
 	}
