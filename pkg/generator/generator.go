@@ -741,6 +741,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"removeNS":                 removeNamespacePrefix,
 		"findType":                 g.findType,
 		"findSOAPAction":           g.findSOAPAction,
+		"findWSDL2SOAPAction":      g.findWSDL2SOAPAction,
 		"makeValidXmlTag":          makeValidXmlTag,
 		"goString":                 goString,
 		"sanitizeEnumValue":        sanitizeEnumValue,
@@ -1029,6 +1030,28 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 		}
 	}
 
+	return ""
+}
+
+// findWSDL2SOAPAction returns the SOAP action that a WSDL 2.0 binding of the
+// named interface declares for the named operation, or "" if none does.
+func (g *Generator) findWSDL2SOAPAction(operation, iface string) string {
+	if g.wsdl2 == nil {
+		return ""
+	}
+	for _, binding := range g.wsdl2.Bindings {
+		if removeNamespacePrefix(binding.Interface) != iface {
+			continue
+		}
+		for _, op := range binding.Operations {
+			if removeNamespacePrefix(op.Ref) != operation {
+				continue
+			}
+			if action := op.ResolvedSOAPAction(); action != "" {
+				return action
+			}
+		}
+	}
 	return ""
 }
 
