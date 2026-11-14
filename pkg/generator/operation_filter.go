@@ -54,7 +54,7 @@ func (g *Generator) validateOperationFilter() error {
 
 	known := make(map[string]bool)
 	if g.wsdl != nil {
-		for _, pt := range g.wsdl.PortTypes {
+		for _, pt := range g.soapPortTypes() {
 			for _, op := range pt.Operations {
 				known[op.Name] = true
 			}
@@ -89,15 +89,50 @@ func (g *Generator) validateOperationFilter() error {
 		strings.Join(unknown, ", "), strings.Join(available, ", "))
 }
 
-// filteredPortTypes returns the WSDL 1.1 port types restricted to the
-// selected operations. The parsed WSDL is not modified.
-func (g *Generator) filteredPortTypes() []*parser.WSDLPortType {
-	if len(g.operations) == 0 {
+// soapPortTypes returns the WSDL 1.1 port types a SOAP client can reach.
+// A port type is left out when it is referenced by at least one binding and
+// every binding referencing it is HTTP-only (http:binding without a SOAP
+// binding). Port types without any binding are kept.
+func (g *Generator) soapPortTypes() []*parser.WSDLPortType {
+	if g.wsdl == nil {
+		return nil
+	}
+	skipped := g.httpOnlyPortTypes()
+	if len(skipped) == 0 {
 		return g.wsdl.PortTypes
 	}
+	return filterSlice(g.wsdl.PortTypes, func(pt *parser.WSDLPortType) bool { return !skipped[pt.Name] })
+}
 
-	result := make([]*parser.WSDLPortType, 0, len(g.wsdl.PortTypes))
-	for _, pt := range g.wsdl.PortTypes {
+// httpOnlyPortTypes returns the names of the WSDL 1.1 port types that are
+// bound only through HTTP-only bindings.
+func (g *Generator) httpOnlyPortTypes() map[string]bool {
+	httpOnly := make(map[string]bool)
+	soap := make(map[string]bool)
+	for _, b := range g.wsdl.Binding {
+		name := removeNamespacePrefix(b.Type)
+		if b.IsHTTPOnly() {
+			httpOnly[name] = true
+		} else {
+			soap[name] = true
+		}
+	}
+	for name := range soap {
+		delete(httpOnly, name)
+	}
+	return httpOnly
+}
+
+// filteredPortTypes returns the SOAP-reachable WSDL 1.1 port types restricted
+// to the selected operations. The parsed WSDL is not modified.
+func (g *Generator) filteredPortTypes() []*parser.WSDLPortType {
+	portTypes := g.soapPortTypes()
+	if len(g.operations) == 0 {
+		return portTypes
+	}
+
+	result := make([]*parser.WSDLPortType, 0, len(portTypes))
+	for _, pt := range portTypes {
 		var ops []*parser.WSDLOperation
 		for _, op := range pt.Operations {
 			if g.operations[op.Name] {

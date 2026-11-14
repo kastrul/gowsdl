@@ -139,6 +139,18 @@ func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 	if err := g.validateOperationFilter(); err != nil {
 		return nil, err
 	}
+	if g.wsdl != nil {
+		httpOnly := g.httpOnlyPortTypes()
+		var skipped []string
+		for _, pt := range g.wsdl.PortTypes {
+			if httpOnly[pt.Name] {
+				skipped = append(skipped, pt.Name)
+			}
+		}
+		if len(skipped) > 0 {
+			log.Printf("[INFO] skipping port type(s) %s: bound only via HTTP GET/POST, not SOAP", strings.Join(skipped, ", "))
+		}
+	}
 	if len(g.operations) > 0 && !g.keepUnusedTypes && g.generateServer {
 		log.Printf("[WARN] type pruning is disabled because server code needs the types of every operation")
 	}
@@ -458,6 +470,21 @@ func (g *Generator) genTypes() ([]byte, error) {
 		}
 	}
 
+	// Messages without parts that an operation uses as input or output are
+	// declared as empty types so the operation signatures compile.
+	operationMessages := make(map[string]bool)
+	if g.wsdl != nil {
+		for _, pt := range g.filteredPortTypes() {
+			for _, op := range pt.Operations {
+				operationMessages[removeNamespacePrefix(op.Input.Message)] = true
+				operationMessages[removeNamespacePrefix(op.Output.Message)] = true
+			}
+		}
+	}
+	funcMap["isEmptyMessage"] = func(msg *parser.WSDLMessage) bool {
+		return msg != nil && len(msg.Parts) == 0 && operationMessages[msg.Name]
+	}
+
 	// Add function to check if a type is complex
 	funcMap["isComplexType"] = func(typeName string) bool {
 		// Remove namespace prefix if present
@@ -692,7 +719,7 @@ func (g *Generator) genServer() ([]byte, error) {
 		data = g.wsdl2.Interfaces
 	} else if g.wsdl != nil {
 		tmplText = templates.ServerTemplate
-		data = g.wsdl.PortTypes
+		data = g.soapPortTypes()
 	} else {
 		return nil, errors.New("no WSDL data available")
 	}
@@ -985,6 +1012,11 @@ func (g *Generator) findType(message string) string {
 	if g.wsdl != nil {
 		for _, msg := range g.wsdl.Messages {
 			if msg.Name == message {
+				// A message without parts is declared as an empty type named after the message
+				if len(msg.Parts) == 0 {
+					return msg.Name
+				}
+
 				// Check if this is an RPC-style operation
 				if g.isRPCStyleMessage(msg) {
 					// For RPC-style operations, use the message name as the type
