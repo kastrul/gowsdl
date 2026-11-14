@@ -1,21 +1,15 @@
 package generator
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestComplexTypeWithInlineSequence(t *testing.T) {
 	wsdlFile := "../../fixtures/complex_sequence_test.wsdl"
 
-	gen, err := New(wsdlFile, WithPackage("testpkg"))
-	require.NoError(t, err)
-
-	code, err := gen.Generate(context.TODO())
-	require.NoError(t, err)
+	code := generate(t, wsdlFile, WithPackage("testpkg"))
 
 	// Get the generated code - concatenate all files
 	var codeStr string
@@ -49,11 +43,7 @@ func TestNestedComplexTypes(t *testing.T) {
 	// Test deeply nested complex types as identified by Gemini's review
 	wsdlFile := "../../fixtures/nested_complex_type_test.wsdl"
 
-	gen, err := New(wsdlFile, WithPackage("testpkg"))
-	require.NoError(t, err)
-
-	code, err := gen.Generate(context.TODO())
-	require.NoError(t, err)
+	code := generate(t, wsdlFile, WithPackage("testpkg"))
 
 	// Get the generated code
 	var codeStr string

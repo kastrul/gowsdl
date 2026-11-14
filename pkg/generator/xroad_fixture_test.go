@@ -2,10 +2,8 @@ package generator
 
 import (
 	"context"
-	"go/format"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -16,33 +14,34 @@ import (
 	"github.com/kastrul/gowsdl/pkg/types"
 )
 
-func generateXRoadFixture(t *testing.T) string {
+func generateXRoadFixture(t *testing.T) generated {
 	t.Helper()
-
-	g, err := New(filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"), WithPackage("xroad"))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	code := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	formatted, err := format.Source([]byte(code))
-	require.NoError(t, err)
-	return string(formatted)
+	return generate(t, filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"), WithPackage("xroad"))
 }
 
-func declarationCount(code, name string) int {
-	return len(regexp.MustCompile(`(?m)^type `+regexp.QuoteMeta(name)+` `).FindAllString(code, -1))
+// declarationCount returns how many times the generated client declares the
+// type name.
+func declarationCount(t *testing.T, out generated, name string) int {
+	t.Helper()
+
+	count := 0
+	for _, declared := range out.typeNames(t) {
+		if declared == name {
+			count++
+		}
+	}
+	return count
 }
 
 func TestGenerator_XRoad_GeneratedCodeCompiles(t *testing.T) {
-	_, out := generateCode(t, filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"),
+	out := generate(t, filepath.Join("..", "..", "fixtures", "xroad", "service.wsdl"),
 		WithPackage("xroad"), WithServerGeneration(true))
 	assertGeneratedCodeBuilds(t, "xroad", out)
 }
 
 func TestGenerator_XRoad_LowercaseTypeReferences(t *testing.T) {
-	code := generateXRoadFixture(t)
+	out := generateXRoadFixture(t)
+	code := out.client(t)
 
 	assert.Contains(t, code, "Kind InsuranceKindType `")
 	assert.Contains(t, code, "Errors ErrorListType `")
@@ -52,7 +51,8 @@ func TestGenerator_XRoad_LowercaseTypeReferences(t *testing.T) {
 }
 
 func TestGenerator_XRoad_NumericEnumConstants(t *testing.T) {
-	code := generateXRoadFixture(t)
+	out := generateXRoadFixture(t)
+	code := out.client(t)
 
 	assert.Contains(t, code, "InsuranceKindType1 InsuranceKindType = 1")
 	assert.Contains(t, code, "RateType05 RateType = 0.5")
@@ -61,33 +61,35 @@ func TestGenerator_XRoad_NumericEnumConstants(t *testing.T) {
 }
 
 func TestGenerator_XRoad_NoDuplicateDeclarations(t *testing.T) {
-	code := generateXRoadFixture(t)
+	out := generateXRoadFixture(t)
+	code := out.client(t)
 
 	for _, name := range []string{"Submit", "SubmitResponse", "SubmitResponseType", "SubmitType"} {
-		assert.LessOrEqual(t, declarationCount(code, name), 1, "type %s declared more than once", name)
+		assert.LessOrEqual(t, declarationCount(t, out, name), 1, "type %s declared more than once", name)
 	}
-	assert.Equal(t, 1, declarationCount(code, "SubmitResponseType"))
+	assert.Equal(t, 1, declarationCount(t, out, "SubmitResponseType"))
 	assert.Contains(t, code, "Message string `", "complexType submitResponseType must keep its own fields")
 }
 
 func TestGenerator_XRoad_AttachmentPartUsesDocumentBody(t *testing.T) {
-	code := generateXRoadFixture(t)
+	out := generateXRoadFixture(t)
+	code := out.client(t)
 
 	assert.Contains(t, code, "Submit(ctx context.Context, request *Submit) (*SubmitResponse, error)")
 	assert.NotContains(t, code, "Attachment []byte")
 }
 
 func TestGenerator_XRoad_ResolvesSchemaImports(t *testing.T) {
-	code := generateXRoadFixture(t)
+	out := generateXRoadFixture(t)
+	code := out.client(t)
 
-	assert.Equal(t, 1, declarationCount(code, "ClientIdentifierType"), "nested import identifiers.xsd should be loaded")
+	assert.Equal(t, 1, declarationCount(t, out, "ClientIdentifierType"), "nested import identifiers.xsd should be loaded")
 	assert.Contains(t, code, "Client Client `")
 	assert.Contains(t, code, "ObjectType string `xml:\"http://example.com/xsd/identifiers objectType,attr,omitempty\"")
 	assert.Contains(t, code, "Lang string `xml:\"http://example.com/xsd/identifiers lang,attr,omitempty\"")
 }
 
 func TestGenerator_ResolveSchemaExternals_MissingSchema(t *testing.T) {
-	dir := t.TempDir()
 	wsdl := `<?xml version="1.0" encoding="UTF-8"?>
 <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
 	xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -99,10 +101,7 @@ func TestGenerator_ResolveSchemaExternals_MissingSchema(t *testing.T) {
 		</xsd:schema>
 	</wsdl:types>
 </wsdl:definitions>`
-	path := filepath.Join(dir, "test.wsdl")
-	require.NoError(t, os.WriteFile(path, []byte(wsdl), 0o600))
-
-	g, err := New(path, WithPackage("test"))
+	g, err := New(writeWSDL(t, wsdl), WithPackage("test"))
 	require.NoError(t, err)
 
 	_, err = g.Generate(context.Background())
@@ -144,7 +143,7 @@ func TestGenerator_ResolveSchemaExternals_Cycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, g.getSchemas(), 3)
 
-	code := string(out["types"])
+	code := generated(out).types()
 	assert.Equal(t, 1, strings.Count(code, "type AType struct"))
 	assert.Equal(t, 1, strings.Count(code, "type BType struct"))
 }
@@ -262,7 +261,8 @@ func TestResolveAttributeRefs(t *testing.T) {
 }
 
 func TestGenerator_XRoad_UnqualifiedBodyBesideQualifiedImports(t *testing.T) {
-	code := generateXRoadFixture(t)
+	out := generateXRoadFixture(t)
+	code := out.client(t)
 
 	assert.Contains(t, structBody(t, code, "Submit"), "XMLName xml.Name `xml:\"tns:submit\"`")
 	assert.Contains(t, code, "func (t Submit) TargetNamespace() string")
@@ -271,7 +271,8 @@ func TestGenerator_XRoad_UnqualifiedBodyBesideQualifiedImports(t *testing.T) {
 }
 
 func TestGenerator_XRoad_HeaderMessagePartsAreSiblings(t *testing.T) {
-	code := generateXRoadFixture(t)
+	out := generateXRoadFixture(t)
+	code := out.client(t)
 
 	body := structBody(t, code, "RequestHeader")
 	assert.Contains(t, body, "Client Client `xml:\"http://example.com/xsd/header.xsd client,omitempty\"")

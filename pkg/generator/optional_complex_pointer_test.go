@@ -1,12 +1,9 @@
 package generator
 
 import (
-	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestOptionalComplexPointerTypes(t *testing.T) {
@@ -55,27 +52,7 @@ func TestOptionalComplexPointerTypes(t *testing.T) {
     </types>
 </definitions>`
 
-	// Create temp file
-	tmpFile, err := os.CreateTemp("", "test-wsdl-*.wsdl")
-	require.NoError(t, err)
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-
-	_, err = tmpFile.Write([]byte(wsdl))
-	require.NoError(t, err)
-	require.NoError(t, tmpFile.Close())
-
-	g, err := New(tmpFile.Name())
-	require.NoError(t, err)
-
-	code, err := g.Generate(context.TODO())
-	require.NoError(t, err)
-
-	// Get the generated code - concatenate all files
-	var codeStr string
-	for filename, content := range code {
-		t.Logf("Generated file: %s", filename)
-		codeStr += string(content) + "\n"
-	}
+	codeStr := generate(t, writeWSDL(t, wsdl)).types()
 
 	// Check that optional complex types use pointers to named types
 	assert.Contains(t, codeStr, "ShippingAddress *OrderTypeShippingAddressType", "Optional complex type should be a pointer to named type")

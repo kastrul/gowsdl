@@ -5,14 +5,8 @@
 package generator
 
 import (
-	"context"
 	"encoding/json"
-	"go/format"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,30 +17,13 @@ import (
 
 var elementRefsFixture = filepath.Join("..", "..", "fixtures", "element_refs.wsdl")
 
-func generateElementRefsFixture(t *testing.T) map[string][]byte {
+func generateElementRefsFixture(t *testing.T) generated {
 	t.Helper()
-
-	g, err := New(elementRefsFixture, WithPackage("refs"))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-	return out
-}
-
-func structBody(t *testing.T, code, name string) string {
-	t.Helper()
-
-	m := regexp.MustCompile(`(?ms)^type ` + regexp.QuoteMeta(name) + ` struct \{\n(.*?)^\}`).FindStringSubmatch(code)
-	require.NotNil(t, m, "struct %s not found in generated code", name)
-	return regexp.MustCompile(`[ \t]+`).ReplaceAllString(m[1], " ")
+	return generate(t, elementRefsFixture, WithPackage("refs"))
 }
 
 func TestGenerator_RefElementTagNames(t *testing.T) {
-	out := generateElementRefsFixture(t)
-	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
-	require.NoError(t, err)
-	code := string(formatted)
+	code := generateElementRefsFixture(t).client(t)
 
 	assert.NotContains(t, code, "`xml:\",omitempty\"", "ref elements must not produce empty xml tag names")
 	assert.NotContains(t, code, "json:\",omitempty\"", "ref elements must not produce empty json tag names")
@@ -116,10 +93,7 @@ func TestGenerator_RefElementTagNames(t *testing.T) {
 }
 
 func TestGenerator_InlineSimpleContentJSONValue(t *testing.T) {
-	out := generateElementRefsFixture(t)
-	formatted, err := format.Source([]byte(string(out["header"]) + string(out["types"])))
-	require.NoError(t, err)
-	code := string(formatted)
+	code := generateElementRefsFixture(t).client(t)
 
 	assert.NotContains(t, code, `json:"-,"`)
 	assert.Contains(t, structBody(t, code, "HolderTypeHashType"), "Value string `xml:\",chardata\" json:\"value\"`")
@@ -266,25 +240,11 @@ func TestGenerator_RefElementRoundTrip(t *testing.T) {
 
 	out := generateElementRefsFixture(t)
 
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	goMod := "module refs\n\ngo 1.21\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
-	client := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "refs.go"), []byte(client), 0o600))
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "roundtrip"), 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "roundtrip", "main.go"), []byte(refRoundTripProgram), 0o600))
-
-	cmd := exec.Command("go", "run", "-mod=mod", "./cmd/roundtrip")
-	cmd.Dir = dir
-	cmd.Stderr = &strings.Builder{}
-	stdout, err := cmd.Output()
-	require.NoError(t, err, "running generated code failed:\n%s", cmd.Stderr)
+	dir := goModule(t, "refs", map[string]string{
+		"refs.go":               out.client(t),
+		"cmd/roundtrip/main.go": refRoundTripProgram,
+	})
+	stdout := []byte(runGo(t, dir, "run", "./cmd/roundtrip"))
 
 	var result struct {
 		Marshaled   string

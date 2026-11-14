@@ -1,8 +1,6 @@
 package generator
 
 import (
-	"context"
-	"os"
 	"strings"
 	"testing"
 
@@ -73,24 +71,7 @@ func TestElementAliasGeneration(t *testing.T) {
 	</wsdl:service>
 </wsdl:definitions>`
 
-	// Write to temp file
-	tmpFile, err := os.CreateTemp("", "test-element-alias-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tmpFile.Name())
-	}()
-
-	_, err = tmpFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	// Generate code
-	gen, err := New(tmpFile.Name(), WithPackage("testpkg"))
-	require.NoError(t, err)
-
-	result, err := gen.Generate(context.Background())
-	require.NoError(t, err)
+	result := generate(t, writeWSDL(t, wsdlContent), WithPackage("testpkg"))
 
 	// Check types file
 	typesCode, ok := result["types"]
@@ -145,24 +126,7 @@ func TestElementAliasWithPrimitiveTypes(t *testing.T) {
 	</wsdl:service>
 </wsdl:definitions>`
 
-	// Write to temp file
-	tmpFile, err := os.CreateTemp("", "test-primitive-alias-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tmpFile.Name())
-	}()
-
-	_, err = tmpFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	// Generate code
-	gen, err := New(tmpFile.Name(), WithPackage("testpkg"))
-	require.NoError(t, err)
-
-	result, err := gen.Generate(context.Background())
-	require.NoError(t, err)
+	result := generate(t, writeWSDL(t, wsdlContent), WithPackage("testpkg"))
 
 	// Check types file
 	typesCode, ok := result["types"]

@@ -21,6 +21,29 @@ func TestNewFixtureRunner(t *testing.T) {
 	assert.NotNil(t, runner.capture)
 	assert.NotNil(t, runner.comparator)
 	assert.Empty(t, runner.fixtures)
+	assert.False(t, runner.useRealCode, "Should default to simulation mode")
+	assert.Empty(t, runner.tempDir, "Should not have temp directory in simulation mode")
+}
+
+func TestFixtureRunnerCleanup(t *testing.T) {
+	// Test cleanup functionality
+	runner, err := NewFixtureRunnerWithRealCode()
+	require.NoError(t, err)
+
+	tempDir := runner.tempDir
+	assert.NotEmpty(t, tempDir, "Should have temp directory")
+
+	// Check that temp directory exists
+	_, err = os.Stat(tempDir)
+	assert.NoError(t, err, "Temp directory should exist")
+
+	// Cleanup
+	err = runner.Cleanup()
+	assert.NoError(t, err, "Cleanup should succeed")
+
+	// Check that temp directory is removed
+	_, err = os.Stat(tempDir)
+	assert.True(t, os.IsNotExist(err), "Temp directory should be removed")
 }
 
 func TestFixtureRunnerLoadFixtures(t *testing.T) {
@@ -49,13 +72,19 @@ func TestFixtureRunnerLoadFixtures(t *testing.T) {
 	fixtures := runner.GetFixtures()
 	assert.Len(t, fixtures, 2, "Should load both fixtures")
 
-	// Check that fixtures have required fields
+	wantPaths := map[string]string{
+		"simple":    filepath.Join(docDir, "simple.wsdl"),
+		"basic_rpc": filepath.Join(rpcDir, "basic_rpc.wsdl"),
+	}
+	wantStyles := map[string]string{"simple": "document", "basic_rpc": "rpc"}
 	for _, fixture := range fixtures {
-		assert.NotEmpty(t, fixture.Name)
-		assert.NotEmpty(t, fixture.WSDLPath)
-		assert.NotEmpty(t, fixture.ExpectedRequest)
-		assert.NotEmpty(t, fixture.Style)
-		assert.NotNil(t, fixture.TestData)
+		require.Contains(t, wantPaths, fixture.Name)
+		assert.Equal(t, wantPaths[fixture.Name], fixture.WSDLPath)
+		assert.Equal(t, wantStyles[fixture.Name], fixture.Style)
+		request, err := os.ReadFile(filepath.Join(filepath.Dir(fixture.WSDLPath), fixture.Name+"_request.xml"))
+		require.NoError(t, err)
+		assert.Equal(t, string(request), fixture.ExpectedRequest)
+		assert.Equal(t, "GetUserInfo", fixture.TestData["operation"])
 	}
 }
 
@@ -71,13 +100,6 @@ func TestFixtureRunnerLoadNonexistentDirectory(t *testing.T) {
 }
 
 func TestFixtureRunnerIncompleteFixtures(t *testing.T) {
-	tempDir := t.TempDir()
-	docDir := filepath.Join(tempDir, "document_literal")
-
-	err := os.MkdirAll(docDir, 0755)
-	require.NoError(t, err)
-
-	// Create incomplete fixture (missing expected request)
 	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              targetNamespace="http://example.com/simple">
@@ -90,21 +112,40 @@ func TestFixtureRunnerIncompleteFixtures(t *testing.T) {
 		"operation": "GetUser",
 		"userId":    "123",
 	}
-	testDataJSON, _ := json.Marshal(testData)
-
-	// Write only WSDL and test data, skip expected request
-	err = os.WriteFile(filepath.Join(docDir, "incomplete.wsdl"), []byte(wsdlContent), 0644)
-	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(docDir, "incomplete_test_data.json"), testDataJSON, 0644)
+	testDataJSON, err := json.Marshal(testData)
 	require.NoError(t, err)
 
-	runner := NewFixtureRunner()
-	err = runner.LoadFixtures(tempDir)
-	require.NoError(t, err)
+	tests := []struct {
+		name  string
+		files map[string][]byte
+	}{
+		{
+			name: "missing expected request",
+			files: map[string][]byte{
+				"incomplete.wsdl":           []byte(wsdlContent),
+				"incomplete_test_data.json": testDataJSON,
+			},
+		},
+		{
+			name:  "missing expected request and test data",
+			files: map[string][]byte{"incomplete.wsdl": []byte(`<definitions></definitions>`)},
+		},
+	}
 
-	// Should not load incomplete fixtures
-	fixtures := runner.GetFixtures()
-	assert.Empty(t, fixtures, "Should not load incomplete fixtures")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			docDir := filepath.Join(tempDir, "document_literal")
+			require.NoError(t, os.MkdirAll(docDir, 0755))
+			for name, content := range tt.files {
+				require.NoError(t, os.WriteFile(filepath.Join(docDir, name), content, 0644))
+			}
+
+			runner := NewFixtureRunner()
+			require.NoError(t, runner.LoadFixtures(tempDir))
+			assert.Empty(t, runner.GetFixtures(), "Should not load incomplete fixtures")
+		})
+	}
 }
 
 func TestFixtureRunnerSimulateSOAPRequest(t *testing.T) {
@@ -274,6 +315,71 @@ func TestFixtureRunnerInvalidJSON(t *testing.T) {
 	// Should error during loading due to invalid JSON
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse test data")
+}
+
+// TestSOAPRequestFixtures loads the repository's test_fixtures and checks
+// what they contain. It runs in simulation mode, where each fixture's
+// expected request is compared with itself; the generated clients are checked
+// against these fixtures by TestGenerator_TestFixtures_RequestsMatchExpectedXML
+// in pkg/generator.
+func TestSOAPRequestFixtures(t *testing.T) {
+	runner := NewFixtureRunner()
+	engine := NewRuleEngine()
+
+	require.NoError(t, runner.LoadFixtures(filepath.Join("..", "..", "test_fixtures")))
+	fixtures := runner.GetFixtures()
+	require.GreaterOrEqual(t, len(fixtures), 5, "Should have at least 5 fixtures")
+
+	byName := make(map[string]FixtureTestCase, len(fixtures))
+	styles := make(map[string]int)
+	for _, fixture := range fixtures {
+		byName[fixture.Name] = fixture
+		styles[fixture.Style]++
+	}
+	assert.GreaterOrEqual(t, styles["rpc"], 2, "Should have at least 2 RPC fixtures")
+	assert.GreaterOrEqual(t, styles["document"], 2, "Should have at least 2 document fixtures")
+
+	wantStyles := map[string]string{
+		"complex_rpc":               "rpc",
+		"namespace_edge_case":       "rpc",
+		"complex_document":          "document",
+		"array_namespace_edge_case": "document",
+	}
+	for name, style := range wantStyles {
+		require.Contains(t, byName, name, "Should have fixture: %s", name)
+		assert.Equal(t, style, byName[name].Style, name)
+	}
+
+	assert.Equal(t, "GetUserDetails", byName["complex_rpc"].TestData["operation"])
+	assert.Contains(t, byName["array_namespace_edge_case"].TestData, "stringArray")
+	assert.Contains(t, byName["array_namespace_edge_case"].TestData, "nestedArrays")
+
+	wantRequestContent := map[string][]string{
+		"complex_rpc":      {"GetUserDetails", "xmlns="},
+		"complex_document": {"ProcessOrderRequest", "orderId", "items", "<item>", "<shippingAddress>"},
+		"array_namespace_edge_case": {
+			"<stringArray>", "<item>first</item>", "<intArray>", "<value>1</value>",
+			"<nestedArrays>", "<level1>", "<level2>", "<emptyArray/>",
+		},
+	}
+	for name, contents := range wantRequestContent {
+		for _, content := range contents {
+			assert.Contains(t, byName[name].ExpectedRequest, content, name)
+		}
+	}
+
+	results, err := runner.RunAllTests()
+	require.NoError(t, err)
+	require.Len(t, results, len(fixtures))
+	for _, result := range results {
+		t.Run(result.TestName, func(t *testing.T) {
+			assert.True(t, result.Passed, "SOAP request should match expected XML: %v", result.Differences)
+			for _, violation := range engine.ValidateSOAPRequest(result.ActualXML, result.Style) {
+				assert.NotEqual(t, "error", violation.Severity, "Rule violation [%s]: %s at %s",
+					violation.RuleName, violation.Message, violation.Path)
+			}
+		})
+	}
 }
 
 // Helper function to create a complete test fixture

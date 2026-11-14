@@ -75,7 +75,7 @@ func TestInlineTypes_NameOf_ReportsMissesInsteadOfInventingNames(t *testing.T) {
 }
 
 func TestGenerator_InlineTypeInExtensionWithoutBase_IsDeclared(t *testing.T) {
-	out := generateFromWSDLText(t, `<?xml version="1.0" encoding="UTF-8"?>
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -97,7 +97,7 @@ func TestGenerator_InlineTypeInExtensionWithoutBase_IsDeclared(t *testing.T) {
             </xsd:complexType>
         </xsd:schema>
     </types>
-</definitions>`)
+</definitions>`), WithPackage("test"))
 
 	types := string(out["types"])
 

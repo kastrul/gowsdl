@@ -6,9 +6,6 @@ package generator
 
 import (
 	"context"
-	"go/parser"
-	"go/token"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -214,22 +211,7 @@ func TestCodeGeneration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temporary WSDL file
-			tempFile, err := os.CreateTemp("", "codegen-test-*.wsdl")
-			require.NoError(t, err)
-			defer func() {
-				_ = os.Remove(tempFile.Name())
-			}()
-
-			_, err = tempFile.WriteString(tt.wsdlContent)
-			require.NoError(t, err)
-			_ = tempFile.Close()
-
-			// Generate code
-			g, err := New(tempFile.Name(), WithPackage("test"), WithServerGeneration(true))
-			require.NoError(t, err)
-
-			code, err := g.Generate(context.Background())
+			code, err := tryGenerate(t, writeWSDL(t, tt.wsdlContent), WithPackage("test"), WithServerGeneration(true))
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -249,10 +231,7 @@ func TestCodeGeneration(t *testing.T) {
 					tt.checkCode(t, code)
 				}
 
-				// Verify generated code is valid Go
-				allCode := string(code["header"]) + string(code["types"]) + string(code["operations"])
-				_, err := parser.ParseFile(token.NewFileSet(), "", allCode, parser.AllErrors)
-				assert.NoError(t, err, "Generated code should be valid Go")
+				code.client(t)
 			}
 		})
 	}
@@ -284,23 +263,7 @@ func TestCodeGenerationWithNamespaces(t *testing.T) {
 	</types>
 </definitions>`
 
-	tempFile, err := os.CreateTemp("", "namespace-test-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	_, err = tempFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	_ = tempFile.Close()
-
-	g, err := New(tempFile.Name(), WithPackage("test"))
-	require.NoError(t, err)
-
-	code, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	types := string(code["types"])
+	types := generate(t, writeWSDL(t, wsdlContent), WithPackage("test")).types()
 	assert.Contains(t, types, "MainType")
 	assert.Contains(t, types, "OtherType")
 }
@@ -325,19 +288,7 @@ func BenchmarkCodeGeneration(b *testing.B) {
 	</types>
 </definitions>`
 
-	tempFile, err := os.CreateTemp("", "benchmark-codegen-*.wsdl")
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	_, err = tempFile.WriteString(wsdlContent)
-	if err != nil {
-		b.Fatal(err)
-	}
-	_ = tempFile.Close()
+	writeWSDL(b, wsdlContent)
 
 	// Skip benchmark of internal method
 	b.Skip("Benchmarking internal methods requires exporting them")
@@ -354,23 +305,9 @@ func TestStartWithContextErrorHandling(t *testing.T) {
 	</types>
 </definitions>`
 
-	tempFile, err := os.CreateTemp("", "error-test-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	_, err = tempFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	_ = tempFile.Close()
-
-	g, err := New(tempFile.Name(), WithPackage("test"))
-	require.NoError(t, err)
-
 	// This should succeed - the error handling improvements ensure
 	// that generation errors are properly reported
-	code, err := g.Generate(context.Background())
-	require.NoError(t, err)
+	code := generate(t, writeWSDL(t, wsdlContent), WithPackage("test"))
 	assert.NotNil(t, code)
 }
 
@@ -386,15 +323,7 @@ func TestCodeGenerationConcurrency(t *testing.T) {
 	</types>
 </definitions>`
 
-	tempFile, err := os.CreateTemp("", "concurrent-test-*.wsdl")
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	_, err = tempFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	_ = tempFile.Close()
+	path := writeWSDL(t, wsdlContent)
 
 	// Run multiple generations concurrently
 	const goroutines = 5
@@ -402,7 +331,7 @@ func TestCodeGenerationConcurrency(t *testing.T) {
 
 	for range goroutines {
 		go func() {
-			g, err := New(tempFile.Name(), WithPackage("test"))
+			g, err := New(path, WithPackage("test"))
 			if err != nil {
 				results <- err
 				return

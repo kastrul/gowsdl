@@ -2,24 +2,23 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build integration
-// +build integration
-
 package generator
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
-	gowsdlhttp "github.com/kastrul/gowsdl/pkg/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenericCodeGeneration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping go run of the gowsdl command in short mode")
+	}
+
 	tmpDir, err := os.MkdirTemp(".", "tmp-generic-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -121,26 +120,4 @@ func TestGenericCodeGeneration(t *testing.T) {
 			require.NoError(t, err, "Generated code fails go vet: %s", string(output))
 		})
 	}
-}
-
-func TestGenericClientUsage(t *testing.T) {
-	wsdlPath := filepath.Join(t.TempDir(), "test_generic.wsdl")
-	require.NoError(t, os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0644))
-
-	g, err := New(wsdlPath,
-		WithPackage("testgen"),
-		WithHTTPConfig(gowsdlhttp.DefaultHTTPClientConfig()),
-		WithExportAllTypes(true),
-		WithServerGeneration(true),
-		WithGenerics(),
-	)
-	require.NoError(t, err)
-
-	code, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	operationsCode := string(code["operations"])
-	assert.Contains(t, operationsCode, "soap.Result[")
-	assert.Contains(t, operationsCode, "service.client.CallResult[GetUserResponse]")
-	assert.NotContains(t, operationsCode, "GenericClient")
 }

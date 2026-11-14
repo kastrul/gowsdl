@@ -5,12 +5,9 @@
 package generator
 
 import (
-	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestInlineComplexTypeGeneration(t *testing.T) {
@@ -100,25 +97,7 @@ func TestInlineComplexTypeGeneration(t *testing.T) {
     </binding>
 </definitions>`
 
-	file, err := os.CreateTemp("", "test-wsdl-*.wsdl")
-	require.NoError(t, err)
-	defer func() { _ = os.Remove(file.Name()) }()
-	defer func() { _ = file.Close() }()
-
-	_, err = file.WriteString(wsdl)
-	require.NoError(t, err)
-
-	g, err := New(file.Name(), WithPackage("order"))
-	require.NoError(t, err)
-
-	files, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	// Check types file
-	types, ok := files["types"]
-	require.True(t, ok, "types file should be generated")
-
-	typesStr := string(types)
+	typesStr := generate(t, writeWSDL(t, wsdl), WithPackage("order")).types()
 	t.Logf("Generated types:\n%s", typesStr)
 
 	// Check that named types are generated for inline complex types
@@ -179,24 +158,7 @@ func TestNestedInlineComplexTypes(t *testing.T) {
     </types>
 </definitions>`
 
-	file, err := os.CreateTemp("", "test-wsdl-*.wsdl")
-	require.NoError(t, err)
-	defer func() { _ = os.Remove(file.Name()) }()
-	defer func() { _ = file.Close() }()
-
-	_, err = file.WriteString(wsdl)
-	require.NoError(t, err)
-
-	g, err := New(file.Name(), WithPackage("nested"))
-	require.NoError(t, err)
-
-	files, err := g.Generate(context.Background())
-	require.NoError(t, err)
-
-	types, ok := files["types"]
-	require.True(t, ok, "types file should be generated")
-
-	typesStr := string(types)
+	typesStr := generate(t, writeWSDL(t, wsdl), WithPackage("nested")).types()
 	t.Logf("Generated types:\n%s", typesStr)
 
 	// Check nested type generation

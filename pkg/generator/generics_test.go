@@ -5,10 +5,7 @@
 package generator
 
 import (
-	"context"
 	"go/format"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -90,19 +87,6 @@ const genericTestWSDL = `<?xml version="1.0" encoding="UTF-8"?>
 
 </definitions>`
 
-func generateOperations(t *testing.T, wsdl string, opts ...Option) string {
-	t.Helper()
-	wsdlPath := filepath.Join(t.TempDir(), "service.wsdl")
-	require.NoError(t, os.WriteFile(wsdlPath, []byte(wsdl), 0644))
-
-	g, err := New(wsdlPath, append([]Option{WithPackage("test"), WithExportAllTypes(true)}, opts...)...)
-	require.NoError(t, err)
-
-	code, err := g.Generate(context.Background())
-	require.NoError(t, err)
-	return string(code["operations"])
-}
-
 func TestGenerator_Generics_WSDL11(t *testing.T) {
 	genericSnippets := []string{
 		"GetUserGeneric(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)",
@@ -113,7 +97,7 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 	standardSnippet := "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)"
 
 	t.Run("enabled", func(t *testing.T) {
-		code := generateOperations(t, genericTestWSDL, WithGenerics())
+		code := generate(t, writeWSDL(t, genericTestWSDL), WithPackage("test"), WithExportAllTypes(true), WithGenerics()).operations()
 		assert.Contains(t, code, standardSnippet)
 		for _, s := range genericSnippets {
 			assert.Contains(t, code, s)
@@ -122,7 +106,7 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 	})
 
 	t.Run("disabled", func(t *testing.T) {
-		code := generateOperations(t, genericTestWSDL)
+		code := generate(t, writeWSDL(t, genericTestWSDL), WithPackage("test"), WithExportAllTypes(true)).operations()
 		assert.Contains(t, code, standardSnippet)
 		assert.NotContains(t, code, "Generic")
 		assert.NotContains(t, code, "soap.Result[")
@@ -132,14 +116,14 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 		rpcWSDL := strings.Replace(genericTestWSDL, `style="document"`, `style="rpc"`, 1)
 		require.NotEqual(t, genericTestWSDL, rpcWSDL)
 
-		code := generateOperations(t, rpcWSDL, WithGenerics())
+		code := generate(t, writeWSDL(t, rpcWSDL), WithPackage("test"), WithExportAllTypes(true), WithGenerics()).operations()
 		assert.Contains(t, code, standardSnippet)
 		assert.NotContains(t, code, "CallResult")
 		assert.NotContains(t, code, "GetUserGeneric")
 	})
 
 	t.Run("generics only", func(t *testing.T) {
-		code := generateOperations(t, genericTestWSDL, WithGenericsOnly())
+		code := generate(t, writeWSDL(t, genericTestWSDL), WithPackage("test"), WithExportAllTypes(true), WithGenericsOnly()).operations()
 		assert.Contains(t, code, "GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
 		assert.Contains(t, code, "func (service *userServicePortType) GetUser(ctx context.Context, request *GetUserRequest) (soap.Result[GetUserResponse], error)")
 		assert.Contains(t, code, `return service.client.CallResult[GetUserResponse](ctx, "GetUser", request), nil`)
@@ -151,7 +135,7 @@ func TestGenerator_Generics_WSDL11(t *testing.T) {
 	t.Run("generics only keeps standard methods for RPC port types", func(t *testing.T) {
 		rpcWSDL := strings.Replace(genericTestWSDL, `style="document"`, `style="rpc"`, 1)
 
-		code := generateOperations(t, rpcWSDL, WithGenericsOnly())
+		code := generate(t, writeWSDL(t, rpcWSDL), WithPackage("test"), WithExportAllTypes(true), WithGenericsOnly()).operations()
 		assert.Contains(t, code, standardSnippet)
 		assert.NotContains(t, code, "CallResult")
 		assert.NotContains(t, code, "soap.Result[")
@@ -172,7 +156,7 @@ func TestGenerator_Generics_DocCommentStaysAttached(t *testing.T) {
 	}
 	for name, opts := range modes {
 		t.Run(name, func(t *testing.T) {
-			code := generateOperations(t, documented, opts...)
+			code := generate(t, writeWSDL(t, documented), append([]Option{WithPackage("test"), WithExportAllTypes(true)}, opts...)...).operations()
 			formatted, err := format.Source([]byte("package test\n" + code))
 			require.NoError(t, err)
 			assert.Contains(t, string(formatted), "// Fetches a user.\n\tGetUser(ctx context.Context")
@@ -235,14 +219,7 @@ func TestGenerator_Generics_ClientRoundTrip(t *testing.T) {
 		"generics-only": {WithGenericsOnly(), "GetUser"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			wsdlPath := filepath.Join(t.TempDir(), "service.wsdl")
-			require.NoError(t, os.WriteFile(wsdlPath, []byte(genericTestWSDL), 0o600))
-
-			g, err := New(wsdlPath, WithPackage("usergen"), WithExportAllTypes(true), tc.opt)
-			require.NoError(t, err)
-			out, err := g.Generate(context.Background())
-			require.NoError(t, err)
-
+			out := generate(t, writeWSDL(t, genericTestWSDL), WithPackage("usergen"), WithExportAllTypes(true), tc.opt)
 			test := strings.ReplaceAll(genericClientRoundTripTest, "GENERIC_METHOD", tc.method)
 			runGeneratedModuleTests(t, "example.com/usergen", out, map[string]string{"client_test.go": test})
 		})

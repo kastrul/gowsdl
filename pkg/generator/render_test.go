@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"context"
 	"testing"
 	"text/template"
 
@@ -42,11 +41,7 @@ func TestGenerateCode_PartsDependOnServerGeneration(t *testing.T) {
 		{false, []string{"header", "operations", "types"}},
 		{true, []string{"header", "operations", "server", "server_header", "server_wsdl", "types"}},
 	} {
-		g, err := New("../../fixtures/stock.wsdl", WithPackage("stock"), WithServerGeneration(tt.server))
-		require.NoError(t, err)
-
-		out, err := g.Generate(context.Background())
-		require.NoError(t, err)
+		out := generate(t, "../../fixtures/stock.wsdl", WithPackage("stock"), WithServerGeneration(tt.server))
 
 		keys := make([]string, 0, len(out))
 		for k := range out {

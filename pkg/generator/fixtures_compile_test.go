@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -67,10 +66,8 @@ func compileFixture(t *testing.T, wsdl string) string {
 		return fmt.Sprintf("Generate: %v", err)
 	}
 
-	dir := writeGeneratedModule(t, "fixture", out, nil)
-	cmd := exec.Command("go", "build", "-mod=mod", "./...")
-	cmd.Dir = dir
-	if output, err := cmd.CombinedOutput(); err != nil {
+	dir := goModule(t, "fixture", generated(out).moduleFiles(""))
+	if output, err := tryGo(dir, "build", "./..."); err != nil {
 		return fmt.Sprintf("go build: %v\n%s", err, output)
 	}
 	return ""

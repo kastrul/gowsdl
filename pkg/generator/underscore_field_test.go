@@ -5,13 +5,8 @@
 package generator
 
 import (
-	"context"
 	"go/ast"
-	"go/format"
 	"go/parser"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -72,33 +67,14 @@ const underscoreWSDLTemplate = `<?xml version="1.0" encoding="UTF-8"?>
     </service>
 </definitions>`
 
-func generateUnderscoreWSDL(t *testing.T, sequence string) map[string][]byte {
+func generateUnderscoreWSDL(t *testing.T, sequence string) generated {
 	t.Helper()
-
-	path := filepath.Join(t.TempDir(), "vb.wsdl")
-	wsdl := strings.Replace(underscoreWSDLTemplate, "%s", sequence, 1)
-	require.NoError(t, os.WriteFile(path, []byte(wsdl), 0o600))
-
-	g, err := New(path, WithPackage("vb"))
-	require.NoError(t, err)
-
-	out, err := g.Generate(context.Background())
-	require.NoError(t, err)
-	return out
-}
-
-func formattedClient(t *testing.T, out map[string][]byte) string {
-	t.Helper()
-
-	code := string(out["header"]) + string(out["types"]) + string(out["operations"])
-	formatted, err := format.Source([]byte(code))
-	require.NoError(t, err, "generated code should be valid Go:\n%s", code)
-	return string(formatted)
+	return generate(t, writeWSDL(t, strings.Replace(underscoreWSDLTemplate, "%s", sequence, 1)), WithPackage("vb"))
 }
 
 func TestGenerator_UnderscoreElement_ExportedField(t *testing.T) {
 	out := generateUnderscoreWSDL(t, `<xsd:element name="_this" type="xsd:string"/>`)
-	code := formattedClient(t, out)
+	code := out.client(t)
 
 	assert.Regexp(t, regexp.MustCompile(`\bThis\s+string\s+`+"`"+`xml:"_this,omitempty" json:"_this,omitempty"`+"`"), code)
 	assert.NotRegexp(t, regexp.MustCompile(`(?m)^\s*_this\s`), code)
@@ -109,31 +85,17 @@ func TestGenerator_UnderscoreElement_ExportedField(t *testing.T) {
 func TestGenerator_UnderscoreElement_NameCollision(t *testing.T) {
 	out := generateUnderscoreWSDL(t, `<xsd:element name="this" type="xsd:string"/>
                         <xsd:element name="_this" type="xsd:string"/>`)
-	code := formattedClient(t, out)
+	code := out.client(t)
 
 	assert.Regexp(t, regexp.MustCompile(`\bThis\s+string\s+`+"`"+`xml:"this,omitempty"`), code)
 	assert.Regexp(t, regexp.MustCompile(`\bThis_\s+string\s+`+"`"+`xml:"_this,omitempty"`), code)
 }
 
 func TestGenerator_UnderscoreElement_MarshalsXML(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping go run of generated code in short mode")
-	}
-
 	out := generateUnderscoreWSDL(t, `<xsd:element name="this" type="xsd:string"/>
                         <xsd:element name="_this" type="xsd:string"/>`)
 
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-	goSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	require.NoError(t, err)
-
-	dir := t.TempDir()
-	vbDir := filepath.Join(dir, "vb")
-	require.NoError(t, os.MkdirAll(vbDir, 0o750))
-
-	goMod := "module vbtest\n\ngo 1.24\n\nrequire github.com/kastrul/gowsdl v0.0.0\n\nreplace github.com/kastrul/gowsdl => " + root + "\n"
-	mainGo := `package main
+	const mainGo = `package main
 
 import (
 	"encoding/xml"
@@ -150,24 +112,13 @@ func main() {
 	fmt.Print(string(data))
 }
 `
-	require.NoError(t, os.WriteFile(filepath.Join(vbDir, "vb.go"), []byte(formattedClient(t, out)), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte(mainGo), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
+	dir := goModule(t, "vbtest", map[string]string{"vb/vb.go": out.client(t), "main.go": mainGo})
+	runGo(t, dir, "vet", "./...")
+	output := runGo(t, dir, "run", ".")
 
-	vet := exec.Command("go", "vet", "-mod=mod", "./...")
-	vet.Dir = dir
-	vetOutput, err := vet.CombinedOutput()
-	require.NoError(t, err, "go vet should pass on generated code:\n%s", vetOutput)
-
-	run := exec.Command("go", "run", "-mod=mod", ".")
-	run.Dir = dir
-	output, err := run.CombinedOutput()
-	require.NoError(t, err, "generated code should run:\n%s", output)
-
-	assert.Contains(t, string(output), "<_this>ref-1</_this>")
-	assert.Contains(t, string(output), "<this>plain</this>")
-	assert.Contains(t, string(output), `_attr="a"`)
+	assert.Contains(t, output, "<_this>ref-1</_this>")
+	assert.Contains(t, output, "<this>plain</this>")
+	assert.Contains(t, output, `_attr="a"`)
 }
 
 func TestDedupeStructFields(t *testing.T) {
