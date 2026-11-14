@@ -25,13 +25,37 @@ type InlineComplexType struct {
 
 // CollectInlineComplexTypes finds all inline complex types in the schema and generates names for them.
 // Generated names never collide with top-level schema types or with each other.
+// The result is keyed by GetInlineTypeKey.
 func CollectInlineComplexTypes(schemas []*parser.XSDSchema) map[string]*InlineComplexType {
-	inlineTypes := make(map[string]*InlineComplexType)
-	used := declaredTypeNames(schemas)
+	return collectInlineTypes(schemas).byKey
+}
+
+// inlineTypes is the single source of truth for the names of anonymous
+// complex types: every name is assigned once, by collectInlineTypes, and
+// looked up by the complex type itself.
+type inlineTypes struct {
+	// byKey holds the collected types under their GetInlineTypeKey key. It
+	// is what CollectInlineComplexTypes returns and what the types template
+	// declares.
+	byKey map[string]*InlineComplexType
+	// keyOf maps each anonymous complex type to its key in byKey. When two
+	// types are filed under the same key the later one replaces the earlier
+	// in byKey, so it is the only one declared and names both.
+	keyOf map[*parser.XSDComplexType]string
+	used  map[string]bool
+}
+
+// collectInlineTypes names every anonymous complex type of the schemas.
+func collectInlineTypes(schemas []*parser.XSDSchema) *inlineTypes {
+	c := &inlineTypes{
+		byKey: make(map[string]*InlineComplexType),
+		keyOf: make(map[*parser.XSDComplexType]string),
+		used:  declaredTypeNames(schemas),
+	}
 
 	for _, schema := range schemas {
 		for _, ct := range schema.ComplexTypes {
-			collectFromComplexType(ct.Name, ct, inlineTypes, used)
+			c.collectNested(ct.Name, ct)
 		}
 
 		for _, el := range schema.Elements {
@@ -41,23 +65,64 @@ func CollectInlineComplexTypes(schemas []*parser.XSDSchema) map[string]*InlineCo
 			typeName := utils.MakePublic(el.Name) + "Type"
 			// The element itself is generated as a struct, so a colliding
 			// alias would only duplicate an existing declaration.
-			if !used[typeName] {
-				used[typeName] = true
-				key := fmt.Sprintf("element_%s", el.Name)
-				inlineTypes[key] = &InlineComplexType{
-					Name:          el.Name,
-					GeneratedName: typeName,
-					Scope:         el.Name,
-					ComplexType:   el.ComplexType,
-					MinOccurs:     el.MinOccurs,
-					MaxOccurs:     el.MaxOccurs,
-				}
+			if !c.used[typeName] {
+				c.used[typeName] = true
+				c.add("", el, typeName, el.Name)
 			}
-			collectFromComplexType(el.Name, el.ComplexType, inlineTypes, used)
+			c.collectNested(el.Name, el.ComplexType)
 		}
 	}
 
-	return inlineTypes
+	return c
+}
+
+// add records the anonymous complex type of el under parentName.
+func (c *inlineTypes) add(parentName string, el *parser.XSDElement, generatedName, scope string) {
+	key := GetInlineTypeKey(parentName, el.Name)
+	c.byKey[key] = &InlineComplexType{
+		Name:          el.Name,
+		GeneratedName: generatedName,
+		Scope:         scope,
+		ComplexType:   el.ComplexType,
+		MinOccurs:     el.MinOccurs,
+		MaxOccurs:     el.MaxOccurs,
+	}
+	c.keyOf[el.ComplexType] = key
+}
+
+// collectNested recursively collects the inline complex types nested in ct,
+// whose own Go name or scope is parentTypeName.
+func (c *inlineTypes) collectNested(parentTypeName string, ct *parser.XSDComplexType) {
+	collect := func(elements []*parser.XSDElement) {
+		for _, el := range elements {
+			if el.ComplexType == nil {
+				continue
+			}
+			typeName := uniqueTypeName(utils.MakePublic(parentTypeName)+utils.MakePublic(el.Name)+"Type", c.used)
+			c.add(parentTypeName, el, typeName, typeName)
+			c.collectNested(typeName, el.ComplexType)
+		}
+	}
+
+	collect(ct.Sequence)
+	collect(ct.Choice)
+	collect(ct.SequenceChoice)
+	collect(ct.All)
+	collect(ct.ComplexContent.Extension.Sequence)
+}
+
+// nameOf returns the Go type name assigned to the anonymous complex type of
+// el. It reports an error for an element whose type was not collected,
+// instead of inventing a name for a type that is never declared.
+func (c *inlineTypes) nameOf(el *parser.XSDElement) (string, error) {
+	if el == nil || el.ComplexType == nil {
+		return "", fmt.Errorf("element has no inline complex type")
+	}
+	key, ok := c.keyOf[el.ComplexType]
+	if !ok {
+		return "", fmt.Errorf("no name was assigned to the inline complex type of element %q", el.Name)
+	}
+	return c.byKey[key].GeneratedName, nil
 }
 
 // declaredTypeNames returns the Go names of all top-level types declared by the schemas.
@@ -93,39 +158,9 @@ func uniqueTypeName(name string, used map[string]bool) string {
 	return candidate
 }
 
-// collectFromComplexType recursively collects inline complex types from a complex type
-func collectFromComplexType(parentTypeName string, ct *parser.XSDComplexType, inlineTypes map[string]*InlineComplexType, used map[string]bool) {
-	collect := func(elements []*parser.XSDElement) {
-		for _, el := range elements {
-			if el.ComplexType == nil {
-				continue
-			}
-			typeName := uniqueTypeName(utils.MakePublic(parentTypeName)+utils.MakePublic(el.Name)+"Type", used)
-			key := fmt.Sprintf("%s_%s", parentTypeName, el.Name)
-
-			inlineTypes[key] = &InlineComplexType{
-				Name:          el.Name,
-				GeneratedName: typeName,
-				Scope:         typeName,
-				ComplexType:   el.ComplexType,
-				MinOccurs:     el.MinOccurs,
-				MaxOccurs:     el.MaxOccurs,
-			}
-
-			collectFromComplexType(typeName, el.ComplexType, inlineTypes, used)
-		}
-	}
-
-	collect(ct.Sequence)
-	collect(ct.Choice)
-	collect(ct.SequenceChoice)
-	collect(ct.All)
-	if ct.ComplexContent.Extension.Base != "" {
-		collect(ct.ComplexContent.Extension.Sequence)
-	}
-}
-
-// GetInlineTypeKey generates a unique key for an inline type based on its context
+// GetInlineTypeKey returns the key CollectInlineComplexTypes files an inline
+// type under: parentName is the name of the enclosing type, or "" for the
+// anonymous type of a global element.
 func GetInlineTypeKey(parentName, elementName string) string {
 	if parentName == "" {
 		return fmt.Sprintf("element_%s", elementName)
@@ -133,7 +168,8 @@ func GetInlineTypeKey(parentName, elementName string) string {
 	return fmt.Sprintf("%s_%s", parentName, elementName)
 }
 
-// FindInlineType finds the generated type name for an inline complex type
+// FindInlineType finds the generated type name for an inline complex type by
+// the names of its enclosing type and its element.
 func FindInlineType(inlineTypes map[string]*InlineComplexType, parentName, elementName string) (string, bool) {
 	key := GetInlineTypeKey(parentName, elementName)
 	if it, ok := inlineTypes[key]; ok {

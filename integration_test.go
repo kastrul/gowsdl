@@ -42,9 +42,7 @@ func TestIntegrationRealWSDLFiles(t *testing.T) {
 			}
 
 			// Create temporary directory for generated code
-			tempDir, err := os.MkdirTemp("", "gowsdl-integration-*")
-			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			tempDir := t.TempDir()
 
 			// Generate code
 			g, err := NewGoWSDL(fixture, WithPackage("testservice"), WithExportAllTypes(true), WithServerGeneration(true))
@@ -80,7 +78,7 @@ replace github.com/kastrul/gowsdl => ` + getRootDir()
 			require.NoError(t, err)
 
 			// Try to build the generated code
-			cmd := exec.Command("go", "build", ".")
+			cmd := exec.Command("go", "build", "-mod=mod", ".")
 			cmd.Dir = tempDir
 			output, err := cmd.CombinedOutput()
 			assert.NoError(t, err, "Generated code should compile. Output: %s", string(output))
@@ -151,25 +149,18 @@ func TestIntegrationGeneratedCodeSOAPOperations(t *testing.T) {
 </definitions>`
 
 	// Create temporary WSDL file
-	tempFile, err := os.CreateTemp("", "calculator-*.wsdl")
-	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
-
-	_, err = tempFile.WriteString(wsdlContent)
-	require.NoError(t, err)
-	tempFile.Close()
+	wsdlPath := filepath.Join(t.TempDir(), "calculator.wsdl")
+	require.NoError(t, os.WriteFile(wsdlPath, []byte(wsdlContent), 0644))
 
 	// Generate code
-	g, err := NewGoWSDL(tempFile.Name(), WithPackage("calculator"), WithExportAllTypes(true), WithServerGeneration(true))
+	g, err := NewGoWSDL(wsdlPath, WithPackage("calculator"), WithExportAllTypes(true), WithServerGeneration(true))
 	require.NoError(t, err)
 
 	code, err := g.Start()
 	require.NoError(t, err)
 
 	// Create temporary directory for test
-	tempDir, err := os.MkdirTemp("", "calculator-test-*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Write generated code
 	clientFile := filepath.Join(tempDir, "calculator.go")

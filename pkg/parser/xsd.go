@@ -174,14 +174,18 @@ type XSDComplexType struct {
 // xsdModelGroup captures a nested sequence or choice so that its elements can
 // be flattened into the enclosing complex type.
 type xsdModelGroup struct {
-	Elements  []*XSDElement    `xml:"element"`
-	Sequences []*xsdModelGroup `xml:"sequence"`
-	Choices   []*xsdModelGroup `xml:"choice"`
+	Elements   []*XSDElement    `xml:"element"`
+	Sequences  []*xsdModelGroup `xml:"sequence"`
+	Choices    []*xsdModelGroup `xml:"choice"`
+	Alls       []*xsdModelGroup `xml:"all"`
+	Attributes []*XSDAttribute  `xml:"attribute"`
 }
 
 // UnmarshalXML implements xml.Unmarshaler for XSDComplexType. Elements of
 // sequences and choices nested inside the top-level sequence or choice are
-// flattened into Sequence, SequenceChoice and Choice.
+// flattened into Sequence, SequenceChoice and Choice. The particles and
+// attributes of a complexContent restriction restate the type's whole content
+// model, so they are read as if declared directly on the complex type.
 func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	type Base XSDComplexType
 	aux := struct {
@@ -191,12 +195,33 @@ func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 		SequenceChoiceChoices   []*xsdModelGroup `xml:"sequence>choice>choice"`
 		ChoiceSequences         []*xsdModelGroup `xml:"choice>sequence"`
 		ChoiceChoices           []*xsdModelGroup `xml:"choice>choice"`
+		ComplexContent          *struct {
+			XMLName     xml.Name       `xml:"complexContent"`
+			Extension   XSDExtension   `xml:"extension"`
+			Restriction *xsdModelGroup `xml:"restriction"`
+		} `xml:"complexContent"`
 	}{Base: (*Base)(ct)}
 
 	if err := d.DecodeElement(&aux, &start); err != nil {
 		return err
 	}
 	ct.XMLName = start.Name
+
+	if cc := aux.ComplexContent; cc != nil {
+		ct.ComplexContent = XSDComplexContent{XMLName: cc.XMLName, Extension: cc.Extension}
+		if r := cc.Restriction; r != nil {
+			for _, seq := range r.Sequences {
+				seq.flattenSequence(&ct.Sequence, &ct.SequenceChoice)
+			}
+			for _, choice := range r.Choices {
+				choice.flattenAll(&ct.Choice)
+			}
+			for _, all := range r.Alls {
+				all.flattenAll(&ct.All)
+			}
+			ct.Attributes = append(ct.Attributes, r.Attributes...)
+		}
+	}
 
 	for _, g := range aux.SequenceSequences {
 		g.flattenSequence(&ct.Sequence, &ct.SequenceChoice)

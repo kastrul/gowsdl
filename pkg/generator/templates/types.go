@@ -32,8 +32,19 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
-{{define "ChoiceElements"}}
-	{{$parentTypeName := .ParentTypeName}}
+{{/*
+ElementFields emits one struct field per XSD element. It is called with a dict:
+  Elements  the elements
+  Untyped   what to emit for an element that has no ref, no type attribute and
+            no inline complex or simple type. The call sites have always
+            disagreed on this:
+              "drop"    emit nothing
+              "string"  emit a string field
+              "name"    emit a field whose type is named after the element
+An element with an inline simple type always gets the base of its restriction.
+*/}}
+{{define "ElementFields"}}
+	{{$untyped := .Untyped}}
 	{{range .Elements}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
@@ -46,9 +57,21 @@ const TypesTemplate = `
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
-			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
-		{{else if .Type}}
+			{{template "InlineComplexField" .}}
+		{{else if ne .Type ""}}
 			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .SimpleType}}
+			{{template "InlineSimpleField" (dict "Element" . "JSON" true)}}
+		{{else if eq $untyped "string"}}
+			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{else if eq $untyped "name"}}
+			{{$typeName := .Name}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -59,151 +82,29 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
-{{define "ChoiceElementsNamed"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{range .Elements}}
-		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
-			{{$typeName := .Ref | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .ComplexType}}
-			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
-				{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .Type}}
-			{{$typeName := .Type | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else}}
-			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+{{/*
+InlineSimpleField emits the field of an element with an inline simple type: the
+base of its restriction, or string when it has none (a list or a union). It is
+called with a dict: Element is the element, JSON says whether to emit a json tag.
+*/}}
+{{define "InlineSimpleField"}}
+	{{$el := .Element}}
+	{{$json := .JSON}}
+	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
+	{{$memberType := "string"}}
+	{{if $el.SimpleType.Restriction.Base}}
+		{{$memberType = toGoType ($el.SimpleType.Restriction.Base | removeNamespacePrefix) $el.Nillable}}
+		{{if eq $el.MaxOccurs "unbounded"}}
+			{{$memberType = printf "[]%s" $memberType}}
 		{{end}}
 	{{end}}
-{{end}}
-
-{{define "ComplexTypeInlineNamed"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{$complexType := .ComplexType}}
-	{{with $complexType.ComplexContent}}
-		{{if ne .Extension.Base ""}}
-			{{if eq .Extension.Base "soap:Header"}}
-				soap.Header
-			{{else if eq (toGoType .Extension.Base false) "interface{}"}}
-				InnerXML string ` + "`" + `xml:",innerxml"` + "`" + `
-			{{else}}
-				{{toGoType .Extension.Base false}}
-			{{end}}
-		{{end}}
-		{{template "Elements" (dict "ParentTypeName" $parentTypeName "Elements" .Extension.Sequence)}}
-		{{range .Extension.Attributes}}
-			{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-		{{end}}
-	{{end}}
-
-	{{range $complexType.Sequence}}
-		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
-			{{$typeName := .Ref | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .ComplexType}}
-			{{/* Handle inline complex types */}}
-			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
-				{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .Type}}
-			{{$typeName := .Type | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else}}
-			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-		{{end}}
-	{{end}}
-
-	{{template "ChoiceElementsNamed" (dict "ParentTypeName" $parentTypeName "Elements" $complexType.Choice)}}
-	{{template "ChoiceElementsNamed" (dict "ParentTypeName" $parentTypeName "Elements" $complexType.SequenceChoice)}}
-
-	{{range $complexType.All}}
-		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
-			{{$typeName := .Ref | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .ComplexType}}
-			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
-				{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .Type}}
-			{{$typeName := .Type | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{else}}
-			{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-		{{end}}
-	{{end}}
-
-	{{range $complexType.Attributes}}
-		{{$name := .Name}}
-		{{if eq .Name "Id"}}
-			{{$name = "IdAttr"}}
-		{{end}}
-		{{if eq .Name "id"}}
-			{{$name = "idAttr"}}
-		{{end}}
-		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-	{{end}}
-
-	{{if ne (len $complexType.Any) 0}}
-		Items []string ` + "`" + `xml:",any"` + "`" + `
-	{{end}}
+	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}},omitempty"{{if $json}} json:"{{$el.Name}},omitempty"{{end}}` + "`" + `
 {{end}}
 
 {{define "InlineComplexField"}}
-	{{$el := .Element}}
+	{{$el := .}}
 	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
-	{{$inlineTypeName := getInlineTypeName .ParentTypeName $el.Name}}
+	{{$inlineTypeName := inlineTypeName $el}}
 	{{if eq $el.MaxOccurs "unbounded"}}
 		{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 	{{else if eq $el.MinOccurs "0"}}
@@ -213,108 +114,87 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
-{{define "ComplexTypeInline"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{with .ComplexType}}
-	{{with .ComplexContent}}
-		{{if ne .Extension.Base ""}}
-			{{if eq .Extension.Base "soap:Header"}}
-				soap.Header
-			{{else if eq (toGoType .Extension.Base false) "interface{}"}}
-				InnerXML string ` + "`" + `xml:",innerxml"` + "`" + `
-			{{else}}
-				{{toGoType .Extension.Base false}}
-			{{end}}
-		{{end}}
-	{{end}}
-
-	{{range .Sequence}}
-		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
-			{{$typeName := .Ref | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .ComplexType}}
-			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
-		{{else if eq .Type ""}}
-			{{if .SimpleType}}
-				{{/* Element has inline simple type - use its base type */}}
-				{{if .SimpleType.Restriction.Base}}
-					{{$baseType := .SimpleType.Restriction.Base | removeNamespacePrefix}}
-					{{$memberType := toGoType $baseType .Nillable}}
-					{{if eq .MaxOccurs "unbounded"}}
-						{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-					{{else}}
-						{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-					{{end}}
-				{{else}}
-					{{/* Fallback if no restriction base */}}
-					{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{else}}
-				{{/* No type and no inline simple type - use element name as type */}}
-				{{$typeName := .Name}}
-				{{$memberType := toGoType $typeName .Nillable}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{end}}
-		{{else}}
-			{{$typeName := .Type | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-	{{end}}
-
-	{{template "ChoiceElements" (dict "ParentTypeName" $parentTypeName "Elements" .Choice)}}
-	{{template "ChoiceElements" (dict "ParentTypeName" $parentTypeName "Elements" .SequenceChoice)}}
-
-	{{range .All}}
-		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if ne .Ref ""}}
-			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
-			{{$typeName := .Ref | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
-			{{end}}
-		{{else if .ComplexType}}
-			{{template "InlineComplexField" (dict "ParentTypeName" $parentTypeName "Element" .)}}
-		{{else if .Type}}
-			{{$typeName := .Type | removeNamespacePrefix}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-	{{end}}
-
+{{/*
+AttributeFields emits one struct field per XSD attribute. It is called with a dict:
+  Attributes  the attributes
+  RenameID    name the field of an attribute called "Id" or "id" IdAttr; the
+              call sites have always disagreed on this
+*/}}
+{{define "AttributeFields"}}
+	{{$renameID := .RenameID}}
 	{{range .Attributes}}
-		
 		{{$name := .Name}}
-		{{if eq .Name "Id"}}
-			{{$name = "IdAttr"}}
+		{{if $renameID}}
+			{{if eq .Name "Id"}}
+				{{$name = "IdAttr"}}
+			{{end}}
+			{{if eq .Name "id"}}
+				{{$name = "idAttr"}}
+			{{end}}
 		{{end}}
-		{{if eq .Name "id"}}
-			{{$name = "idAttr"}}
-		{{end}}
-		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
+{{end}}
+
+{{/* ExtensionBase embeds the base type of a complexContent extension. */}}
+{{define "ExtensionBase"}}
+	{{if ne .Extension.Base ""}}
+		{{if eq .Extension.Base "soap:Header"}}
+			soap.Header
+		{{else if eq (toGoType .Extension.Base false) "interface{}"}}
+			InnerXML string ` + "`" + `xml:",innerxml"` + "`" + `
+		{{else}}
+			{{toGoType .Extension.Base false}}
+		{{end}}
+	{{end}}
+{{end}}
+
+{{/*
+XMLNameField emits the XMLName field of a message element. It is called with a
+dict: Name is the XML name, Namespace the target namespace of its declaration
+and Qualified whether the schema declaring it has elementFormDefault="qualified".
+*/}}
+{{define "XMLNameField"}}
+	{{if .Qualified}}
+	XMLName xml.Name ` + "`" + `xml:"{{.Namespace}} {{.Name}}"` + "`" + `
+	{{else if isResponseElement .Name}}
+	{{/* Response elements use local name only to handle any namespace prefix */}}
+	XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
+	{{else}}
+	XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
+	{{end}}
+{{end}}
+
+{{define "ComplexTypeInlineNamed"}}
+	{{$complexType := .}}
+	{{with $complexType.ComplexContent}}
+		{{template "ExtensionBase" .}}
+		{{template "Elements" .Extension.Sequence}}
+		{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
+	{{end}}
+
+	{{template "ElementFields" (dict "Elements" $complexType.Sequence "Untyped" "string")}}
+	{{template "ElementFields" (dict "Elements" $complexType.Choice "Untyped" "string")}}
+	{{template "ElementFields" (dict "Elements" $complexType.SequenceChoice "Untyped" "string")}}
+	{{template "ElementFields" (dict "Elements" $complexType.All "Untyped" "string")}}
+
+	{{template "AttributeFields" (dict "Attributes" $complexType.Attributes "RenameID" true)}}
+
+	{{if ne (len $complexType.Any) 0}}
+		Items []string ` + "`" + `xml:",any"` + "`" + `
+	{{end}}
+{{end}}
+
+{{define "ComplexTypeInline"}}
+	{{with .}}
+	{{template "ExtensionBase" .ComplexContent}}
+
+	{{template "ElementFields" (dict "Elements" .Sequence "Untyped" "name")}}
+	{{template "ElementFields" (dict "Elements" .Choice "Untyped" "drop")}}
+	{{template "ElementFields" (dict "Elements" .SequenceChoice "Untyped" "drop")}}
+	{{template "ElementFields" (dict "Elements" .All "Untyped" "drop")}}
+
+	{{template "AttributeFields" (dict "Attributes" .Attributes "RenameID" true)}}
 
 	{{if ne (len .Any) 0}}
 		Items []string ` + "`" + `xml:",any"` + "`" + `
@@ -329,35 +209,23 @@ const TypesTemplate = `
 	{{end}}
 	type {{$type}} struct {
 		{{if isMessageElement .Name}}
-			{{if isElementFormQualified}}
-			XMLName xml.Name ` + "`" + `xml:"{{complexTypeNamespace .}} {{.Name}}"` + "`" + `
-			{{else if isResponseElement .Name}}
-			{{/* Response elements use local name only to handle any namespace prefix */}}
-			XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
-			{{else}}
-			XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
-			{{end}}
+			{{template "XMLNameField" (dict "Name" .Name "Namespace" (complexTypeNamespace .) "Qualified" (isQualified .))}}
 		{{end}}
-		{{template "ComplexTypeInline" (dict "ParentTypeName" $.Name "ComplexType" .)}}
+		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
-			{{template "Elements" (dict "ParentTypeName" $.Name "Elements" .Extension.Sequence)}}
-			{{range .Extension.Attributes}}
-				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
-			{{end}}
+			{{template "Elements" .Extension.Sequence}}
+			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
 		{{end}}
 		{{with .SimpleContent}}
 			{{if ne .Extension.Base ""}}
 				Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata"` + "`" + `
 			{{end}}
-			{{range .Extension.Attributes}}
-				
-				{{replaceAttrReservedWords .Name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
-			{{end}}
+			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
 		{{end}}
 	}
 	
 	{{if isMessageElement .Name}}
-		{{if not isElementFormQualified}}
+		{{if not (isQualified .)}}
 		// TargetNamespace returns the target namespace for SOAP envelope configuration
 		func (t {{$type}}) TargetNamespace() string {
 			return "{{complexTypeNamespace .}}"
@@ -381,13 +249,9 @@ const TypesTemplate = `
 		{{if $inline.ComplexType.SimpleContent.Extension.Base}}
 			{{/* Simple content with attributes */}}
 			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
-			{{range $inline.ComplexType.SimpleContent.Extension.Attributes}}
-				{{$attrName := .Name | replaceReservedWords | makeFieldPublic}}
-				{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
+			{{template "AttributeFields" (dict "Attributes" $inline.ComplexType.SimpleContent.Extension.Attributes "RenameID" false)}}
 		{{else}}
-			{{/* Pass the parent type name to handle nested inline types */}}
-			{{template "ComplexTypeInlineNamed" (dict "ParentTypeName" $inline.Scope "ComplexType" $inline.ComplexType)}}
+			{{template "ComplexTypeInlineNamed" $inline.ComplexType}}
 		{{end}}
 	}
 {{end}}
@@ -408,18 +272,11 @@ const TypesTemplate = `
 			{{/* For complex types, use the public version of the type name */}}
 			{{if isComplexType .Type}}
 				type {{$type}} struct {
-					{{if isElementFormQualified}}
-					XMLName xml.Name ` + "`" + `xml:"{{elementNamespace .}} {{.Name}}"` + "`" + `
-					{{else if isResponseElement .Name}}
-					{{/* Response elements use local name only to handle any namespace prefix */}}
-					XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
-					{{else}}
-					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
-					{{end}}
+					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .) "Qualified" (isQualified .))}}
 					{{$goPublicType}}
 				}
 				
-				{{if not isElementFormQualified}}
+				{{if not (isQualified .)}}
 				func (t {{$type}}) TargetNamespace() string {
 					return "{{elementNamespace .}}"
 				}
@@ -465,26 +322,17 @@ const TypesTemplate = `
 				{{template "ComplexType" .ComplexType}}
 			{{else}}
 				type {{$outerType}} struct {
-					{{if isElementFormQualified}}
-					XMLName xml.Name ` + "`" + `xml:"{{elementNamespace .}} {{.Name}}"` + "`" + `
-					{{else if isResponseElement .Name}}
-					{{/* Response elements use local name only to handle any namespace prefix */}}
-					XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
-					{{else}}
-					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
-					{{end}}
-					{{template "ComplexTypeInline" (dict "ParentTypeName" .Name "ComplexType" .ComplexType)}}
+					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .) "Qualified" (isQualified .))}}
+					{{template "ComplexTypeInline" .ComplexType}}
 					{{with .ComplexType.SimpleContent}}
 						{{if ne .Extension.Base ""}}
 							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
 						{{end}}
-						{{range .Extension.Attributes}}
-							{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-						{{end}}
+						{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
 					{{end}}
 				}
 
-				{{if not isElementFormQualified}}
+				{{if not (isQualified .)}}
 				func (t {{$outerType}}) TargetNamespace() string {
 					return "{{elementNamespace .}}"
 				}
@@ -530,6 +378,29 @@ const TypesTemplate = `
 
 		// MarshalXML implements xml.Marshaler and writes nothing.
 		func ({{$type}}) MarshalXML(*xml.Encoder, xml.StartElement) error { return nil }
+	{{else if and (isRPCStyleMessage .) (isHeaderMessage .)}}
+		{{$type := replaceReservedWords .Name | makePublic}}
+		// {{$type}} holds the parts of the {{.Name}} SOAP header message. Pass it to
+		// soap.Client.AddHeader: every part set to a non-zero value is sent as its
+		// own header element, and parts left zero are omitted.
+		type {{$type}} struct {
+			{{range .Parts}}
+				{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
+				{{if ne .Type ""}}
+					{{$partType := .Type | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $partType false}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{else if ne .Element ""}}
+					{{$elementType := .Element | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $elementType false}} ` + "`" + `xml:"{{partXMLName .}},omitempty" json:"{{.Name}},omitzero"` + "`" + `
+				{{end}}
+			{{end}}
+		}
+
+		// MarshalXML implements xml.Marshaler. It writes each non-zero part as a
+		// sibling element, with no element for the message itself.
+		func (h {{$type}}) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+			return soap.MarshalParts(e, h)
+		}
 	{{else if isRPCStyleMessage .}}
 		{{$type := replaceReservedWords .Name | makePublic}}
 		type {{$type}} struct {
@@ -610,15 +481,16 @@ const TypesTemplate = `
 {{end}}
 
 {{define "Elements"}}
-	{{$parentTypeName := .ParentTypeName}}
-	{{range .Elements}}
+	{{range .}}
 		{{if ne .Ref ""}}
 			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty"` + "`" + `
 		{{else}}
 			{{if not .Type}}
 				{{if .ComplexType}}
-					{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
+					{{$inlineTypeName := inlineTypeName .}}
 					{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{else if eq .MinOccurs "0"}}*{{end}}{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
+				{{else if .SimpleType}}
+					{{template "InlineSimpleField" (dict "Element" . "JSON" false)}}
 				{{end}}
 			{{else}}
 				{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `

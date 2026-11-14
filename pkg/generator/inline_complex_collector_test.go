@@ -139,8 +139,13 @@ func TestCollectFromComplexType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inlineTypes := make(map[string]*InlineComplexType)
-			collectFromComplexType(tt.parentTypeName, tt.complexType, inlineTypes, make(map[string]bool))
+			collected := &inlineTypes{
+				byKey: make(map[string]*InlineComplexType),
+				keyOf: make(map[*parser.XSDComplexType]string),
+				used:  make(map[string]bool),
+			}
+			collected.collectNested(tt.parentTypeName, tt.complexType)
+			inlineTypes := collected.byKey
 
 			// Check that all expected types were collected
 			for key, expectedName := range tt.expectedTypes {

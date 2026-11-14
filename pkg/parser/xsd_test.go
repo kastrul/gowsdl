@@ -143,3 +143,58 @@ func TestXSDComplexType_NestedGroupsInSchema(t *testing.T) {
 	require.NotNil(t, inner)
 	assert.Equal(t, []string{"nested"}, elementNames(inner.Sequence))
 }
+
+func TestXSDComplexType_ComplexContentRestriction(t *testing.T) {
+	src := `<complexType xmlns="http://www.w3.org/2001/XMLSchema" name="ClientIdentifierType">
+		<complexContent>
+			<restriction base="id:XRoadIdentifierType">
+				<sequence>
+					<element ref="id:xRoadInstance"/>
+					<element ref="id:memberCode"/>
+					<choice>
+						<element ref="id:subsystemCode"/>
+						<element ref="id:groupCode"/>
+					</choice>
+				</sequence>
+				<attribute ref="id:objectType" use="required"/>
+			</restriction>
+		</complexContent>
+	</complexType>`
+
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	refs := func(elements []*XSDElement) []string {
+		out := make([]string, 0, len(elements))
+		for _, el := range elements {
+			out = append(out, el.Ref)
+		}
+		return out
+	}
+	assert.Equal(t, []string{"id:xRoadInstance", "id:memberCode"}, refs(ct.Sequence))
+	assert.Equal(t, []string{"id:subsystemCode", "id:groupCode"}, refs(ct.SequenceChoice))
+	require.Len(t, ct.Attributes, 1)
+	assert.Equal(t, "id:objectType", ct.Attributes[0].Ref)
+	assert.Equal(t, "complexContent", ct.ComplexContent.XMLName.Local)
+	assert.Empty(t, ct.ComplexContent.Extension.Base, "a restriction must not be read as an extension of its base")
+}
+
+func TestXSDComplexType_ComplexContentExtensionStillParsed(t *testing.T) {
+	src := `<complexType xmlns="http://www.w3.org/2001/XMLSchema" name="Order">
+		<complexContent>
+			<extension base="tns:BaseEntity">
+				<sequence><element name="status" type="string"/></sequence>
+				<attribute name="priority" type="int"/>
+			</extension>
+		</complexContent>
+	</complexType>`
+
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	assert.Equal(t, "tns:BaseEntity", ct.ComplexContent.Extension.Base)
+	assert.Equal(t, []string{"status"}, elementNames(ct.ComplexContent.Extension.Sequence))
+	require.Len(t, ct.ComplexContent.Extension.Attributes, 1)
+	assert.Empty(t, ct.Sequence)
+	assert.Empty(t, ct.Attributes)
+}

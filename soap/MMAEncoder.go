@@ -3,37 +3,37 @@ package soap
 import (
 	"bytes"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"mime"
-	"mime/multipart"
 	"net/textproto"
-	"strings"
 )
 
 const mmaContentType string = `multipart/related; start="<soaprequest@gowsdl.lib>"; type="text/xml"; boundary="%s"`
 
 type mmaEncoder struct {
-	writer      *multipart.Writer
+	multipartEncoder
 	attachments []MIMEMultipartAttachment
 }
 
 type mmaDecoder struct {
-	reader *multipart.Reader
+	multipartDecoder
 }
 
 func newMmaEncoder(w io.Writer, attachments []MIMEMultipartAttachment) *mmaEncoder {
 	return &mmaEncoder{
-		writer:      multipart.NewWriter(w),
-		attachments: attachments,
+		multipartEncoder: newMultipartEncoder(w),
+		attachments:      attachments,
 	}
 }
 
 func newMmaDecoder(r io.Reader, boundary string) *mmaDecoder {
-	return &mmaDecoder{
-		reader: multipart.NewReader(r, boundary),
-	}
+	return &mmaDecoder{newMultipartDecoder(r, boundary)}
+}
+
+// ContentType returns the Content-Type header of the encoded request.
+func (e *mmaEncoder) ContentType() string {
+	return fmt.Sprintf(mmaContentType, e.Boundary())
 }
 
 func (e *mmaEncoder) Encode(v interface{}) error {
@@ -75,68 +75,31 @@ func (e *mmaEncoder) Encode(v interface{}) error {
 	return nil
 }
 
-func (e *mmaEncoder) Flush() error {
-	return e.writer.Close()
-}
-
-func (e *mmaEncoder) Boundary() string {
-	return e.writer.Boundary()
-}
-
 func getMmaHeader(contentType string) (string, error) {
-	mediaType, params, err := mime.ParseMediaType(contentType)
-	if err != nil {
-		return "", err
-	}
-
-	if strings.HasPrefix(mediaType, "multipart/") {
-		boundary, ok := params["boundary"]
-		if !ok || boundary == "" {
-			return "", fmt.Errorf("invalid multipart boundary: %s", boundary)
-		}
-		return boundary, nil
-	}
-
-	return "", nil
+	boundary, _, err := multipartParams(contentType)
+	return boundary, err
 }
 
 func (d *mmaDecoder) Decode(v interface{}) error {
 	soapEnvResp := v.(*SOAPEnvelopeResponse)
 	attachments := make([]MIMEMultipartAttachment, 0)
 	rootDecoded := false
-	for {
-		p, err := d.reader.NextPart()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return err
+	isRoot := func(contentType string) bool {
+		mediaType, _, _ := mime.ParseMediaType(contentType)
+		if rootDecoded || mediaType != "text/xml" {
+			return false
 		}
-		mediaType, _, _ := mime.ParseMediaType(p.Header.Get("Content-Type"))
-		if !rootDecoded && mediaType == "text/xml" {
-			// decode SOAP part
-			err := xml.NewDecoder(p).Decode(v)
-			if err != nil {
-				return err
-			}
-			rootDecoded = true
-		} else {
-			// decode attachment parts
-			contentID := p.Header.Get("Content-Id")
-			if contentID == "" {
-				return errors.New("invalid multipart content ID")
-			}
-			content, err := io.ReadAll(p)
-			if err != nil {
-				return err
-			}
-
-			contentID = strings.Trim(contentID, "<>")
-			attachments = append(attachments, MIMEMultipartAttachment{
-				Name: contentID,
-				Data: content,
-			})
-		}
+		rootDecoded = true
+		return true
+	}
+	attach := func(contentID, _ string, content []byte) {
+		attachments = append(attachments, MIMEMultipartAttachment{
+			Name: contentID,
+			Data: content,
+		})
+	}
+	if err := d.decodeParts(v, isRoot, attach); err != nil {
+		return err
 	}
 	if len(attachments) > 0 {
 		soapEnvResp.Attachments = attachments
