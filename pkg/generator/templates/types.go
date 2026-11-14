@@ -52,9 +52,9 @@ const TypesTemplate = `
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
 			{{/* Handle inline complex types */}}
@@ -81,7 +81,16 @@ const TypesTemplate = `
 
 	{{range $complexType.Choice}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if .ComplexType}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .ComplexType}}
 			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -105,7 +114,16 @@ const TypesTemplate = `
 
 	{{range $complexType.All}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
-		{{if .ComplexType}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .ComplexType}}
 			{{$inlineTypeName := getInlineTypeName $parentTypeName .Name}}
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -161,9 +179,9 @@ const TypesTemplate = `
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
 			{{/* Handle inline complex types */}}
@@ -244,9 +262,9 @@ const TypesTemplate = `
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .Type}}
 			{{$typeName := .Type | removeNamespacePrefix}}
@@ -266,9 +284,9 @@ const TypesTemplate = `
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .Type}}
 			{{$typeName := .Type | removeNamespacePrefix}}
@@ -356,7 +374,7 @@ const TypesTemplate = `
 	type {{$type}} struct {
 		{{if $inline.ComplexType.SimpleContent.Extension.Base}}
 			{{/* Simple content with attributes */}}
-			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
+			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
 			{{range $inline.ComplexType.SimpleContent.Extension.Attributes}}
 				{{$attrName := .Name | replaceReservedWords | makeFieldPublic}}
 				{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -581,7 +599,7 @@ const TypesTemplate = `
 	{{$parentTypeName := .ParentTypeName}}
 	{{range .Elements}}
 		{{if ne .Ref ""}}
-			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+			{{removeNamespacePrefix .Ref | replaceReservedWords | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{refXMLName .}},omitempty"` + "`" + `
 		{{else}}
 			{{if not .Type}}
 				{{if .ComplexType}}
