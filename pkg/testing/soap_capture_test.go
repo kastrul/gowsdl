@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -145,7 +146,7 @@ func TestSOAPCaptureThreadSafety(t *testing.T) {
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <getUser xmlns="http://example.com/test">
-      <userId>` + string(rune('0'+goroutineID)) + string(rune('0'+j)) + `</userId>
+      <userId>` + strconv.Itoa(goroutineID) + strconv.Itoa(j) + `</userId>
     </getUser>
   </soap:Body>
 </soap:Envelope>`

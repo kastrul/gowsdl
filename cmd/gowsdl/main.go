@@ -389,7 +389,7 @@ func run() error {
 	}
 
 	// Output what was generated
-	log.Printf("Generated %s (package %s) from %s", outputPath, *pkg, wsdlPath)
+	log.Printf("Generated %s (package %s) from %s", outputPath, *pkg, wsdlPath) //nolint:gosec // echoes the user's own CLI arguments to stderr
 
 	if *generateServer {
 		log.Printf("Generated %s (server implementation)", serverFilePath)

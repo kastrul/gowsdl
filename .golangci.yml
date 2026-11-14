@@ -27,7 +27,7 @@ linters:
       - path: _test\.go$
         linters:
           - gosec
-        text: "G(204|301|304|306):"
+        text: "G(204|301|304|306|702|703):"
       # Renaming these exported identifiers would break callers:
       # http.HTTPConfig, http.HTTPClientConfig, soap.SOAPArray and friends.
       - linters:
