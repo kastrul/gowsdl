@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const xsiNamespace = "http://www.w3.org/2001/XMLSchema-instance"
-
 type anyHolder struct {
 	XMLName xml.Name `xml:"holder"`
 	Value   AnyType  `xml:"value,omitempty"`
@@ -39,7 +37,7 @@ func TestAnyType_ZeroValueIsOmitted(t *testing.T) {
 func TestAnyType_EncodesValueWithAttrs(t *testing.T) {
 	h := anyHolder{Value: AnyType{
 		Value: plainItem{ID: 7},
-		Attrs: []xml.Attr{{Name: xml.Name{Space: xsiNamespace, Local: "type"}, Value: "Item"}},
+		Attrs: []xml.Attr{{Name: xml.Name{Space: XSINamespace, Local: "type"}, Value: "Item"}},
 	}}
 
 	out, err := xml.Marshal(h)
@@ -71,7 +69,7 @@ func TestAnyType_DecodesContentUsingAncestorNamespaces(t *testing.T) {
 
 	assert.Equal(t, "value", v.XMLName.Local)
 	require.Len(t, v.Attrs, 1)
-	assert.Equal(t, xml.Name{Space: xsiNamespace, Local: "type"}, v.Attrs[0].Name)
+	assert.Equal(t, xml.Name{Space: XSINamespace, Local: "type"}, v.Attrs[0].Name)
 	assert.Equal(t, "ns2:Item", v.Attrs[0].Value)
 	assert.Contains(t, v.InnerXML, `="urn:item"`, "InnerXML must declare the ancestor namespace it uses")
 
