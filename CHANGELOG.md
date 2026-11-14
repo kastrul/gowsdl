@@ -68,6 +68,16 @@ not compile or did not work before.
 
 ### Fixed
 
+- **Regenerate.** In RPC-style requests, the accessor element of each message
+  part is now in no namespace, as WS-I Basic Profile R2735 requires, and the
+  content of a part declared with a type follows its schema's
+  `elementFormDefault`. Before, the accessors and any unqualified content
+  inherited the operation wrapper's default namespace. This changes the
+  request XML sent to every RPC-style service: a part is now written as
+  `<userId xmlns="">` instead of `<userId>` under `<getUser xmlns="...">`.
+  The generated request wrappers implement `xml.Marshaler` using the new
+  `soap.MarshalRPCTypePart` and `soap.MarshalRPCElementPart`. Responses are
+  read as before, so both forms of accessor are accepted.
 - RPC-style operations whose message parts are declared with `element`
   instead of `type` now compile and work. The request and response are the
   part's element itself, and the element is sent inside an accessor element

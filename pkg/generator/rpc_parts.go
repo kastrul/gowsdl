@@ -26,9 +26,10 @@ func (g *Generator) bodyElementPart(msg *parser.WSDLMessage) *parser.WSDLPart {
 	return nil
 }
 
-// rpcElementParts places message parts declared with an element in the
-// operation wrappers of RPC-style port types. WSDL 1.1 section 3.5 puts such
-// an element inside an accessor element named after the part.
+// rpcElementParts places message parts in the operation wrappers of
+// RPC-style port types. WSDL 1.1 section 3.5 puts each part inside an
+// accessor element named after it, holding the part's element or, for a part
+// declared with a type, the type's content.
 type rpcElementParts struct {
 	g                *Generator
 	schemas          []*parser.XSDSchema
@@ -65,6 +66,38 @@ func (r *rpcElementParts) wrapperNamespace(msg *parser.WSDLMessage) string {
 		}
 	}
 	return ""
+}
+
+// typePartNamespace returns the namespace of the content of a part declared
+// with a type: the target namespace of the schema declaring its complex type
+// when that schema is qualified, or "" for an unqualified schema or a simple
+// type.
+func (r *rpcElementParts) typePartNamespace(part *parser.WSDLPart) string {
+	if part.Type == "" {
+		return ""
+	}
+	name := utils.LocalName(part.Type)
+	for _, schema := range r.schemas {
+		for _, ct := range schema.ComplexTypes {
+			if ct.Name == name && r.decl.isQualified(ct) {
+				return r.decl.complexType(ct)
+			}
+		}
+	}
+	return ""
+}
+
+// elementPartNamespace returns the namespace of the global element of a part
+// declared with an element.
+func (r *rpcElementParts) elementPartNamespace(part *parser.WSDLPart) string {
+	el := r.element(part.Element)
+	if el == nil {
+		return ""
+	}
+	if ct := r.namedComplexType(el); ct != nil && ct.Name == el.Name {
+		return r.decl.complexType(ct)
+	}
+	return r.decl.element(el)
 }
 
 // usesTNSPrefix reports whether the type generated for the global element el

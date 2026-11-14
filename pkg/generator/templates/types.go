@@ -460,6 +460,29 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 							{{end}}
 						{{end}}
 					}
+
+					// MarshalXML implements xml.Marshaler. It writes each part in an
+					// accessor element in no namespace, as WS-I Basic Profile R2735
+					// requires, rather than in the operation's namespace.
+					func (w Operation{{$opName | makePublic}}In) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+						start := xml.StartElement{Name: xml.Name{Space: "{{getTargetNamespace}}", Local: "{{$opName}}"}}
+						if err := e.EncodeToken(start); err != nil {
+							return err
+						}
+						{{range .Parts}}
+							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
+							{{if ne .Type ""}}
+								if err := soap.MarshalRPCTypePart(e, "{{.Name}}", "{{rpcTypePartNamespace .}}", w.{{$partName}}); err != nil {
+									return err
+								}
+							{{else if ne .Element ""}}
+								if err := soap.MarshalRPCElementPart(e, "{{.Name}}", xml.Name{Space: "{{rpcElementPartNamespace .}}", Local: "{{.Element | removeNamespacePrefix}}"}, w.{{$partName}}); err != nil {
+									return err
+								}
+							{{end}}
+						{{end}}
+						return e.EncodeToken(start.End())
+					}
 					{{with rpcWrapperNamespace .}}
 
 					// TargetNamespace returns the namespace of the tns prefix the
