@@ -30,12 +30,12 @@ Example WSDL:
 Generated Go code:
 ```go
 type OrderType struct {
-    ShippingAddress *OrderTypeShippingAddressType `xml:"shippingAddress,omitempty"`
+    ShippingAddress *OrderTypeShippingAddressType `xml:"shippingAddress,omitempty" json:"shippingAddress,omitempty"`
 }
 
 type OrderTypeShippingAddressType struct {
-    Street string `xml:"street,omitempty"`
-    City   string `xml:"city,omitempty"`
+    Street string `xml:"street,omitempty" json:"street,omitempty"`
+    City   string `xml:"city,omitempty" json:"city,omitempty"`
 }
 ```
 

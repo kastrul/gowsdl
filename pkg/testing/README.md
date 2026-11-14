@@ -33,9 +33,10 @@ test_fixtures/
 │   ├── basic_rpc.wsdl
 │   ├── basic_rpc_request.xml
 │   └── basic_rpc_test_data.json
-└── edge_cases/
-    └── ...
+└── ...
 ```
+
+`test_fixtures/` lives at the repository root (paths given to `LoadFixtures` are relative to the test's working directory, so tests in this package use `../../test_fixtures`). Each subdirectory holds one style (`document_literal` or `rpc_literal`); a fixture is `<name>.wsdl`, `<name>_request.xml` and `<name>_test_data.json`. `LoadFixtures` reads only those two subdirectories.
 
 ## Components
 
@@ -191,11 +192,8 @@ The RPC Operation Wrapper Rule would immediately catch this:
 # Run basic tests
 go test -v ./pkg/testing
 
-# Run integration tests
-go test -v -tags=integration ./pkg/testing
-
-# Run with fixtures
-go test -v ./pkg/testing -args -fixtures=test_fixtures
+# Check the generated clients against the fixtures in test_fixtures/
+go test -v -run TestGenerator_TestFixtures ./pkg/generator
 ```
 
 This framework would have caught the RPC namespace issue immediately and prevented it from reaching production.
