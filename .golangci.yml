@@ -12,14 +12,39 @@ linters:
     - bodyclose
     - errorlint
     - gocritic
+    - gosec
     - misspell
     - nilerr
+    - revive
     - unconvert
     - whitespace
   settings:
     gocritic:
       disabled-checks:
         - ifElseChain
+  exclusions:
+    rules:
+      # Tests read fixtures, write scratch files under t.TempDir() and run the
+      # go toolchain or the test binary itself as subprocesses.
+      - path: _test\.go$
+        linters:
+          - gosec
+        text: "G(204|301|304|306|702|703):"
+      # Renaming these exported identifiers would break callers:
+      # http.HTTPConfig, http.HTTPClientConfig, soap.SOAPArray and friends.
+      - linters:
+          - revive
+        text: "that stutters"
+      # Package names utils and types are part of the public import paths.
+      - linters:
+          - revive
+        text: "avoid meaningless package names"
+      # The legacy soap package keeps its original exported names
+      # (XmlNS, Id, XmlNsSoapEnv, GetHttpClientHeaders, ...) for compatibility.
+      - path: ^soap/soap\.go$
+        linters:
+          - revive
+        text: "var-naming:"
 
 formatters:
   enable:

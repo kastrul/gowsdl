@@ -68,14 +68,17 @@ func (re *RuleEngine) ValidateSOAPRequest(soapXML, style string) []RuleViolation
 // RPCOperationWrapperRule validates RPC-style operation wrappers
 type RPCOperationWrapperRule struct{}
 
+// Name returns the rule's display name.
 func (r *RPCOperationWrapperRule) Name() string {
 	return "RPC Operation Wrapper"
 }
 
+// Description returns what the rule checks.
 func (r *RPCOperationWrapperRule) Description() string {
 	return "RPC-style operations must have operation name as wrapper element in correct namespace"
 }
 
+// Validate checks soapXML against the rule and returns any violations.
 func (r *RPCOperationWrapperRule) Validate(soapXML string, style string) []RuleViolation {
 	var violations []RuleViolation
 
@@ -125,14 +128,17 @@ func (r *RPCOperationWrapperRule) Validate(soapXML string, style string) []RuleV
 // DocumentStyleRule validates document-style operations
 type DocumentStyleRule struct{}
 
+// Name returns the rule's display name.
 func (r *DocumentStyleRule) Name() string {
 	return "Document Style"
 }
 
+// Description returns what the rule checks.
 func (r *DocumentStyleRule) Description() string {
 	return "Document-style operations should use element-based messages without operation wrappers"
 }
 
+// Validate checks soapXML against the rule and returns any violations.
 func (r *DocumentStyleRule) Validate(soapXML string, style string) []RuleViolation {
 	var violations []RuleViolation
 
@@ -173,15 +179,18 @@ func (r *DocumentStyleRule) Validate(soapXML string, style string) []RuleViolati
 // NamespaceConsistencyRule validates namespace consistency
 type NamespaceConsistencyRule struct{}
 
+// Name returns the rule's display name.
 func (r *NamespaceConsistencyRule) Name() string {
 	return "Namespace Consistency"
 }
 
+// Description returns what the rule checks.
 func (r *NamespaceConsistencyRule) Description() string {
 	return "Namespace declarations and usage should be consistent"
 }
 
-func (r *NamespaceConsistencyRule) Validate(soapXML string, style string) []RuleViolation {
+// Validate checks soapXML against the rule and returns any violations.
+func (r *NamespaceConsistencyRule) Validate(soapXML string, _ string) []RuleViolation {
 	var violations []RuleViolation
 
 	// Simple check for undefined namespace prefixes using regex
@@ -223,15 +232,18 @@ func (r *NamespaceConsistencyRule) Validate(soapXML string, style string) []Rule
 // SOAPEnvelopeRule validates basic SOAP envelope structure
 type SOAPEnvelopeRule struct{}
 
+// Name returns the rule's display name.
 func (r *SOAPEnvelopeRule) Name() string {
 	return "SOAP Envelope Structure"
 }
 
+// Description returns what the rule checks.
 func (r *SOAPEnvelopeRule) Description() string {
 	return "SOAP requests must have valid envelope structure"
 }
 
-func (r *SOAPEnvelopeRule) Validate(soapXML string, style string) []RuleViolation {
+// Validate checks soapXML against the rule and returns any violations.
+func (r *SOAPEnvelopeRule) Validate(soapXML string, _ string) []RuleViolation {
 	var violations []RuleViolation
 
 	// Check for SOAP envelope
@@ -273,15 +285,18 @@ func (r *SOAPEnvelopeRule) Validate(soapXML string, style string) []RuleViolatio
 // RequiredElementsRule validates that required elements are present
 type RequiredElementsRule struct{}
 
+// Name returns the rule's display name.
 func (r *RequiredElementsRule) Name() string {
 	return "Required Elements"
 }
 
+// Description returns what the rule checks.
 func (r *RequiredElementsRule) Description() string {
 	return "Required elements must be present in the request"
 }
 
-func (r *RequiredElementsRule) Validate(soapXML string, style string) []RuleViolation {
+// Validate checks soapXML against the rule and returns any violations.
+func (r *RequiredElementsRule) Validate(soapXML string, _ string) []RuleViolation {
 	var violations []RuleViolation
 
 	// This would need to be enhanced with WSDL schema information

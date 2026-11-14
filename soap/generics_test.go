@@ -36,7 +36,7 @@ type User struct {
 
 func TestGenericClient(t *testing.T) {
 	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Return a successful response
 		response := `<?xml version="1.0" encoding="UTF-8"?>
 		<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -71,7 +71,7 @@ func TestGenericClient(t *testing.T) {
 
 func TestGenericClientWithFault(t *testing.T) {
 	// Create test server that returns a SOAP fault
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := `<?xml version="1.0" encoding="UTF-8"?>
 		<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
 			<soap:Body>
@@ -251,7 +251,7 @@ func TestBatchClient(t *testing.T) {
 }
 
 func TestBatchClientWithContextCancellation(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Simulate slow response
 		time.Sleep(100 * time.Millisecond)
 		response := `<?xml version="1.0" encoding="UTF-8"?>
@@ -331,7 +331,7 @@ func TestNewGenericClientFromClient(t *testing.T) {
 	})
 
 	t.Run("SOAP fault is not a transport error", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/xml")
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>

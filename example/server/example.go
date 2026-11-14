@@ -1,3 +1,4 @@
+// Command server runs a demo SOAP endpoint and calls it with a gowsdl-generated client.
 package main
 
 import (
@@ -35,7 +36,7 @@ func main() {
 	}()
 
 	// Simple echo server for demo purposes
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/xml")
 		_, err := w.Write([]byte(`<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -50,8 +51,15 @@ func main() {
 		}
 	})
 
+	server := &http.Server{
+		Addr:              ":8000",
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 	go func() {
-		if err := http.ListenAndServe(":8000", nil); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			log.Printf("Server error: %v", err)
 		}
 	}()
