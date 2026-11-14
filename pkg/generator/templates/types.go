@@ -117,13 +117,11 @@ called with a dict: Element is the element, JSON says whether to emit a json tag
 {{/*
 AttributeFields emits one struct field per XSD attribute. It is called with a dict:
   Attributes  the attributes
-  RenameID    name the field of an attribute called "Id" or "id" IdAttr
-  JSON        also emit a json tag
-The call sites have always disagreed on both flags.
+  RenameID    name the field of an attribute called "Id" or "id" IdAttr; the
+              call sites have always disagreed on this
 */}}
 {{define "AttributeFields"}}
 	{{$renameID := .RenameID}}
-	{{$json := .JSON}}
 	{{range .Attributes}}
 		{{$name := .Name}}
 		{{if $renameID}}
@@ -134,7 +132,7 @@ The call sites have always disagreed on both flags.
 				{{$name = "idAttr"}}
 			{{end}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty"{{if $json}} json:"{{.Name}},omitempty"{{end}}` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 {{end}}
 
@@ -172,7 +170,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{with $complexType.ComplexContent}}
 		{{template "ExtensionBase" .}}
 		{{template "Elements" .Extension.Sequence}}
-		{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false "JSON" true)}}
+		{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
 	{{end}}
 
 	{{template "ElementFields" (dict "Elements" $complexType.Sequence "Untyped" "string")}}
@@ -180,7 +178,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{template "ElementFields" (dict "Elements" $complexType.SequenceChoice "Untyped" "string")}}
 	{{template "ElementFields" (dict "Elements" $complexType.All "Untyped" "string")}}
 
-	{{template "AttributeFields" (dict "Attributes" $complexType.Attributes "RenameID" true "JSON" true)}}
+	{{template "AttributeFields" (dict "Attributes" $complexType.Attributes "RenameID" true)}}
 
 	{{if ne (len $complexType.Any) 0}}
 		Items []string ` + "`" + `xml:",any"` + "`" + `
@@ -196,7 +194,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{template "ElementFields" (dict "Elements" .SequenceChoice "Untyped" "drop")}}
 	{{template "ElementFields" (dict "Elements" .All "Untyped" "drop")}}
 
-	{{template "AttributeFields" (dict "Attributes" .Attributes "RenameID" true "JSON" true)}}
+	{{template "AttributeFields" (dict "Attributes" .Attributes "RenameID" true)}}
 
 	{{if ne (len .Any) 0}}
 		Items []string ` + "`" + `xml:",any"` + "`" + `
@@ -216,13 +214,13 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
 			{{template "Elements" .Extension.Sequence}}
-			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false "JSON" false)}}
+			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
 		{{end}}
 		{{with .SimpleContent}}
 			{{if ne .Extension.Base ""}}
 				Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata"` + "`" + `
 			{{end}}
-			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false "JSON" false)}}
+			{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
 		{{end}}
 	}
 	
@@ -251,7 +249,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 		{{if $inline.ComplexType.SimpleContent.Extension.Base}}
 			{{/* Simple content with attributes */}}
 			Value {{toGoType $inline.ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
-			{{template "AttributeFields" (dict "Attributes" $inline.ComplexType.SimpleContent.Extension.Attributes "RenameID" false "JSON" true)}}
+			{{template "AttributeFields" (dict "Attributes" $inline.ComplexType.SimpleContent.Extension.Attributes "RenameID" false)}}
 		{{else}}
 			{{template "ComplexTypeInlineNamed" $inline.ComplexType}}
 		{{end}}
@@ -330,7 +328,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 						{{if ne .Extension.Base ""}}
 							Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
 						{{end}}
-						{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false "JSON" true)}}
+						{{template "AttributeFields" (dict "Attributes" .Extension.Attributes "RenameID" false)}}
 					{{end}}
 				}
 
