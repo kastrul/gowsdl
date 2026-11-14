@@ -155,7 +155,7 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 	v := reflect.Indirect(reflect.ValueOf(data))
 
 	switch v.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		getBinaryFields(v.Elem(), fields)
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
