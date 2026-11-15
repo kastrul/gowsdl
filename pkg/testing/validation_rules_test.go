@@ -17,7 +17,7 @@ import (
 func TestRuleEngine(t *testing.T) {
 	engine := NewRuleEngine()
 	assert.NotNil(t, engine)
-	assert.Len(t, engine.rules, 5, "Should have 5 default rules")
+	assert.Len(t, engine.rules, 6, "Should have 6 default rules")
 }
 
 func TestRPCOperationWrapperRule(t *testing.T) {
@@ -128,6 +128,85 @@ func TestRPCOperationWrapperRule(t *testing.T) {
 				assert.NotEmpty(t, violation.Message)
 				assert.NotEmpty(t, violation.Severity)
 			}
+		})
+	}
+}
+
+func TestRPCPartAccessorRule(t *testing.T) {
+	envelope := func(body string) string {
+		return `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>` + body + `</soap:Body></soap:Envelope>`
+	}
+
+	tests := []struct {
+		name    string
+		soapXML string
+		style   string
+		// paths lists the paths of the expected violations.
+		paths []string
+	}{
+		{
+			name:    "accessors of a prefixed wrapper are in no namespace",
+			soapXML: envelope(`<m:getUser xmlns:m="urn:a"><userId>1</userId><flag>true</flag></m:getUser>`),
+			style:   "rpc",
+		},
+		{
+			name:    "accessors undeclare the wrapper's default namespace",
+			soapXML: envelope(`<getUser xmlns="urn:a"><userId xmlns="">1</userId></getUser>`),
+			style:   "rpc",
+		},
+		{
+			name:    "qualified descendants of an accessor are allowed (R2737)",
+			soapXML: envelope(`<m:getUser xmlns:m="urn:a"><parameters><m:userId>1</m:userId></parameters></m:getUser>`),
+			style:   "rpc",
+		},
+		{
+			name:    "accessors inheriting the wrapper's default namespace",
+			soapXML: envelope(`<getUser xmlns="urn:a"><userId>1</userId><flag xmlns="">true</flag></getUser>`),
+			style:   "rpc",
+			paths:   []string{"soap:Body/getUser/userId"},
+		},
+		{
+			name:    "prefixed accessors",
+			soapXML: envelope(`<m:getUser xmlns:m="urn:a"><m:userId>1</m:userId><m:flag>true</m:flag></m:getUser>`),
+			style:   "rpc",
+			paths:   []string{"soap:Body/getUser/userId", "soap:Body/getUser/flag"},
+		},
+		{
+			name:    "an accessor in another namespace",
+			soapXML: envelope(`<m:getUser xmlns:m="urn:a"><p:userId xmlns:p="urn:b">1</p:userId></m:getUser>`),
+			style:   "rpc",
+			paths:   []string{"soap:Body/getUser/userId"},
+		},
+		{
+			name:    "document style is not checked",
+			soapXML: envelope(`<GetUser xmlns="urn:a"><userId>1</userId></GetUser>`),
+			style:   "document",
+		},
+		{
+			name:    "empty body",
+			soapXML: envelope(``),
+			style:   "rpc",
+		},
+		{
+			name:    "invalid XML",
+			soapXML: `<invalid xml`,
+			style:   "rpc",
+			paths:   []string{"soap:Envelope"},
+		},
+	}
+
+	rule := &RPCPartAccessorRule{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			violations := rule.Validate(tt.soapXML, tt.style)
+			var paths []string
+			for _, v := range violations {
+				assert.Equal(t, rule.Name(), v.RuleName)
+				assert.Equal(t, "error", v.Severity)
+				assert.NotEmpty(t, v.Message)
+				paths = append(paths, v.Path)
+			}
+			assert.Equal(t, tt.paths, paths, "violation paths")
 		})
 	}
 }
@@ -465,12 +544,26 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <information xmlns="http://example.com/rpc">
-      <userId>123</userId>
+      <userId xmlns="">123</userId>
     </information>
   </soap:Body>
 </soap:Envelope>`,
 			style:          "rpc",
 			expectErrors:   0,
+			expectWarnings: 0,
+		},
+		{
+			name: "RPC accessor inheriting the wrapper's default namespace (should fail)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <information xmlns="http://example.com/rpc">
+      <userId>123</userId>
+    </information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectErrors:   1, // userId is in http://example.com/rpc, not in no namespace (R2735)
 			expectWarnings: 0,
 		},
 		{
@@ -534,6 +627,22 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <information xmlns="https://xbeserve.bedirect.de/soap/2">
+      <KID xmlns="">10320</KID>
+      <IDSTRING xmlns="">meweew3xaj9A</IDSTRING>
+      <BIPID xmlns="">asdasd</BIPID>
+    </information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectErrors:   0,
+			expectWarnings: 0,
+		},
+		{
+			name: "RPC with default namespace inherited by several parts (should fail)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <information xmlns="https://xbeserve.bedirect.de/soap/2">
       <KID>10320</KID>
       <IDSTRING>meweew3xaj9A</IDSTRING>
       <BIPID>asdasd</BIPID>
@@ -541,7 +650,7 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			style:          "rpc",
-			expectErrors:   0,
+			expectErrors:   3, // one per accessor (R2735)
 			expectWarnings: 0,
 		},
 	}
