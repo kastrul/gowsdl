@@ -43,22 +43,19 @@ type fixtureRequestBinding struct {
 // fixtureRequestBindings lists every case under test_fixtures whose test data
 // can drive the generated client.
 var fixtureRequestBindings = map[string]fixtureRequestBinding{
-	"document_literal/complex_document": {},
-	"document_literal/simple":           {valuesKey: "request"},
-	"rpc_literal/basic_rpc":             {valuesKey: "request"},
-	"rpc_literal/complex_rpc":           {target: ".Parameters"},
-	"rpc_literal/namespace_edge_case":   {target: ".Parameters"},
+	"document_literal/array_namespace_edge_case": {},
+	"document_literal/complex_document":          {},
+	"document_literal/simple":                    {valuesKey: "request"},
+	"rpc_literal/basic_rpc":                      {valuesKey: "request"},
+	"rpc_literal/complex_rpc":                    {target: ".Parameters"},
+	"rpc_literal/namespace_edge_case":            {target: ".Parameters"},
 }
 
 // undrivableFixtureRequests lists test_fixtures cases whose test data does not
 // carry what a call needs, with what is missing. The test checks that their
 // values still fail to decode into the generated request, so a case is moved
 // to fixtureRequestBindings once its data is completed.
-var undrivableFixtureRequests = map[string]string{
-	"document_literal/array_namespace_edge_case": "the test data flattens every wrapper type: stringArray, intArray and " +
-		"emptyArray are bare JSON arrays where the schema has the complex types StringArray (item*), IntArray (value*) " +
-		"and EmptyArray, and nestedArrays is a bare array where NestedArrayContainer holds level1 elements",
-}
+var undrivableFixtureRequests = map[string]string{}
 
 // knownFixtureRequestMismatches lists test_fixtures cases whose captured
 // request is known to differ from the expected XML, with the differences and

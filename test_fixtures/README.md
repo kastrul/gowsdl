@@ -83,3 +83,18 @@ Specs used:
 - The test data's values are those the case's earlier expected file held;
   they are nested the way the schema nests them (`items` holds `item`,
   `options` holds `expedited`, `giftWrap` and `specialInstructions`).
+
+## document_literal/array_namespace_edge_case
+
+- Document style, `use="literal"`, part `parameters` with
+  `element="tns:ProcessArrayRequest"`: the Body holds `ProcessArrayRequest`
+  in `http://example.com/array-edge-case`.
+- Every other element, including those of the anonymous types under
+  `nestedArrays`, is local to a schema with no `elementFormDefault`, so in
+  no namespace. (The schema also declares a prefix `arr` for
+  `http://example.com/arrays` but uses it nowhere.)
+- Each array is its wrapper type: `stringArray` holds `item*`, `intArray`
+  holds `value*`, `nestedArrays` holds `level1+` (`name`, `level2+`: `id`,
+  `values+`).
+- `emptyArray` is optional; the test data gives it, so it is present. Its
+  only particle, `placeholder`, has `maxOccurs="0"`, so it is always empty.
