@@ -26,7 +26,7 @@ Generates idiomatic Go code from WSDL files with support for WSDL 1.1, WSDL 2.0,
 * Support:
 	* WSDL 1.1 and WSDL 2.0
 	* XML Schema 1.0
-	* SOAP 1.1
+	* SOAP 1.1, and SOAP 1.2 for WSDL 1.1 port types bound only with SOAP 1.2 (without MTOM or MIME attachments)
 * Resolve external XML Schemas
 * Support external and local WSDL
 * Full namespace handling and preservation

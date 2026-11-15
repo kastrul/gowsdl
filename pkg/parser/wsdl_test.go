@@ -56,3 +56,51 @@ func TestUnmarshal_BindingKinds(t *testing.T) {
 		t.Errorf("binding without extensions must not be HTTP-only: %+v", bare)
 	}
 }
+
+func TestUnmarshal_SOAP12OperationAndBody(t *testing.T) {
+	data := []byte(`<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+		xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+		xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/">
+		<wsdl:binding name="Soap12" type="tns:PT">
+			<soap12:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+			<wsdl:operation name="Echo">
+				<soap12:operation soapAction="urn:echo" style="rpc"/>
+				<wsdl:input><soap12:body use="literal" namespace="urn:in"/></wsdl:input>
+				<wsdl:output><soap12:body use="literal" namespace="urn:out"/></wsdl:output>
+			</wsdl:operation>
+		</wsdl:binding>
+		<wsdl:binding name="Soap11" type="tns:PT">
+			<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+			<wsdl:operation name="Echo">
+				<soap:operation soapAction="urn:echo11"/>
+				<wsdl:input><soap:body use="literal" namespace="urn:in11"/></wsdl:input>
+			</wsdl:operation>
+		</wsdl:binding>
+	</wsdl:definitions>`)
+
+	var w WSDL
+	if err := xml.Unmarshal(data, &w); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	op12 := w.Binding[0].Operations[0]
+	if op12.SOAP12Operation == nil || op12.SOAP12Operation.SOAPAction != "urn:echo" || op12.SOAP12Operation.Style != "rpc" {
+		t.Errorf("soap12:operation parsed incorrectly: %+v", op12.SOAP12Operation)
+	}
+	if op12.Input.SOAP12Body == nil || op12.Input.SOAP12Body.Namespace != "urn:in" {
+		t.Errorf("input soap12:body parsed incorrectly: %+v", op12.Input.SOAP12Body)
+	}
+	if op12.Output.SOAP12Body == nil || op12.Output.SOAP12Body.Namespace != "urn:out" {
+		t.Errorf("output soap12:body parsed incorrectly: %+v", op12.Output.SOAP12Body)
+	}
+	if op12.SOAPOperation.SOAPAction != "" || op12.Input.SOAPBody.Namespace != "" {
+		t.Errorf("SOAP 1.2 operation must not fill the SOAP 1.1 fields: %+v", op12)
+	}
+
+	op11 := w.Binding[1].Operations[0]
+	if op11.SOAP12Operation != nil || op11.Input.SOAP12Body != nil {
+		t.Errorf("SOAP 1.1 operation must not fill the SOAP 1.2 fields: %+v", op11)
+	}
+	if op11.SOAPOperation.SOAPAction != "urn:echo11" || op11.Input.SOAPBody.Namespace != "urn:in11" {
+		t.Errorf("SOAP 1.1 operation parsed incorrectly: %+v", op11)
+	}
+}

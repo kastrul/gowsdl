@@ -35,6 +35,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"getTargetNamespace":       g.getTargetNamespace,
 		"rpcOperationNamespace":    g.rpcOperationNamespace,
 		"isRPCStyleMessage":        g.isRPCStyleMessage,
+		"usesSOAP12":               g.usesSOAP12,
 		"isRPCPortType":            g.isRPCPortType,
 		"findNameByType":           g.findNameByType,
 		"isMessageElement":         g.isMessageElement,

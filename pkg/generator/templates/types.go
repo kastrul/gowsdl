@@ -37,7 +37,7 @@ const TypesTemplate = `
 {{/*
 ElementFields emits one struct field per XSD element. An element with an inline
 simple type gets the base of its restriction; an element with no type
-information at all gets a string.
+information at all is an xsd:anyType, as XML Schema defines.
 */}}
 {{define "ElementFields"}}
 	{{range .}}
@@ -53,28 +53,21 @@ information at all gets a string.
 			{{end}}
 		{{else if .ComplexType}}
 			{{template "InlineComplexField" .}}
-		{{else if ne .Type ""}}
-			{{$typeName := .Type | removeNamespacePrefix}}
+		{{else if and (eq .Type "") .SimpleType}}
+			{{template "InlineSimpleField" .}}
+		{{else}}
+			{{$typeName := "anyType"}}
+			{{if ne .Type ""}}
+				{{$typeName = .Type | removeNamespacePrefix}}
+			{{end}}
 			{{$memberType := toGoType $typeName .Nillable}}
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else}}
 				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
-		{{else if .SimpleType}}
-			{{template "InlineSimpleField" .}}
-		{{else}}
-			{{template "UntypedField" .}}
 		{{end}}
 	{{end}}
-{{end}}
-
-{{/*
-UntypedField emits the field of an element with no type information at all: no
-ref, no type attribute and no inline type.
-*/}}
-{{define "UntypedField"}}
-	{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 {{end}}
 
 {{/*
@@ -143,6 +136,19 @@ called with the extension's base type.
 */}}
 {{define "ValueField"}}
 	Value {{toGoType . false}} ` + "`" + `xml:",chardata" json:"value"` + "`" + `
+{{end}}
+
+{{/*
+SimpleContentFields emits the fields of a simpleContent extension: the Value
+field holding its text, when it has a base, and its attributes.
+*/}}
+{{define "SimpleContentFields"}}
+	{{with .}}
+		{{if ne .Extension.Base ""}}
+			{{template "ValueField" .Extension.Base}}
+		{{end}}
+		{{template "AttributeFields" .Extension.Attributes}}
+	{{end}}
 {{end}}
 
 {{/* ExtensionBase embeds the base type of a complexContent extension. */}}
@@ -225,12 +231,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 			{{template "ElementFields" .Extension.Sequence}}
 			{{template "AttributeFields" .Extension.Attributes}}
 		{{end}}
-		{{with .SimpleContent}}
-			{{if ne .Extension.Base ""}}
-				{{template "ValueField" .Extension.Base}}
-			{{end}}
-			{{template "AttributeFields" .Extension.Attributes}}
-		{{end}}
+		{{template "SimpleContentFields" .SimpleContent}}
 	}
 	
 	{{if isMessageElement .Name}}
@@ -253,9 +254,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{$type := $inline.GeneratedName}}
 	type {{$type}} struct {
 		{{if $inline.ComplexType.SimpleContent.Extension.Base}}
-			{{/* Simple content with attributes */}}
-			{{template "ValueField" $inline.ComplexType.SimpleContent.Extension.Base}}
-			{{template "AttributeFields" $inline.ComplexType.SimpleContent.Extension.Attributes}}
+			{{template "SimpleContentFields" $inline.ComplexType.SimpleContent}}
 		{{else}}
 			{{template "ComplexTypeInlineNamed" $inline.ComplexType}}
 		{{end}}
@@ -341,12 +340,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				type {{$outerType}} struct {
 					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .) "Qualified" (isQualified .))}}
 					{{template "ComplexTypeInline" .ComplexType}}
-					{{with .ComplexType.SimpleContent}}
-						{{if ne .Extension.Base ""}}
-							{{template "ValueField" .Extension.Base}}
-						{{end}}
-						{{template "AttributeFields" .Extension.Attributes}}
-					{{end}}
+					{{template "SimpleContentFields" .ComplexType.SimpleContent}}
 				}
 
 				{{if not (isQualified .)}}

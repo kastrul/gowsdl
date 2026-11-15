@@ -12,6 +12,17 @@ not compile or did not work before.
 
 ### Added
 
+- SOAP 1.2 client support. `soap.WithSOAP12()` makes a client, and
+  `soap.ContextWithSOAP12(ctx)` a single call, send SOAP 1.2: the envelope is
+  in the SOAP 1.2 namespace (`soap.XMLNsSoap12Env`) and the action travels as
+  the `action` parameter of an `application/soap+xml` Content-Type instead of
+  a `SOAPAction` header. SOAP 1.2 faults are decoded into `*soap.SOAPFault`
+  (code value, first reason text, role and detail), including Sender faults
+  sent with HTTP 400. Responses may use either envelope version. SOAP 1.2 is
+  not supported together with MTOM or MIME multipart attachments.
+- `parser.WSDLOperation.SOAP12Operation` and the `SOAP12Body` field of
+  `parser.WSDLInput` and `parser.WSDLOutput` hold a SOAP 1.2 binding's
+  `soap12:operation` and `soap12:body`.
 - `soap.AnyType` holds an `xsd:anyType` element: `Decode(&v)` unmarshals a
   received element, `Value` is encoded when sending, and a zero value is
   omitted. Received content is kept as self-contained XML, so namespace
@@ -44,9 +55,16 @@ not compile or did not work before.
   now becomes the field `IdAttr`, as it already did when declared directly on
   a type. XML and JSON names are unchanged.
 - **Regenerate.** An element with no type information at all (no `ref`, no
-  `type`, no inline type) now gets a `string` field everywhere, or `[]string`
-  when it repeats. Before, it got an undeclared type named after the element,
-  a `string`, or no field at all, depending on where it stood.
+  `type`, no inline type) is an `xsd:anyType`, as XML Schema defines, and now
+  gets exactly the field an element declared `type="xsd:anyType"` gets:
+  `soap.AnyType`, or `[]soap.AnyType` when it repeats, with
+  `json:"name,omitzero"` on the single field. Before, it got an undeclared
+  type named after the element, a `string`, or no field at all, depending on
+  where it stood; v0.2.6 made it `string` everywhere. Read a received value
+  with `Decode` or `InnerXML` and send one as `soap.AnyType{Value: v}`; child
+  elements in the content are now kept instead of being flattened to their
+  text. In JSON the field is now an object (`{"innerXML":"..."}`) instead of
+  a string, and an unset field is omitted.
 - Generated code spells `interface{}` as `any`. The types are identical.
 - **Regenerate.** A global element whose inline `simpleType` has neither a
   union nor a restriction base (an empty one, or an `xs:list`) is now declared
@@ -68,13 +86,18 @@ not compile or did not work before.
 
 ### Fixed
 
+- **Regenerate.** A WSDL 1.1 port type bound only with SOAP 1.2 now gets a
+  client that sends SOAP 1.2, with its SOAP actions from `soap12:operation`;
+  a `soap12:binding style="rpc"` makes it RPC-style, with the wrapper
+  namespace from `soap12:body`. Before, such a client sent SOAP 1.1 document
+  messages with no action. A port type that also has a SOAP 1.1 binding still
+  uses SOAP 1.1, and generated servers still answer in SOAP 1.1.
 - **Regenerate.** The element wrapping an RPC-style operation's request or
   response is now in the namespace of that input's or output's `soap:body`,
   falling back to the WSDL `targetNamespace` when the binding declares none.
   It used to be in the target namespace of the first schema, so requests were
   sent in the wrong namespace, and responses failed to decode, whenever the
-  two differed. SOAP 1.2 bindings (`soap12:binding style="rpc"`) are still not
-  recognised as RPC-style.
+  two differed.
 - **Regenerate.** In RPC-style requests, the accessor element of each message
   part is now in no namespace, as WS-I Basic Profile R2735 requires, and the
   content of a part declared with a type follows its schema's

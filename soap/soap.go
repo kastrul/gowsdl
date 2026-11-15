@@ -148,13 +148,22 @@ Loop:
 		case xml.StartElement:
 			if consumed {
 				return xml.UnmarshalError("Found multiple elements inside SOAP body; not wrapped-document/literal WS-I compliant")
-			} else if se.Name.Space == "http://schemas.xmlsoap.org/soap/envelope/" && se.Name.Local == "Fault" {
+			} else if se.Name.Space == XmlNsSoapEnv && se.Name.Local == "Fault" {
 				b.Body = nil
 
 				b.faultOccurred = true
 				err = d.DecodeElement(b.Fault, &se)
 				if err != nil {
 					return fmt.Errorf("decoding soap:Fault: %w", err)
+				}
+
+				consumed = true
+			} else if se.Name.Space == XMLNsSoap12Env && se.Name.Local == "Fault" {
+				b.Body = nil
+
+				b.faultOccurred = true
+				if err = decodeSOAP12Fault(d, &se, b.Fault); err != nil {
+					return fmt.Errorf("decoding SOAP 1.2 Fault: %w", err)
 				}
 
 				consumed = true
@@ -327,6 +336,7 @@ type options struct {
 	httpHeaders      map[string]string
 	mtom             bool
 	mma              bool
+	soap12           bool
 }
 
 var defaultOptions = options{
@@ -514,6 +524,15 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 	retAttachments *[]MIMEMultipartAttachment) error {
 	var envelope any
 
+	soap12 := c.usesSOAP12(ctx)
+	envNS := XmlNsSoapEnv
+	if soap12 {
+		if c.opts.mtom || c.opts.mma {
+			return fmt.Errorf("soap: SOAP 1.2 requests with MTOM or MIME multipart attachments are not supported")
+		}
+		envNS = XMLNsSoap12Env
+	}
+
 	// Try to extract namespace from request to determine which envelope to use
 	targetNamespace := ""
 	if req, ok := request.(interface{ TargetNamespace() string }); ok {
@@ -523,6 +542,7 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 	if targetNamespace != "" {
 		// Use enhanced envelope with namespace declarations
 		enhancedEnv := NewEnhancedSOAPEnvelope(targetNamespace)
+		enhancedEnv.XMLNSSoap = envNS
 		if len(c.headers) > 0 {
 			enhancedEnv.Header = &SOAPHeader{Headers: c.headers}
 		}
@@ -530,7 +550,7 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 		envelope = enhancedEnv
 	} else {
 		// Use standard envelope (backward compatibility)
-		standardEnv := &SOAPEnvelope{XmlNS: XmlNsSoapEnv}
+		standardEnv := &SOAPEnvelope{XmlNS: envNS}
 		if len(c.headers) > 0 {
 			standardEnv.Header = &SOAPHeader{Headers: c.headers}
 		}
@@ -560,8 +580,12 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 		req.SetBasicAuth(c.opts.auth.Login, c.opts.auth.Password)
 	}
 
-	req.Header.Add("Content-Type", encoder.ContentType())
-	req.Header.Add("SOAPAction", soapAction)
+	if soap12 {
+		req.Header.Add("Content-Type", soap12ContentType(soapAction))
+	} else {
+		req.Header.Add("Content-Type", encoder.ContentType())
+		req.Header.Add("SOAPAction", soapAction)
+	}
 	req.Header.Set("User-Agent", "gowsdl/0.1")
 	if c.opts.httpHeaders != nil {
 		for k, v := range c.opts.httpHeaders {
@@ -592,7 +616,10 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 		_ = res.Body.Close()
 	}()
 
-	if res.StatusCode >= 400 && res.StatusCode != 500 {
+	// A SOAP 1.2 Sender fault comes with 400 Bad Request (SOAP 1.2 part 2,
+	// section 7.5.1.2), so its body may hold a fault like a 500's does.
+	faultStatus := res.StatusCode == 500 || (soap12 && res.StatusCode == 400)
+	if res.StatusCode >= 400 && !faultStatus {
 		body, _ := io.ReadAll(res.Body)
 		return &HTTPError{
 			StatusCode:   res.StatusCode,
@@ -637,7 +664,7 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 	// to return the right HTTPError/ResponseBody
 	body := res.Body
 	var cachedErrorBody []byte
-	if res.StatusCode == 500 {
+	if faultStatus {
 		cachedErrorBody, err = io.ReadAll(res.Body)
 		if err != nil {
 			return err
@@ -649,13 +676,17 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 
 	if err := dec.Decode(respEnvelope); err != nil {
 		// the response doesn't contain a Fault/SOAPBody, so we return the original body
-		if res.StatusCode == 500 {
+		if faultStatus {
 			return &HTTPError{
 				StatusCode:   res.StatusCode,
 				ResponseBody: cachedErrorBody,
 			}
 		}
 		return fmt.Errorf("soap: decoding response: %w", err)
+	}
+
+	if res.StatusCode == 400 && !respEnvelope.Body.faultOccurred {
+		return &HTTPError{StatusCode: res.StatusCode, ResponseBody: cachedErrorBody}
 	}
 
 	if respEnvelope.Attachments != nil && retAttachments != nil {
