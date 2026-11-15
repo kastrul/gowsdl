@@ -144,3 +144,64 @@ func TestGenerator_UntypedGlobalElement_RoundTripsThroughEncodingXML(t *testing.
 	out := generate(t, writeWSDL(t, strings.Replace(untypedGlobalElementWSDL, "%s", "", 1)), WithPackage("test"))
 	runGeneratedModuleTests(t, "example.com/untypedglobal", out, map[string]string{"untyped_global_test.go": untypedGlobalRoundTrip})
 }
+
+const globalElementPruningWSDL = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x" elementFormDefault="qualified">
+            <xsd:complexType name="Base"><xsd:sequence><xsd:element name="b" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:element name="keptUntyped"/>
+            <xsd:element name="keptResponse"/>
+            <xsd:element name="droppedUntyped"/>
+            <xsd:element name="droppedResponse"/>
+            <xsd:element name="KeptRequest">
+                <xsd:complexType>
+                    <xsd:complexContent>
+                        <xsd:extension base="tns:Base">
+                            <xsd:sequence><xsd:element ref="tns:keptUntyped"/></xsd:sequence>
+                        </xsd:extension>
+                    </xsd:complexContent>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+    <message name="KeptIn"><part name="parameters" element="tns:KeptRequest"/></message>
+    <message name="KeptOut"><part name="parameters" element="tns:keptResponse"/></message>
+    <message name="DroppedIn"><part name="parameters" element="tns:droppedUntyped"/></message>
+    <message name="DroppedOut"><part name="parameters" element="tns:droppedResponse"/></message>
+    <portType name="Port">
+        <operation name="Kept"><input message="tns:KeptIn"/><output message="tns:KeptOut"/></operation>
+        <operation name="Dropped"><input message="tns:DroppedIn"/><output message="tns:DroppedOut"/></operation>
+    </portType>
+    <binding name="Binding" type="tns:Port">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="Kept"><soap:operation soapAction="kept"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+        <operation name="Dropped"><soap:operation soapAction="dropped"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+    </binding>
+    <service name="Service"><port name="Port" binding="tns:Binding"><soap:address location="http://localhost/"/></port></service>
+</definitions>`
+
+func TestGenerator_TypePruning_KeepsUntypedAndExtendedGlobalElements(t *testing.T) {
+	path := writeWSDL(t, globalElementPruningWSDL)
+	pruned := generate(t, path, WithPackage("test"), WithOperations("Kept"))
+	full := generate(t, path, WithPackage("test"))
+
+	types := declaredTypes(pruned.types())
+	for _, name := range []string{"KeptRequest", "Base", "KeptUntyped", "KeptResponse"} {
+		assert.Contains(t, types, name, "reachable type %s must be generated", name)
+		assert.Equal(t, full.decl(t, name), pruned.decl(t, name), name)
+	}
+	for _, name := range []string{"DroppedUntyped", "DroppedResponse"} {
+		assert.NotContains(t, types, name, "unused type %s must be pruned", name)
+		assert.Contains(t, declaredTypes(full.types()), name)
+	}
+	assert.Contains(t, pruned.decl(t, "KeptRequest"), "KeptUntyped\tKeptUntyped\t`xml:\"keptUntyped,omitempty\"")
+	assert.Equal(t, "type KeptResponse soap.AnyType", pruned.decl(t, "KeptResponse"))
+
+	assertGeneratedCodeBuilds(t, "example.com/pruned", pruned)
+	assertGeneratedCodeBuilds(t, "example.com/full", full)
+}
