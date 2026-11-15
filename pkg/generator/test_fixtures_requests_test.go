@@ -67,12 +67,6 @@ var undrivableFixtureRequests = map[string]string{
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
 var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
-	"document_literal/simple": {
-		diff: `different soap:Body/GetUserRequest/includeDetails: expected "{http://example.com/simple}includeDetails", actual "includeDetails"
-different soap:Body/GetUserRequest/userId: expected "{http://example.com/simple}userId", actual "userId"`,
-		diagnosis: "the expected XML is wrong: the schema has no elementFormDefault, so local elements are " +
-			"unqualified, as generated; the expected XML qualifies them through its default namespace",
-	},
 	"rpc_literal/basic_rpc": {
 		diff: `different soap:Body/getUser/includeDetails: expected "{http://example.com/rpc}includeDetails", actual "includeDetails"
 different soap:Body/getUser/userId: expected "{http://example.com/rpc}userId", actual "userId"`,
