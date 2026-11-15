@@ -112,6 +112,56 @@ func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreNameIsExported(
 	assert.Regexp(t, `\sLang string .xml:"lang,attr,omitempty" json:"lang,omitempty"`, response)
 }
 
+const underscoreAttributeRoundTrip = `package test
+
+import (
+	"encoding/xml"
+	"testing"
+)
+
+func TestUnderscoreAttributeRoundTrip(t *testing.T) {
+	var r Response
+	if err := xml.Unmarshal([]byte(` + "`" + `<Response xmlns="http://example.com/x" _under="u" lang="et">text</Response>` + "`" + `), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Under != "u" || r.Lang != "et" || r.Value != "text" {
+		t.Fatalf("decoded %+v", r)
+	}
+	out, err := xml.Marshal(Response{Value: "v", Under: "sent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = ` + "`" + `<Response xmlns="http://example.com/x" _under="sent">v</Response>` + "`" + `
+	if string(out) != want {
+		t.Fatalf("marshalled %s, want %s", out, want)
+	}
+}
+`
+
+func TestGenerator_GlobalElementSimpleContentAttribute_UnderscoreRoundTrips(t *testing.T) {
+	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x" elementFormDefault="qualified">
+            <xsd:element name="Response">
+                <xsd:complexType>
+                    <xsd:simpleContent>
+                        <xsd:extension base="xsd:string">
+                            <xsd:attribute name="_under" type="xsd:string"/>
+                            <xsd:attribute name="lang" type="xsd:string"/>
+                        </xsd:extension>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+</definitions>`), WithPackage("test"))
+	runGeneratedModuleTests(t, "example.com/underscore", out, map[string]string{"underscore_test.go": underscoreAttributeRoundTrip})
+}
+
 func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T) {
 	const simple = `<xsd:simpleType><xsd:restriction base="xsd:int"/></xsd:simpleType>`
 	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
