@@ -67,15 +67,6 @@ var undrivableFixtureRequests = map[string]string{
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
 var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
-	"rpc_literal/namespace_edge_case": {
-		diff: `different soap:Body/information/dataId/dataId/text(): expected "test123", actual ""
-different soap:Body/information/dataId: expected "{http://example.com/namespace-test}dataId", actual "parameters"
-extra soap:Body/information/dataId/dataId: expected "", actual "dataId"
-extra soap:Body/information/dataId/includeDetails: expected "", actual "includeDetails"
-missing soap:Body/information/includeDetails: expected "{http://example.com/namespace-test}includeDetails", actual ""`,
-		diagnosis: "the expected XML is wrong, as for rpc_literal/complex_rpc: the InformationRequest fields belong " +
-			"inside the <parameters> part accessor, which the expected XML omits, and the accessor is in no namespace",
-	},
 }
 
 // fixtureRequestDriver calls one generated operation with values decoded from

@@ -53,3 +53,13 @@ Specs used:
 - Its content is the sequence of `GetUserDetailsRequest`: `userId`,
   `includeAddresses`, `includeMetadata`, local elements of a schema with no
   `elementFormDefault`, so in no namespace (R2737).
+
+## rpc_literal/namespace_edge_case
+
+- RPC style; `soap:body namespace="http://example.com/namespace-test"`: the
+  wrapper is `information` in that namespace. Whether a prefix or a default
+  namespace declaration puts it there does not matter.
+- One part, `parameters`, with `type="tns:InformationRequest"`: one accessor
+  `parameters` in no namespace (R2735), holding `dataId` and
+  `includeDetails`, local elements with no `elementFormDefault`, so in no
+  namespace (R2737).
