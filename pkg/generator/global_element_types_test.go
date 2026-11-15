@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -79,4 +80,67 @@ func TestAnonExtensionRoundTrip(t *testing.T) {
 func TestGenerator_GlobalElementAnonymousExtension_RoundTripsThroughEncodingXML(t *testing.T) {
 	out := generate(t, writeWSDL(t, globalExtensionWSDL), WithPackage("test"))
 	runGeneratedModuleTests(t, "example.com/anonext", out, map[string]string{"anon_test.go": globalExtensionRoundTrip})
+}
+
+const untypedGlobalElementWSDL = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x" elementFormDefault="qualified">
+            <xsd:element name="untypedGlobal"%s/>
+            <xsd:complexType name="UsesRef">
+                <xsd:sequence>
+                    <xsd:element ref="tns:untypedGlobal"/>
+                    <xsd:element name="other" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+        </xsd:schema>
+    </types>
+</definitions>`
+
+func TestGenerator_UntypedGlobalElement_GeneratesLikeExplicitAnyType(t *testing.T) {
+	untyped := generate(t, writeWSDL(t, strings.Replace(untypedGlobalElementWSDL, "%s", "", 1)), WithPackage("test"))
+	explicit := generate(t, writeWSDL(t, strings.Replace(untypedGlobalElementWSDL, "%s", ` type="xsd:anyType"`, 1)), WithPackage("test"))
+
+	assert.Equal(t, "type UntypedGlobal soap.AnyType", untyped.decl(t, "UntypedGlobal"))
+	assert.Equal(t, explicit.client(t), untyped.client(t))
+}
+
+const untypedGlobalRoundTrip = `package test
+
+import (
+	"encoding/xml"
+	"testing"
+
+	"github.com/kastrul/gowsdl/soap"
+)
+
+func TestUntypedGlobalRoundTrip(t *testing.T) {
+	const in = ` + "`" + `<UsesRef xmlns="http://example.com/x"><untypedGlobal><k>1</k></untypedGlobal><other>o</other></UsesRef>` + "`" + `
+	var u UsesRef
+	if err := xml.Unmarshal([]byte(in), &u); err != nil {
+		t.Fatal(err)
+	}
+	var k struct {
+		K int ` + "`" + `xml:"k"` + "`" + `
+	}
+	if err := u.UntypedGlobal.Decode(&k); err != nil || k.K != 1 || u.Other != "o" {
+		t.Fatalf("decoded %+v (k %+v, %v)", u, k, err)
+	}
+	out, err := xml.Marshal(UsesRef{UntypedGlobal: UntypedGlobal(soap.AnyType{Value: "v"}), Other: "o"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = ` + "`" + `<UsesRef><untypedGlobal>v</untypedGlobal><other>o</other></UsesRef>` + "`" + `
+	if string(out) != want {
+		t.Fatalf("marshalled %s, want %s", out, want)
+	}
+}
+`
+
+func TestGenerator_UntypedGlobalElement_RoundTripsThroughEncodingXML(t *testing.T) {
+	out := generate(t, writeWSDL(t, strings.Replace(untypedGlobalElementWSDL, "%s", "", 1)), WithPackage("test"))
+	runGeneratedModuleTests(t, "example.com/untypedglobal", out, map[string]string{"untyped_global_test.go": untypedGlobalRoundTrip})
 }

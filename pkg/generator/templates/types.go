@@ -271,9 +271,14 @@ anonymous type of a global element.
 
 {{range .Elements}}
 	{{$type := replaceReservedWords .Name | makePublic}}
-	{{if ne .Type ""}}
-		{{$baseType := .Type | removeNamespacePrefix | replaceReservedWords}}
-		{{$goType := toGoType .Type .Nillable | removePointerFromType}}
+	{{/* An element with no type information at all is an xsd:anyType. */}}
+	{{$elementType := .Type}}
+	{{if and (eq .Type "") (not .ComplexType) (not .SimpleType)}}
+		{{$elementType = "xsd:anyType"}}
+	{{end}}
+	{{if ne $elementType ""}}
+		{{$baseType := $elementType | removeNamespacePrefix | replaceReservedWords}}
+		{{$goType := toGoType $elementType .Nillable | removePointerFromType}}
 		{{$goPublicType := $baseType | makePublic}}
 		{{/* Check if element name is different from the type name */}}
 		{{$createAlias := true}}
@@ -283,7 +288,7 @@ anonymous type of a global element.
 		{{end}}
 		{{if $createAlias}}
 			{{/* For complex types, use the public version of the type name */}}
-			{{if isComplexType .Type}}
+			{{if isComplexType $elementType}}
 				type {{$type}} struct {
 					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .) "Qualified" (isQualified .))}}
 					{{$goPublicType}}
