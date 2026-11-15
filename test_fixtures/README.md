@@ -42,3 +42,14 @@ Specs used:
 - Parts `userId` (`xsd:int`) and `includeDetails` (`xsd:boolean`): one
   accessor each, named after the part, in no namespace (R2735), holding the
   value as text.
+
+## rpc_literal/complex_rpc
+
+- RPC style; `soap:body namespace="http://example.com/complex-rpc"`: the
+  wrapper is `GetUserDetails` in that namespace.
+- One part, `parameters`, with `type="tns:GetUserDetailsRequest"`: one
+  accessor `parameters` in no namespace (R2735). The wrapper sets a default
+  namespace here, so the accessor undeclares it with `xmlns=""`.
+- Its content is the sequence of `GetUserDetailsRequest`: `userId`,
+  `includeAddresses`, `includeMetadata`, local elements of a schema with no
+  `elementFormDefault`, so in no namespace (R2737).

@@ -67,19 +67,6 @@ var undrivableFixtureRequests = map[string]string{
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
 var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
-	"rpc_literal/complex_rpc": {
-		diff: `different soap:Body/GetUserDetails/userId/userId/text(): expected "user123", actual ""
-different soap:Body/GetUserDetails/userId: expected "{http://example.com/complex-rpc}userId", actual "parameters"
-extra soap:Body/GetUserDetails/userId/includeAddresses: expected "", actual "includeAddresses"
-extra soap:Body/GetUserDetails/userId/includeMetadata: expected "", actual "includeMetadata"
-extra soap:Body/GetUserDetails/userId/userId: expected "", actual "userId"
-missing soap:Body/GetUserDetails/includeAddresses: expected "{http://example.com/complex-rpc}includeAddresses", actual ""
-missing soap:Body/GetUserDetails/includeMetadata: expected "{http://example.com/complex-rpc}includeMetadata", actual ""`,
-		diagnosis: "the expected XML is wrong: in RPC style each message part is an accessor element named after " +
-			"the part (WSDL 1.1 section 3.5), so the GetUserDetailsRequest fields belong inside <parameters>, as " +
-			"generated, and the accessor is in no namespace (WS-I Basic Profile R2735); the expected XML puts " +
-			"the fields directly in the operation wrapper",
-	},
 	"rpc_literal/namespace_edge_case": {
 		diff: `different soap:Body/information/dataId/dataId/text(): expected "test123", actual ""
 different soap:Body/information/dataId: expected "{http://example.com/namespace-test}dataId", actual "parameters"
