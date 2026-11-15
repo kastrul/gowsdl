@@ -86,9 +86,13 @@ func (r *RPCOperationWrapperRule) Validate(soapXML string, style string) []RuleV
 		return violations
 	}
 
-	// Parse SOAP envelope
-	var envelope SOAPEnvelope
-	if err := xml.Unmarshal([]byte(soapXML), &envelope); err != nil {
+	// The wrapper element is named after the operation and is in the
+	// namespace of the soap:body namespace attribute (WSDL 1.1 section 3.5,
+	// WS-I Basic Profile R2717). Only the namespace it resolves to matters:
+	// a prefix and a default namespace declaration are equivalent
+	// (Namespaces in XML 1.0, section 6).
+	envelope, err := NewXMLComparator().parseSOAPEnvelopeNode(soapXML)
+	if err != nil {
 		violations = append(violations, RuleViolation{
 			RuleName: r.Name(),
 			Severity: "error",
@@ -98,27 +102,14 @@ func (r *RPCOperationWrapperRule) Validate(soapXML string, style string) []RuleV
 		return violations
 	}
 
-	bodyContent := string(envelope.Body.Content)
-
-	// Check for operation wrapper with namespace
-	if !strings.Contains(bodyContent, `xmlns=`) {
+	body := soapBodyChildren(envelope)
+	if len(body) > 0 && body[0].Name.Space == "" {
 		violations = append(violations, RuleViolation{
 			RuleName:   r.Name(),
 			Severity:   "error",
-			Message:    "RPC operation element missing namespace declaration",
+			Message:    fmt.Sprintf("RPC operation element <%s> is in no namespace", body[0].Name.Local),
 			Path:       "soap:Body/*[1]",
-			Suggestion: "Operation element should have xmlns attribute with target namespace",
-		})
-	}
-
-	// Check for tns: prefix (indicates incorrect namespace handling)
-	if strings.Contains(bodyContent, "tns:") {
-		violations = append(violations, RuleViolation{
-			RuleName:   r.Name(),
-			Severity:   "error",
-			Message:    "RPC operation using namespace prefix instead of default namespace",
-			Path:       "soap:Body/*[1]",
-			Suggestion: "Use xmlns=\"namespace\" instead of tns:operation",
+			Suggestion: "Put the operation element in the namespace of the binding's soap:body namespace attribute",
 		})
 	}
 

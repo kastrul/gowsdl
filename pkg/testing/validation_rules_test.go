@@ -5,6 +5,7 @@
 package testing
 
 import (
+	"encoding/xml"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -42,7 +43,10 @@ func TestRPCOperationWrapperRule(t *testing.T) {
 			expectedErrors: 0,
 		},
 		{
-			name: "Invalid RPC operation with tns prefix",
+			// A prefix qualifies the wrapper as well as a default namespace
+			// does (Namespaces in XML 1.0, section 6), and leaves the part
+			// accessor in no namespace, as WS-I Basic Profile R2735 requires.
+			name: "Valid RPC operation with tns prefix",
 			soapXML: `<?xml version="1.0"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -52,7 +56,33 @@ func TestRPCOperationWrapperRule(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			style:          "rpc",
-			expectedErrors: 2, // Should detect both tns: prefix usage AND missing xmlns
+			expectedErrors: 0,
+		},
+		{
+			name: "Valid RPC operation with prefix declared on the Envelope",
+			soapXML: `<?xml version="1.0"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://example.com/test">
+  <soap:Body>
+    <m:information>
+      <userId>123</userId>
+    </m:information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectedErrors: 0,
+		},
+		{
+			name: "RPC operation with namespace undeclared",
+			soapXML: `<?xml version="1.0"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <getUser xmlns="">
+      <userId>123</userId>
+    </getUser>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectedErrors: 1, // xmlns="" leaves the wrapper in no namespace
 		},
 		{
 			name: "RPC operation missing namespace",
@@ -371,19 +401,20 @@ func TestRequiredElementsRule(t *testing.T) {
 func TestRuleEngineIntegration(t *testing.T) {
 	engine := NewRuleEngine()
 
-	// Test with a problematic RPC request (the namespace issue)
+	// Test with a problematic RPC request: the operation wrapper is in no
+	// namespace, although WSDL 1.1 section 3.5 puts it in the soap:body
+	// namespace.
 	soapXML := `<?xml version="1.0"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <tns:information xmlns:tns="http://example.com/test">
+    <information>
       <userId>123</userId>
-    </tns:information>
+    </information>
   </soap:Body>
 </soap:Envelope>`
 
 	violations := engine.ValidateSOAPRequest(soapXML, "rpc")
 
-	// Should catch the tns: prefix issue
 	assert.NotEmpty(t, violations, "Should detect violations")
 
 	var rpcViolation *RuleViolation
@@ -415,7 +446,7 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
 		expectWarnings int
 	}{
 		{
-			name: "RPC with tns prefix (should fail)",
+			name: "RPC with tns prefix (should pass)",
 			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -425,7 +456,7 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			style:          "rpc",
-			expectErrors:   2, // Should catch both missing namespace declaration and tns: prefix issue
+			expectErrors:   0, // The prefix qualifies the wrapper as a default namespace would
 			expectWarnings: 0,
 		},
 		{
@@ -440,6 +471,20 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
 </soap:Envelope>`,
 			style:          "rpc",
 			expectErrors:   0,
+			expectWarnings: 0,
+		},
+		{
+			name: "RPC wrapper in no namespace (should fail)",
+			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <information>
+      <userId>123</userId>
+    </information>
+  </soap:Body>
+</soap:Envelope>`,
+			style:          "rpc",
+			expectErrors:   1,
 			expectWarnings: 0,
 		},
 		{
@@ -468,7 +513,7 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
 			expectWarnings: 0,
 		},
 		{
-			name: "RPC with tns prefix and several parts (should fail)",
+			name: "RPC with tns prefix and several parts (should pass)",
 			soapXML: `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -480,7 +525,7 @@ func TestRuleEngineWithKnownIssues(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			style:          "rpc",
-			expectErrors:   2,
+			expectErrors:   0,
 			expectWarnings: 0,
 		},
 		{
@@ -550,22 +595,28 @@ func TestRegressionPreventionFixtures(t *testing.T) {
 	require.NotNil(t, namespaceFixture, "Should have namespace edge case fixture")
 	assert.Equal(t, "rpc", namespaceFixture.Style, "Namespace fixture should be RPC style")
 
-	// Validate that the expected XML is correct (uses xmlns, not tns:)
+	// The operation wrapper must be in the soap:body namespace (WSDL 1.1
+	// section 3.5); whether a prefix or a default namespace puts it there
+	// does not matter.
 	expectedXML := namespaceFixture.ExpectedRequest
-	assert.Contains(t, expectedXML, `<information xmlns="http://example.com/namespace-test">`,
-		"Expected XML should use xmlns format, not tns: prefix")
-	assert.NotContains(t, expectedXML, `<tns:information`,
-		"Expected XML should NOT use tns: prefix")
+	envelope, err := NewXMLComparator().parseSOAPEnvelopeNode(expectedXML)
+	require.NoError(t, err)
+	body := soapBodyChildren(envelope)
+	require.NotEmpty(t, body)
+	assert.Equal(t, xml.Name{Space: "http://example.com/namespace-test", Local: "information"}, body[0].Name,
+		"Expected XML should put the operation wrapper in the soap:body namespace")
 
 	// Test validation rules against both correct and incorrect formats
 	correctXML := expectedXML
 	incorrectXML := `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <tns:information xmlns:tns="http://example.com/namespace-test">
-      <dataId>test123</dataId>
-      <includeDetails>true</includeDetails>
-    </tns:information>
+    <information>
+      <parameters>
+        <dataId>test123</dataId>
+        <includeDetails>true</includeDetails>
+      </parameters>
+    </information>
   </soap:Body>
 </soap:Envelope>`
 
@@ -597,7 +648,6 @@ func TestRegressionPreventionFixtures(t *testing.T) {
 	}
 
 	require.NotNil(t, rpcViolation, "Should detect RPC operation wrapper violation")
-	// The violation could be either about missing xmlns or tns: prefix usage
 	assert.True(t,
 		strings.Contains(rpcViolation.Message, "tns:") ||
 			strings.Contains(rpcViolation.Message, "namespace"),
