@@ -66,8 +66,7 @@ var undrivableFixtureRequests = map[string]string{
 // request is known to differ from the expected XML, with the differences and
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
-var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
-}
+var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{}
 
 // fixtureRequestDriver calls one generated operation with values decoded from
 // a JSON file. It exits with status 2 when the values do not decode into the
