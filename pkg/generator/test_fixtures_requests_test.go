@@ -67,13 +67,6 @@ var undrivableFixtureRequests = map[string]string{
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
 var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
-	"rpc_literal/basic_rpc": {
-		diff: `different soap:Body/getUser/includeDetails: expected "{http://example.com/rpc}includeDetails", actual "includeDetails"
-different soap:Body/getUser/userId: expected "{http://example.com/rpc}userId", actual "userId"`,
-		diagnosis: "the expected XML is wrong: userId and includeDetails are part accessors, which must be in no " +
-			"namespace (WS-I Basic Profile R2735), as generated; the expected XML puts them in the operation " +
-			"wrapper's default namespace",
-	},
 	"rpc_literal/complex_rpc": {
 		diff: `different soap:Body/GetUserDetails/userId/userId/text(): expected "user123", actual ""
 different soap:Body/GetUserDetails/userId: expected "{http://example.com/complex-rpc}userId", actual "parameters"

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <getUser xmlns="http://example.com/rpc">
+    <m:getUser xmlns:m="http://example.com/rpc">
       <userId>123</userId>
       <includeDetails>true</includeDetails>
-    </getUser>
+    </m:getUser>
   </soap:Body>
 </soap:Envelope>

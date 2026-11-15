@@ -33,3 +33,12 @@ Specs used:
   element, so in `http://example.com/simple`.
 - `userId` and `includeDetails` are local elements; the schema has no
   `elementFormDefault`, so they are in no namespace.
+
+## rpc_literal/basic_rpc
+
+- RPC style; the input's `soap:body` has
+  `namespace="http://example.com/rpc"`: the wrapper is `getUser` in
+  `http://example.com/rpc`.
+- Parts `userId` (`xsd:int`) and `includeDetails` (`xsd:boolean`): one
+  accessor each, named after the part, in no namespace (R2735), holding the
+  value as text.
