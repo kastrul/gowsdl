@@ -53,7 +53,12 @@ fmt.Println(request.Body) // Actual SOAP XML
 ```
 
 ### XMLComparator
-Provides semantic XML comparison:
+Provides semantic XML comparison. Elements and attributes are compared by
+namespace URI and local name, with prefixes resolved against declarations
+anywhere in the document (including the SOAP Envelope); namespace
+declarations themselves are not compared. So `<tns:op>` with `xmlns:tns` on
+the Envelope equals `<op xmlns="...">`, while an element in no namespace
+still differs from one that inherits a default namespace.
 
 ```go
 comparator := NewXMLComparator()

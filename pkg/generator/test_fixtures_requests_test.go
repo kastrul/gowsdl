@@ -68,47 +68,37 @@ var undrivableFixtureRequests = map[string]string{
 // the table can only shrink.
 var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
 	"document_literal/simple": {
-		diff: `different soap:Body/includeDetails: expected "{http://example.com/simple}includeDetails", actual "includeDetails"
-different soap:Body/userId: expected "{http://example.com/simple}userId", actual "userId"
-different soap:Body: expected "{http://example.com/simple}GetUserRequest", actual "{tns}GetUserRequest"
-missing soap:Body/@xmlns: expected "http://example.com/simple", actual ""`,
-		diagnosis: "userId and includeDetails: the expected XML is wrong. The schema has no elementFormDefault, so " +
-			"local elements are unqualified, as generated; the expected XML qualifies them through its default namespace. " +
-			"GetUserRequest and @xmlns: neither side is wrong. The client writes tns:GetUserRequest with xmlns:tns " +
-			"declared on the Envelope, which is the same qualified name, but CompareSOAPRequests parses the Body content " +
-			"without the Envelope's declarations and compares xmlns declarations literally",
+		diff: `different soap:Body/GetUserRequest/includeDetails: expected "{http://example.com/simple}includeDetails", actual "includeDetails"
+different soap:Body/GetUserRequest/userId: expected "{http://example.com/simple}userId", actual "userId"`,
+		diagnosis: "the expected XML is wrong: the schema has no elementFormDefault, so local elements are " +
+			"unqualified, as generated; the expected XML qualifies them through its default namespace",
 	},
 	"rpc_literal/basic_rpc": {
-		diff: `different soap:Body/includeDetails: expected "{http://example.com/rpc}includeDetails", actual "includeDetails"
-different soap:Body/userId: expected "{http://example.com/rpc}userId", actual "userId"
-extra soap:Body/includeDetails/@xmlns: expected "", actual ""
-extra soap:Body/userId/@xmlns: expected "", actual ""`,
+		diff: `different soap:Body/getUser/includeDetails: expected "{http://example.com/rpc}includeDetails", actual "includeDetails"
+different soap:Body/getUser/userId: expected "{http://example.com/rpc}userId", actual "userId"`,
 		diagnosis: "the expected XML is wrong: userId and includeDetails are part accessors, which must be in no " +
 			"namespace (WS-I Basic Profile R2735), as generated; the expected XML puts them in the operation " +
-			"wrapper's default namespace. The @xmlns lines are the generated xmlns=\"\" that undeclares it",
+			"wrapper's default namespace",
 	},
 	"rpc_literal/complex_rpc": {
-		diff: `different soap:Body/userId/userId/text(): expected "user123", actual ""
-different soap:Body/userId: expected "{http://example.com/complex-rpc}userId", actual "parameters"
-extra soap:Body/userId/@xmlns: expected "", actual ""
-extra soap:Body/userId/includeAddresses: expected "", actual "includeAddresses"
-extra soap:Body/userId/includeMetadata: expected "", actual "includeMetadata"
-extra soap:Body/userId/userId: expected "", actual "userId"
-missing soap:Body/includeAddresses: expected "{http://example.com/complex-rpc}includeAddresses", actual ""
-missing soap:Body/includeMetadata: expected "{http://example.com/complex-rpc}includeMetadata", actual ""`,
+		diff: `different soap:Body/GetUserDetails/userId/userId/text(): expected "user123", actual ""
+different soap:Body/GetUserDetails/userId: expected "{http://example.com/complex-rpc}userId", actual "parameters"
+extra soap:Body/GetUserDetails/userId/includeAddresses: expected "", actual "includeAddresses"
+extra soap:Body/GetUserDetails/userId/includeMetadata: expected "", actual "includeMetadata"
+extra soap:Body/GetUserDetails/userId/userId: expected "", actual "userId"
+missing soap:Body/GetUserDetails/includeAddresses: expected "{http://example.com/complex-rpc}includeAddresses", actual ""
+missing soap:Body/GetUserDetails/includeMetadata: expected "{http://example.com/complex-rpc}includeMetadata", actual ""`,
 		diagnosis: "the expected XML is wrong: in RPC style each message part is an accessor element named after " +
 			"the part (WSDL 1.1 section 3.5), so the GetUserDetailsRequest fields belong inside <parameters>, as " +
-			"generated; the expected XML puts them directly in the operation wrapper. @xmlns: the expected XML " +
-			"is wrong; the accessor is in no namespace (WS-I Basic Profile R2735), so the generated one undeclares " +
-			"the operation wrapper's default namespace",
+			"generated, and the accessor is in no namespace (WS-I Basic Profile R2735); the expected XML puts " +
+			"the fields directly in the operation wrapper",
 	},
 	"rpc_literal/namespace_edge_case": {
-		diff: `different soap:Body/dataId/dataId/text(): expected "test123", actual ""
-different soap:Body/dataId: expected "{http://example.com/namespace-test}dataId", actual "parameters"
-extra soap:Body/dataId/@xmlns: expected "", actual ""
-extra soap:Body/dataId/dataId: expected "", actual "dataId"
-extra soap:Body/dataId/includeDetails: expected "", actual "includeDetails"
-missing soap:Body/includeDetails: expected "{http://example.com/namespace-test}includeDetails", actual ""`,
+		diff: `different soap:Body/information/dataId/dataId/text(): expected "test123", actual ""
+different soap:Body/information/dataId: expected "{http://example.com/namespace-test}dataId", actual "parameters"
+extra soap:Body/information/dataId/dataId: expected "", actual "dataId"
+extra soap:Body/information/dataId/includeDetails: expected "", actual "includeDetails"
+missing soap:Body/information/includeDetails: expected "{http://example.com/namespace-test}includeDetails", actual ""`,
 		diagnosis: "the expected XML is wrong, as for rpc_literal/complex_rpc: the InformationRequest fields belong " +
 			"inside the <parameters> part accessor, which the expected XML omits, and the accessor is in no namespace",
 	},
