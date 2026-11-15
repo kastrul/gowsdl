@@ -63,3 +63,23 @@ Specs used:
   `parameters` in no namespace (R2735), holding `dataId` and
   `includeDetails`, local elements with no `elementFormDefault`, so in no
   namespace (R2737).
+
+## document_literal/complex_document
+
+- Document style, `use="literal"`, part `parameters` with
+  `element="tns:ProcessOrderRequest"`: the Body holds `ProcessOrderRequest`
+  in `http://example.com/complex-document`.
+- Every other element is a local element of a schema with no
+  `elementFormDefault`, so in no namespace, at any depth.
+- Children follow each type's `xsd:sequence`: `orderId`, `customerId`,
+  `items` (`item*`: `productId`, `quantity`, `unitPrice`,
+  `customizations*`), `shippingAddress`, `billingAddress` (`name`,
+  `street1`, `street2?`, `city`, `state`, `zipCode`, `country`), `options`
+  (`expedited`, `giftWrap`, `giftMessage?`, `specialInstructions?`).
+  Optional elements with no value (`street2` of the billing address,
+  `giftMessage`) are absent.
+- `giftWrap` has no `minOccurs`, so it is required even though its value is
+  `false`; `default="false"` does not make an element optional.
+- The test data's values are those the case's earlier expected file held;
+  they are nested the way the schema nests them (`items` holds `item`,
+  `options` holds `expedited`, `giftWrap` and `specialInstructions`).

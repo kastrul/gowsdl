@@ -43,10 +43,11 @@ type fixtureRequestBinding struct {
 // fixtureRequestBindings lists every case under test_fixtures whose test data
 // can drive the generated client.
 var fixtureRequestBindings = map[string]fixtureRequestBinding{
-	"document_literal/simple":         {valuesKey: "request"},
-	"rpc_literal/basic_rpc":           {valuesKey: "request"},
-	"rpc_literal/complex_rpc":         {target: ".Parameters"},
-	"rpc_literal/namespace_edge_case": {target: ".Parameters"},
+	"document_literal/complex_document": {},
+	"document_literal/simple":           {valuesKey: "request"},
+	"rpc_literal/basic_rpc":             {valuesKey: "request"},
+	"rpc_literal/complex_rpc":           {target: ".Parameters"},
+	"rpc_literal/namespace_edge_case":   {target: ".Parameters"},
 }
 
 // undrivableFixtureRequests lists test_fixtures cases whose test data does not
@@ -57,16 +58,23 @@ var undrivableFixtureRequests = map[string]string{
 	"document_literal/array_namespace_edge_case": "the test data flattens every wrapper type: stringArray, intArray and " +
 		"emptyArray are bare JSON arrays where the schema has the complex types StringArray (item*), IntArray (value*) " +
 		"and EmptyArray, and nestedArrays is a bare array where NestedArrayContainer holds level1 elements",
-	"document_literal/complex_document": "the test data has no values for shippingAddress (required) or billingAddress, " +
-		"which the expected XML contains, gives items as a bare array where OrderItemArray holds item elements, and puts " +
-		"expedited, giftWrap and specialInstructions at the top level instead of under options",
 }
 
 // knownFixtureRequestMismatches lists test_fixtures cases whose captured
 // request is known to differ from the expected XML, with the differences and
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
-var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{}
+var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
+	"document_literal/complex_document": {
+		diff: `different soap:Body/ProcessOrderRequest/options/giftWrap/giftWrap/text(): expected "false", actual "Leave at front door"
+different soap:Body/ProcessOrderRequest/options/giftWrap: expected "giftWrap", actual "specialInstructions"
+missing soap:Body/ProcessOrderRequest/options/specialInstructions: expected "specialInstructions", actual ""`,
+		diagnosis: "the generator is wrong: ProcessingOptions declares giftWrap with no minOccurs, so it is required " +
+			"(XML Schema 1.0 Part 1 section 3.3.2, minOccurs defaults to 1), and its default=\"false\" only supplies the " +
+			"value of an element that is present and empty. The generated field is a bool with omitempty, so the " +
+			"client omits <giftWrap>false</giftWrap> and sends a request its schema rejects",
+	},
+}
 
 // fixtureRequestDriver calls one generated operation with values decoded from
 // a JSON file. It exits with status 2 when the values do not decode into the
