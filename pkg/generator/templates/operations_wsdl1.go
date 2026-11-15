@@ -60,8 +60,13 @@ const OperationsWSDL1Template = `
 					{{/* Convert request fields to operation wrapper */}}
 					{{range $.Messages}}
 						{{if eq .Name $inputMsgName}}
-							{{range .Parts}}
-								{{.Name | replaceReservedWords | makeFieldPublic}}: &request.{{.Name | replaceReservedWords | makeFieldPublic}},
+							{{with bodyElementPart .}}
+								{{/* The request is the element of the message's only body part */}}
+								{{.Name | replaceReservedWords | makeFieldPublic}}: request,
+							{{else}}
+								{{range .Parts}}
+									{{.Name | replaceReservedWords | makeFieldPublic}}: &request.{{.Name | replaceReservedWords | makeFieldPublic}},
+								{{end}}
 							{{end}}
 						{{end}}
 					{{end}}
@@ -80,7 +85,15 @@ const OperationsWSDL1Template = `
 				{{$outputMsgName := .Output.Message | removeNamespacePrefix}}
 				{{range $.Messages}}
 					{{if eq .Name $outputMsgName}}
-						{{if eq (len .Parts) 1}}
+						{{with bodyElementPart .}}
+							{{/* The response is the element of the message's only body part */}}
+							{{$field := .Name | replaceReservedWords | makeFieldPublic}}
+							{{if eq .Name "return"}}{{$field = "Return"}}{{end}}
+							if γ.{{$field}} == nil {
+								return nil, nil
+							}
+							return γ.{{$field}}, nil
+						{{else}}{{if eq (len .Parts) 1}}
 							{{range .Parts}}
 								{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
 								{{if eq .Name "return"}}
@@ -110,7 +123,7 @@ const OperationsWSDL1Template = `
 								{{end}}
 							}
 							return result, nil
-						{{end}}
+						{{end}}{{end}}
 					{{end}}
 				{{end}}
 				{{end}}

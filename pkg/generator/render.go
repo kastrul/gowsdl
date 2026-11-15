@@ -145,6 +145,12 @@ func (g *Generator) genTypes() ([]byte, error) {
 
 	funcMap["isQualified"] = declNamespaces.isQualified
 
+	rpcParts := &rpcElementParts{g: g, schemas: schemas, decl: declNamespaces, responseElements: responseElements}
+	funcMap["rpcPartPath"] = rpcParts.path
+	funcMap["rpcWrapperNamespace"] = rpcParts.wrapperNamespace
+	funcMap["rpcTypePartNamespace"] = rpcParts.typePartNamespace
+	funcMap["rpcElementPartNamespace"] = rpcParts.elementPartNamespace
+
 	// Add function to check if an element is a response element
 	funcMap["isResponseElement"] = func(elementName string) bool {
 		result := responseElements[elementName]

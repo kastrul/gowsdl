@@ -33,6 +33,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"goString":                 goString,
 		"sanitizeEnumValue":        sanitizeEnumValue,
 		"getTargetNamespace":       g.getTargetNamespace,
+		"rpcOperationNamespace":    g.rpcOperationNamespace,
 		"isRPCStyleMessage":        g.isRPCStyleMessage,
 		"isRPCPortType":            g.isRPCPortType,
 		"findNameByType":           g.findNameByType,
@@ -41,6 +42,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"attrXMLName":              g.attrXMLName,
 		"isHeaderMessage":          g.isHeaderMessage,
 		"partXMLName":              g.partXMLName,
+		"bodyElementPart":          g.bodyElementPart,
 	}
 }
 

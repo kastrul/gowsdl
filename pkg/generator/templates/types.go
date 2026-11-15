@@ -447,7 +447,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				{{if eq .Name $inputMsgName}}
 					// Operation wrapper for {{$opName | makePublic}}.
 					type Operation{{$opName | makePublic}}In struct {
-						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}"` + "`" + `
+						XMLName xml.Name ` + "`" + `xml:"{{rpcOperationNamespace $opName $portType.Name false}} {{$opName}}"` + "`" + `
 						
 						{{range .Parts}}
 							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
@@ -456,10 +456,41 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 								{{$partName}} *{{toGoType $partType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{else if ne .Element ""}}
 								{{$elementType := .Element | removeNamespacePrefix}}
-								{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{rpcPartPath .}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{end}}
 						{{end}}
 					}
+
+					// MarshalXML implements xml.Marshaler. It writes each part in an
+					// accessor element in no namespace, as WS-I Basic Profile R2735
+					// requires, rather than in the operation's namespace.
+					func (w Operation{{$opName | makePublic}}In) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+						start := xml.StartElement{Name: xml.Name{Space: "{{rpcOperationNamespace $opName $portType.Name false}}", Local: "{{$opName}}"}}
+						if err := e.EncodeToken(start); err != nil {
+							return err
+						}
+						{{range .Parts}}
+							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
+							{{if ne .Type ""}}
+								if err := soap.MarshalRPCTypePart(e, "{{.Name}}", "{{rpcTypePartNamespace .}}", w.{{$partName}}); err != nil {
+									return err
+								}
+							{{else if ne .Element ""}}
+								if err := soap.MarshalRPCElementPart(e, "{{.Name}}", xml.Name{Space: "{{rpcElementPartNamespace .}}", Local: "{{.Element | removeNamespacePrefix}}"}, w.{{$partName}}); err != nil {
+									return err
+								}
+							{{end}}
+						{{end}}
+						return e.EncodeToken(start.End())
+					}
+					{{with rpcWrapperNamespace .}}
+
+					// TargetNamespace returns the namespace of the tns prefix the
+					// elements of the wrapped parts are named with.
+					func (t Operation{{$opName | makePublic}}In) TargetNamespace() string {
+						return "{{.}}"
+					}
+					{{end}}
 				{{end}}
 			{{end}}
 			
@@ -468,7 +499,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 				{{if eq .Name $outputMsgName}}
 					// Operation wrapper for {{$opName | makePublic}}.
 					type Operation{{$opName | makePublic}}Out struct {
-						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}Response"` + "`" + `
+						XMLName xml.Name ` + "`" + `xml:"{{rpcOperationNamespace $opName $portType.Name true}} {{$opName}}Response"` + "`" + `
 						
 						{{range .Parts}}
 							{{$partName := .Name | replaceReservedWords | makeFieldPublic}}
@@ -482,9 +513,9 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 							{{else if ne .Element ""}}
 								{{$elementType := .Element | removeNamespacePrefix}}
 								{{if eq .Name "return"}}
-									Return *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"return,omitempty" json:"return,omitempty"` + "`" + `
+									Return *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{rpcPartPath .}},omitempty" json:"return,omitempty"` + "`" + `
 								{{else}}
-									{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{rpcPartPath .}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
 							{{end}}
 						{{end}}
