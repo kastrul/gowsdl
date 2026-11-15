@@ -158,7 +158,7 @@ Loop:
 				}
 
 				consumed = true
-			} else if se.Name.Space == XmlNsSoap12Env && se.Name.Local == "Fault" {
+			} else if se.Name.Space == XMLNsSoap12Env && se.Name.Local == "Fault" {
 				b.Body = nil
 
 				b.faultOccurred = true
@@ -530,7 +530,7 @@ func (c *Client) call(ctx context.Context, soapAction string, request, response 
 		if c.opts.mtom || c.opts.mma {
 			return fmt.Errorf("soap: SOAP 1.2 requests with MTOM or MIME multipart attachments are not supported")
 		}
-		envNS = XmlNsSoap12Env
+		envNS = XMLNsSoap12Env
 	}
 
 	// Try to extract namespace from request to determine which envelope to use

@@ -11,8 +11,8 @@ import (
 	"mime"
 )
 
-// XmlNsSoap12Env is the SOAP 1.2 envelope namespace.
-const XmlNsSoap12Env = "http://www.w3.org/2003/05/soap-envelope"
+// XMLNsSoap12Env is the SOAP 1.2 envelope namespace.
+const XMLNsSoap12Env = "http://www.w3.org/2003/05/soap-envelope"
 
 // WithSOAP12 is an Option that makes the client send SOAP 1.2 messages: the
 // envelope is in the SOAP 1.2 namespace and the SOAP action travels as the
@@ -53,7 +53,7 @@ func soap12ContentType(action string) string {
 // UnmarshalXML implements xml.Unmarshaler. It accepts a SOAP 1.1 or SOAP 1.2
 // envelope and rejects an element in any other namespace.
 func (e *SOAPEnvelopeResponse) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	if start.Name.Local != "Envelope" || (start.Name.Space != XmlNsSoapEnv && start.Name.Space != XmlNsSoap12Env) {
+	if start.Name.Local != "Envelope" || (start.Name.Space != XmlNsSoapEnv && start.Name.Space != XMLNsSoap12Env) {
 		return fmt.Errorf("soap: expected a SOAP 1.1 or 1.2 Envelope, got {%s}%s", start.Name.Space, start.Name.Local)
 	}
 	type envelope SOAPEnvelopeResponse

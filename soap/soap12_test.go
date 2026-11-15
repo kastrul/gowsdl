@@ -112,7 +112,7 @@ func TestClient_SOAP12_Request(t *testing.T) {
 
 			assertSOAP12ContentType(t, got.contentType, tt.wantAction)
 			assert.False(t, got.hasSOAPAction, "SOAP 1.2 carries the action in the Content-Type, not a SOAPAction header")
-			assert.Equal(t, xml.Name{Space: XmlNsSoap12Env, Local: "Envelope"}, got.envelope)
+			assert.Equal(t, xml.Name{Space: XMLNsSoap12Env, Local: "Envelope"}, got.envelope)
 			require.NotNil(t, resp.PingResult)
 			assert.Equal(t, "pong", resp.PingResult.Message)
 		})

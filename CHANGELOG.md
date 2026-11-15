@@ -14,7 +14,7 @@ not compile or did not work before.
 
 - SOAP 1.2 client support. `soap.WithSOAP12()` makes a client, and
   `soap.ContextWithSOAP12(ctx)` a single call, send SOAP 1.2: the envelope is
-  in the SOAP 1.2 namespace (`soap.XmlNsSoap12Env`) and the action travels as
+  in the SOAP 1.2 namespace (`soap.XMLNsSoap12Env`) and the action travels as
   the `action` parameter of an `application/soap+xml` Content-Type instead of
   a `SOAPAction` header. SOAP 1.2 faults are decoded into `*soap.SOAPFault`
   (code value, first reason text, role and detail), including Sender faults
