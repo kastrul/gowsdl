@@ -147,7 +147,7 @@ func TestXMLComparatorCompare(t *testing.T) {
 			expected:      `<root xmlns="http://example.com"><child>content</child></root>`,
 			actual:        `<root xmlns="http://other.com"><child>content</child></root>`,
 			shouldMatch:   false,
-			expectedDiffs: 3, // Root element namespace, xmlns attribute, and child element namespace
+			expectedDiffs: 2, // Root and child element namespaces; the xmlns declarations are not compared
 		},
 
 		{
@@ -383,7 +383,7 @@ func TestXMLComparatorCompareSOAPRequests(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			shouldEqual:   false,
-			expectedDiffs: 4, // Realistic: attribute order, missing xmlns, extra xmlns:tns, element name
+			expectedDiffs: 1, // The wrappers are the same element; userId inherits the default namespace in one and is in none in the other
 		},
 		{
 			name: "Identical SOAP requests (test namespace)",
@@ -467,7 +467,7 @@ func TestXMLComparatorCompareSOAPRequests(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			shouldEqual:   false,
-			expectedDiffs: 3,
+			expectedDiffs: 2, // getUser and userId namespaces
 		},
 		{
 			name: "RPC wrapper with tns prefix vs default namespace, several parts",
@@ -492,7 +492,7 @@ func TestXMLComparatorCompareSOAPRequests(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			shouldEqual:   false,
-			expectedDiffs: 6,
+			expectedDiffs: 3, // KID, IDSTRING and BIPID inherit the default namespace in one and are in none in the other
 		},
 	}
 
@@ -710,7 +710,7 @@ func TestXMLComparatorNamespaceHandling(t *testing.T) {
 			actual: `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
 				<s:Body><t:element xmlns:t="http://example.com/test">value</t:element></s:Body>
 			</s:Envelope>`,
-			shouldMatch: false, // TODO: Current implementation doesn't support semantic namespace comparison
+			shouldMatch: true,
 		},
 		{
 			name:        "Different namespaces",
@@ -847,4 +847,114 @@ func TestExtractOperationName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestXMLComparator_CompareSOAPRequests_NamespaceAware(t *testing.T) {
+	const (
+		soap11 = `http://schemas.xmlsoap.org/soap/envelope/`
+		soap12 = `http://www.w3.org/2003/05/soap-envelope`
+	)
+	envelope := func(envelopeAttrs, body string) string {
+		return `<soap:Envelope xmlns:soap="` + soap11 + `"` + envelopeAttrs + `><soap:Body>` + body + `</soap:Body></soap:Envelope>`
+	}
+
+	tests := []struct {
+		name     string
+		expected string
+		actual   string
+		// diffs lists the expected differences as "type path: expected | actual".
+		diffs []string
+	}{
+		{
+			name:     "prefix declared on the Envelope and default namespace on the element are the same",
+			expected: envelope(``, `<Op xmlns="urn:a"><userId xmlns="">1</userId></Op>`),
+			actual:   envelope(` xmlns:tns="urn:a"`, `<tns:Op><userId>1</userId></tns:Op>`),
+		},
+		{
+			name:     "different prefixes for the same namespace are the same",
+			expected: envelope(``, `<m:Op xmlns:m="urn:a"><m:userId>1</m:userId></m:Op>`),
+			actual:   envelope(` xmlns:tns="urn:a"`, `<tns:Op><tns:userId>1</tns:userId></tns:Op>`),
+		},
+		{
+			name:     "an inherited default namespace and a prefix are the same",
+			expected: envelope(``, `<Op xmlns="urn:a"><userId>1</userId></Op>`),
+			actual:   envelope(``, `<m:Op xmlns:m="urn:a"><m:userId>1</m:userId></m:Op>`),
+		},
+		{
+			name:     "namespaced attributes compare by namespace, not prefix",
+			expected: envelope(``, `<Op xmlns="urn:a" xmlns:x="urn:x" x:flag="1"/>`),
+			actual:   envelope(` xmlns:y="urn:x"`, `<Op xmlns="urn:a" y:flag="1"/>`),
+		},
+		{
+			name:     "unused namespace declarations are not compared",
+			expected: envelope(``, `<Op xmlns="urn:a"/>`),
+			actual:   envelope(` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:unused="urn:u"`, `<Op xmlns="urn:a" xmlns:other="urn:o"/>`),
+		},
+		{
+			name:     "different SOAP envelope prefixes are the same",
+			expected: envelope(``, `<Op xmlns="urn:a"/>`),
+			actual:   `<s:Envelope xmlns:s="` + soap11 + `"><s:Body><Op xmlns="urn:a"/></s:Body></s:Envelope>`,
+		},
+		{
+			name:     "an element in no namespace differs from one inheriting the default namespace",
+			expected: envelope(``, `<Op xmlns="urn:a"><userId>1</userId></Op>`),
+			actual:   envelope(``, `<m:Op xmlns:m="urn:a"><userId>1</userId></m:Op>`),
+			diffs:    []string{"different soap:Body/Op/userId: {urn:a}userId | userId"},
+		},
+		{
+			name:     "xmlns=\"\" takes an element out of the default namespace",
+			expected: envelope(``, `<Op xmlns="urn:a"><userId>1</userId></Op>`),
+			actual:   envelope(``, `<Op xmlns="urn:a"><userId xmlns="">1</userId></Op>`),
+			diffs:    []string{"different soap:Body/Op/userId: {urn:a}userId | userId"},
+		},
+		{
+			name:     "an unqualified element differs from a qualified one",
+			expected: envelope(``, `<Op>1</Op>`),
+			actual:   envelope(` xmlns:tns="urn:a"`, `<tns:Op>1</tns:Op>`),
+			diffs:    []string{"different soap:Body/Op: Op | {urn:a}Op"},
+		},
+		{
+			name:     "an unprefixed attribute is in no namespace",
+			expected: envelope(``, `<Op xmlns="urn:a" flag="1"/>`),
+			actual:   envelope(``, `<Op xmlns="urn:a" xmlns:x="urn:a" x:flag="1"/>`),
+			diffs: []string{
+				// The attribute order check also sees a different name in the same position.
+				"different soap:Body/Op/@order: attribute order preserved | attribute order changed",
+				"missing soap:Body/Op/@flag: 1 | ",
+				"extra soap:Body/Op/@{urn:a}flag:  | 1",
+			},
+		},
+		{
+			name:     "SOAP 1.1 and SOAP 1.2 envelopes differ",
+			expected: envelope(``, `<Op xmlns="urn:a"/>`),
+			actual:   `<env:Envelope xmlns:env="` + soap12 + `"><env:Body><Op xmlns="urn:a"/></env:Body></env:Envelope>`,
+			diffs:    []string{"different soap:Envelope: {" + soap11 + "}Envelope | {" + soap12 + "}Envelope"},
+		},
+		{
+			name:     "every Body child is compared",
+			expected: envelope(``, `<A xmlns="urn:a"/>`),
+			actual:   envelope(``, `<A xmlns="urn:a"/><B xmlns="urn:a"/>`),
+			diffs:    []string{"extra soap:Body/B:  | {urn:a}B"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := NewXMLComparator().CompareSOAPRequests(tt.expected, tt.actual)
+			require.NoError(t, err)
+
+			got := make([]string, 0, len(result.Differences))
+			for _, d := range result.Differences {
+				got = append(got, d.Type+" "+d.Path+": "+d.Expected+" | "+d.Actual)
+			}
+			assert.ElementsMatch(t, tt.diffs, got)
+			assert.Equal(t, len(tt.diffs) == 0, result.Equal)
+		})
+	}
+}
+
+func TestXMLComparator_CompareSOAPRequests_RejectsNonEnvelope(t *testing.T) {
+	_, err := NewXMLComparator().CompareSOAPRequests(`<Op/>`, `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"/>`)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Envelope")
 }

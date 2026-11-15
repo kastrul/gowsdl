@@ -2,9 +2,11 @@
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <GetUserDetails xmlns="http://example.com/complex-rpc">
-      <userId>user123</userId>
-      <includeAddresses>true</includeAddresses>
-      <includeMetadata>true</includeMetadata>
+      <parameters xmlns="">
+        <userId>user123</userId>
+        <includeAddresses>true</includeAddresses>
+        <includeMetadata>true</includeMetadata>
+      </parameters>
     </GetUserDetails>
   </soap:Body>
 </soap:Envelope>

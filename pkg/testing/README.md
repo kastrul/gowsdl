@@ -53,7 +53,12 @@ fmt.Println(request.Body) // Actual SOAP XML
 ```
 
 ### XMLComparator
-Provides semantic XML comparison:
+Provides semantic XML comparison. Elements and attributes are compared by
+namespace URI and local name, with prefixes resolved against declarations
+anywhere in the document (including the SOAP Envelope); namespace
+declarations themselves are not compared. So `<tns:op>` with `xmlns:tns` on
+the Envelope equals `<op xmlns="...">`, while an element in no namespace
+still differs from one that inherits a default namespace.
 
 ```go
 comparator := NewXMLComparator()
@@ -102,6 +107,11 @@ for _, result := range results {
 - ✅ RPC operations must have operation name as wrapper element
 - ✅ Operation element must be in correct namespace
 - ❌ Catches `<tns:operation>` instead of `<operation xmlns="...">`
+
+### RPC Part Accessor Rule
+- ✅ Part accessors (the children of the RPC operation wrapper) must be in no namespace (WS-I Basic Profile R2735)
+- ❌ Catches `<getUser xmlns="..."><userId>` where `userId` inherits the wrapper's namespace; `<userId xmlns="">` or a prefixed wrapper is correct
+- Descendants of the accessors are not checked: their qualification depends on the part type's schema (R2737)
 
 ### Document Style Rule
 - ✅ Document operations should use element-based messages

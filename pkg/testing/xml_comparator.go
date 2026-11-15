@@ -158,13 +158,24 @@ func (xc *XMLComparator) parseNode(decoder *xml.Decoder, parent *XMLNode) (*XMLN
 		case xml.StartElement:
 			node := &XMLNode{
 				Name:       t.Name,
-				Attrs:      make([]xml.Attr, len(t.Attr)),
+				Attrs:      make([]xml.Attr, 0, len(t.Attr)),
 				Children:   make([]*XMLNode, 0),
 				Namespaces: make(map[string]string),
 			}
 
-			// Copy attributes (don't sort to preserve order)
-			copy(node.Attrs, t.Attr)
+			// encoding/xml has already resolved element and attribute
+			// prefixes to namespace URIs, so namespace declarations carry
+			// no meaning of their own and are kept out of the attributes.
+			for _, attr := range t.Attr {
+				switch {
+				case attr.Name.Space == "xmlns":
+					node.Namespaces[attr.Name.Local] = attr.Value
+				case attr.Name.Space == "" && attr.Name.Local == "xmlns":
+					node.Namespaces[""] = attr.Value
+				default:
+					node.Attrs = append(node.Attrs, attr)
+				}
+			}
 
 			// Parse child nodes
 			child, err := xc.parseNode(decoder, node)
@@ -500,85 +511,72 @@ func (xc *XMLComparator) compareChildrenUnordered(expected, actual []*XMLNode, p
 	return diffs
 }
 
-// CompareSOAPRequests compares two SOAP request XMLs with SOAP-specific rules
+// CompareSOAPRequests compares the Body content of two SOAP requests.
+// Elements and attributes are compared by namespace URI and local name, with
+// prefixes resolved against declarations anywhere in the envelope, so the
+// choice of prefix, or of a prefix over a default namespace, does not matter;
+// namespace declarations themselves are not compared. The envelope
+// namespaces must match, and SOAP headers are not compared.
 func (xc *XMLComparator) CompareSOAPRequests(expected, actual string) (*ComparisonResult, error) {
-	result := &ComparisonResult{
-		Equal:       true,
-		Differences: make([]Difference, 0),
-	}
-
-	// Parse SOAP envelopes
-	expectedEnv, err := xc.parseSOAPEnvelope(expected)
+	expectedEnv, err := xc.parseSOAPEnvelopeNode(expected)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse expected SOAP envelope: %w", err)
 	}
 
-	actualEnv, err := xc.parseSOAPEnvelope(actual)
+	actualEnv, err := xc.parseSOAPEnvelopeNode(actual)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse actual SOAP envelope: %w", err)
 	}
 
-	// Compare SOAP structure semantically - this gives us clean differences without duplicates
-	soapDiffs := xc.compareSOAPStructure(expectedEnv, actualEnv)
-	result.Differences = soapDiffs
-	result.Equal = len(soapDiffs) == 0
-
-	return result, nil
+	diffs := xc.compareSOAPEnvelopes(expectedEnv, actualEnv)
+	return &ComparisonResult{
+		Equal:       len(diffs) == 0,
+		Differences: diffs,
+	}, nil
 }
 
-// parseSOAPEnvelope parses SOAP envelope for comparison
-func (xc *XMLComparator) parseSOAPEnvelope(xmlStr string) (*SOAPEnvelope, error) {
-	var envelope SOAPEnvelope
-	if err := xml.Unmarshal([]byte(xmlStr), &envelope); err != nil {
+// parseSOAPEnvelopeNode parses a whole SOAP envelope, so that prefixes
+// declared on the Envelope resolve in the Body.
+func (xc *XMLComparator) parseSOAPEnvelopeNode(xmlStr string) (*XMLNode, error) {
+	normalized, err := xc.normalizeXML(xmlStr)
+	if err != nil {
 		return nil, err
 	}
-	return &envelope, nil
+	root, err := xc.parseToXMLNode(normalized)
+	if err != nil {
+		return nil, err
+	}
+	if root.Name.Local != "Envelope" {
+		return nil, fmt.Errorf("expected element type <Envelope> but have <%s>", root.Name.Local)
+	}
+	return root, nil
 }
 
-// compareSOAPStructure compares SOAP envelope structures semantically
-func (xc *XMLComparator) compareSOAPStructure(expected, actual *SOAPEnvelope) []Difference {
+// soapBodyChildren returns the elements in the envelope's Body.
+func soapBodyChildren(envelope *XMLNode) []*XMLNode {
+	for _, child := range envelope.Children {
+		if child.Name.Local == "Body" && child.Name.Space == envelope.Name.Space {
+			return child.Children
+		}
+	}
+	return nil
+}
+
+// compareSOAPEnvelopes compares the envelope namespaces and the Body content.
+func (xc *XMLComparator) compareSOAPEnvelopes(expected, actual *XMLNode) []Difference {
 	var diffs []Difference
 
-	// Parse and compare body content as XML
-	expectedBody := strings.TrimSpace(string(expected.Body.Content))
-	actualBody := strings.TrimSpace(string(actual.Body.Content))
-
-	if expectedBody != "" && actualBody != "" {
-		// Parse body content directly as XML nodes
-		expectedNode, err := xc.parseToXMLNode(expectedBody)
-		if err != nil {
-			diffs = append(diffs, Difference{
-				Type:        "error",
-				Path:        "soap:Body",
-				Description: fmt.Sprintf("Failed to parse expected SOAP body content: %v", err),
-			})
-			return diffs
-		}
-
-		actualNode, err := xc.parseToXMLNode(actualBody)
-		if err != nil {
-			diffs = append(diffs, Difference{
-				Type:        "error",
-				Path:        "soap:Body",
-				Description: fmt.Sprintf("Failed to parse actual SOAP body content: %v", err),
-			})
-			return diffs
-		}
-
-		// Compare nodes and generate SOAP-specific paths only
-		bodyDiffs := xc.compareNodes(expectedNode, actualNode, "soap:Body")
-		diffs = append(diffs, bodyDiffs...)
-	} else if expectedBody != actualBody {
-		// Fallback to string comparison for empty or simple content
+	if !xc.compareElementNames(expected.Name, actual.Name) {
 		diffs = append(diffs, Difference{
 			Type:        "different",
-			Path:        "soap:Body",
-			Expected:    expectedBody,
-			Actual:      actualBody,
-			Description: "SOAP body content differs",
+			Path:        "soap:Envelope",
+			Expected:    xc.formatElementName(expected.Name),
+			Actual:      xc.formatElementName(actual.Name),
+			Description: "SOAP envelope namespace differs",
 		})
 	}
 
+	diffs = append(diffs, xc.compareChildren(soapBodyChildren(expected), soapBodyChildren(actual), "soap:Body")...)
 	return diffs
 }
 

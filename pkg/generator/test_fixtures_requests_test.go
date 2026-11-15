@@ -43,74 +43,33 @@ type fixtureRequestBinding struct {
 // fixtureRequestBindings lists every case under test_fixtures whose test data
 // can drive the generated client.
 var fixtureRequestBindings = map[string]fixtureRequestBinding{
-	"document_literal/simple":         {valuesKey: "request"},
-	"rpc_literal/basic_rpc":           {valuesKey: "request"},
-	"rpc_literal/complex_rpc":         {target: ".Parameters"},
-	"rpc_literal/namespace_edge_case": {target: ".Parameters"},
+	"document_literal/array_namespace_edge_case": {},
+	"document_literal/complex_document":          {},
+	"document_literal/simple":                    {valuesKey: "request"},
+	"rpc_literal/basic_rpc":                      {valuesKey: "request"},
+	"rpc_literal/complex_rpc":                    {target: ".Parameters"},
+	"rpc_literal/namespace_edge_case":            {target: ".Parameters"},
 }
 
 // undrivableFixtureRequests lists test_fixtures cases whose test data does not
 // carry what a call needs, with what is missing. The test checks that their
 // values still fail to decode into the generated request, so a case is moved
 // to fixtureRequestBindings once its data is completed.
-var undrivableFixtureRequests = map[string]string{
-	"document_literal/array_namespace_edge_case": "the test data flattens every wrapper type: stringArray, intArray and " +
-		"emptyArray are bare JSON arrays where the schema has the complex types StringArray (item*), IntArray (value*) " +
-		"and EmptyArray, and nestedArrays is a bare array where NestedArrayContainer holds level1 elements",
-	"document_literal/complex_document": "the test data has no values for shippingAddress (required) or billingAddress, " +
-		"which the expected XML contains, gives items as a bare array where OrderItemArray holds item elements, and puts " +
-		"expedited, giftWrap and specialInstructions at the top level instead of under options",
-}
+var undrivableFixtureRequests = map[string]string{}
 
 // knownFixtureRequestMismatches lists test_fixtures cases whose captured
 // request is known to differ from the expected XML, with the differences and
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
 var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
-	"document_literal/simple": {
-		diff: `different soap:Body/includeDetails: expected "{http://example.com/simple}includeDetails", actual "includeDetails"
-different soap:Body/userId: expected "{http://example.com/simple}userId", actual "userId"
-different soap:Body: expected "{http://example.com/simple}GetUserRequest", actual "{tns}GetUserRequest"
-missing soap:Body/@xmlns: expected "http://example.com/simple", actual ""`,
-		diagnosis: "userId and includeDetails: the expected XML is wrong. The schema has no elementFormDefault, so " +
-			"local elements are unqualified, as generated; the expected XML qualifies them through its default namespace. " +
-			"GetUserRequest and @xmlns: neither side is wrong. The client writes tns:GetUserRequest with xmlns:tns " +
-			"declared on the Envelope, which is the same qualified name, but CompareSOAPRequests parses the Body content " +
-			"without the Envelope's declarations and compares xmlns declarations literally",
-	},
-	"rpc_literal/basic_rpc": {
-		diff: `different soap:Body/includeDetails: expected "{http://example.com/rpc}includeDetails", actual "includeDetails"
-different soap:Body/userId: expected "{http://example.com/rpc}userId", actual "userId"
-extra soap:Body/includeDetails/@xmlns: expected "", actual ""
-extra soap:Body/userId/@xmlns: expected "", actual ""`,
-		diagnosis: "the expected XML is wrong: userId and includeDetails are part accessors, which must be in no " +
-			"namespace (WS-I Basic Profile R2735), as generated; the expected XML puts them in the operation " +
-			"wrapper's default namespace. The @xmlns lines are the generated xmlns=\"\" that undeclares it",
-	},
-	"rpc_literal/complex_rpc": {
-		diff: `different soap:Body/userId/userId/text(): expected "user123", actual ""
-different soap:Body/userId: expected "{http://example.com/complex-rpc}userId", actual "parameters"
-extra soap:Body/userId/@xmlns: expected "", actual ""
-extra soap:Body/userId/includeAddresses: expected "", actual "includeAddresses"
-extra soap:Body/userId/includeMetadata: expected "", actual "includeMetadata"
-extra soap:Body/userId/userId: expected "", actual "userId"
-missing soap:Body/includeAddresses: expected "{http://example.com/complex-rpc}includeAddresses", actual ""
-missing soap:Body/includeMetadata: expected "{http://example.com/complex-rpc}includeMetadata", actual ""`,
-		diagnosis: "the expected XML is wrong: in RPC style each message part is an accessor element named after " +
-			"the part (WSDL 1.1 section 3.5), so the GetUserDetailsRequest fields belong inside <parameters>, as " +
-			"generated; the expected XML puts them directly in the operation wrapper. @xmlns: the expected XML " +
-			"is wrong; the accessor is in no namespace (WS-I Basic Profile R2735), so the generated one undeclares " +
-			"the operation wrapper's default namespace",
-	},
-	"rpc_literal/namespace_edge_case": {
-		diff: `different soap:Body/dataId/dataId/text(): expected "test123", actual ""
-different soap:Body/dataId: expected "{http://example.com/namespace-test}dataId", actual "parameters"
-extra soap:Body/dataId/@xmlns: expected "", actual ""
-extra soap:Body/dataId/dataId: expected "", actual "dataId"
-extra soap:Body/dataId/includeDetails: expected "", actual "includeDetails"
-missing soap:Body/includeDetails: expected "{http://example.com/namespace-test}includeDetails", actual ""`,
-		diagnosis: "the expected XML is wrong, as for rpc_literal/complex_rpc: the InformationRequest fields belong " +
-			"inside the <parameters> part accessor, which the expected XML omits, and the accessor is in no namespace",
+	"document_literal/complex_document": {
+		diff: `different soap:Body/ProcessOrderRequest/options/giftWrap/giftWrap/text(): expected "false", actual "Leave at front door"
+different soap:Body/ProcessOrderRequest/options/giftWrap: expected "giftWrap", actual "specialInstructions"
+missing soap:Body/ProcessOrderRequest/options/specialInstructions: expected "specialInstructions", actual ""`,
+		diagnosis: "the generator is wrong: ProcessingOptions declares giftWrap with no minOccurs, so it is required " +
+			"(XML Schema 1.0 Part 1 section 3.3.2, minOccurs defaults to 1), and its default=\"false\" only supplies the " +
+			"value of an element that is present and empty. The generated field is a bool with omitempty, so the " +
+			"client omits <giftWrap>false</giftWrap> and sends a request its schema rejects",
 	},
 }
 

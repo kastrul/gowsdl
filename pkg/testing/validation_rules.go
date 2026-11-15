@@ -40,6 +40,7 @@ func NewRuleEngine() *RuleEngine {
 
 	// Add default rules
 	engine.AddRule(&RPCOperationWrapperRule{})
+	engine.AddRule(&RPCPartAccessorRule{})
 	engine.AddRule(&DocumentStyleRule{})
 	engine.AddRule(&NamespaceConsistencyRule{})
 	engine.AddRule(&SOAPEnvelopeRule{})
@@ -86,9 +87,13 @@ func (r *RPCOperationWrapperRule) Validate(soapXML string, style string) []RuleV
 		return violations
 	}
 
-	// Parse SOAP envelope
-	var envelope SOAPEnvelope
-	if err := xml.Unmarshal([]byte(soapXML), &envelope); err != nil {
+	// The wrapper element is named after the operation and is in the
+	// namespace of the soap:body namespace attribute (WSDL 1.1 section 3.5,
+	// WS-I Basic Profile R2717). Only the namespace it resolves to matters:
+	// a prefix and a default namespace declaration are equivalent
+	// (Namespaces in XML 1.0, section 6).
+	envelope, err := NewXMLComparator().parseSOAPEnvelopeNode(soapXML)
+	if err != nil {
 		violations = append(violations, RuleViolation{
 			RuleName: r.Name(),
 			Severity: "error",
@@ -98,27 +103,74 @@ func (r *RPCOperationWrapperRule) Validate(soapXML string, style string) []RuleV
 		return violations
 	}
 
-	bodyContent := string(envelope.Body.Content)
-
-	// Check for operation wrapper with namespace
-	if !strings.Contains(bodyContent, `xmlns=`) {
+	body := soapBodyChildren(envelope)
+	if len(body) > 0 && body[0].Name.Space == "" {
 		violations = append(violations, RuleViolation{
 			RuleName:   r.Name(),
 			Severity:   "error",
-			Message:    "RPC operation element missing namespace declaration",
+			Message:    fmt.Sprintf("RPC operation element <%s> is in no namespace", body[0].Name.Local),
 			Path:       "soap:Body/*[1]",
-			Suggestion: "Operation element should have xmlns attribute with target namespace",
+			Suggestion: "Put the operation element in the namespace of the binding's soap:body namespace attribute",
 		})
 	}
 
-	// Check for tns: prefix (indicates incorrect namespace handling)
-	if strings.Contains(bodyContent, "tns:") {
+	return violations
+}
+
+// RPCPartAccessorRule validates that RPC-style part accessors are in no
+// namespace, as WS-I Basic Profile 1.1 R2735 requires.
+type RPCPartAccessorRule struct{}
+
+// Name returns the rule's display name.
+func (r *RPCPartAccessorRule) Name() string {
+	return "RPC Part Accessor"
+}
+
+// Description returns what the rule checks.
+func (r *RPCPartAccessorRule) Description() string {
+	return "RPC-style part accessors must be in no namespace (WS-I Basic Profile R2735)"
+}
+
+// Validate checks soapXML against the rule and returns any violations.
+//
+// The children of the operation wrapper are the part accessors (WSDL 1.1
+// section 3.5). Only their own names are checked: how their descendants are
+// qualified depends on the schema of each part's type (R2737), which the
+// request alone does not show.
+func (r *RPCPartAccessorRule) Validate(soapXML string, style string) []RuleViolation {
+	var violations []RuleViolation
+
+	if style != "rpc" {
+		return violations
+	}
+
+	envelope, err := NewXMLComparator().parseSOAPEnvelopeNode(soapXML)
+	if err != nil {
 		violations = append(violations, RuleViolation{
-			RuleName:   r.Name(),
-			Severity:   "error",
-			Message:    "RPC operation using namespace prefix instead of default namespace",
-			Path:       "soap:Body/*[1]",
-			Suggestion: "Use xmlns=\"namespace\" instead of tns:operation",
+			RuleName: r.Name(),
+			Severity: "error",
+			Message:  "Failed to parse SOAP envelope",
+			Path:     "soap:Envelope",
+		})
+		return violations
+	}
+
+	body := soapBodyChildren(envelope)
+	if len(body) == 0 {
+		return violations
+	}
+	wrapper := body[0]
+	for _, accessor := range wrapper.Children {
+		if accessor.Name.Space == "" {
+			continue
+		}
+		violations = append(violations, RuleViolation{
+			RuleName: r.Name(),
+			Severity: "error",
+			Message: fmt.Sprintf("RPC part accessor <%s> is in namespace %q instead of no namespace",
+				accessor.Name.Local, accessor.Name.Space),
+			Path:       fmt.Sprintf("soap:Body/%s/%s", wrapper.Name.Local, accessor.Name.Local),
+			Suggestion: "Write the accessor unqualified, with xmlns=\"\" if the wrapper declares a default namespace",
 		})
 	}
 

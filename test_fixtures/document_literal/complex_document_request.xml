@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <ProcessOrderRequest xmlns="http://example.com/complex-document">
+    <m:ProcessOrderRequest xmlns:m="http://example.com/complex-document">
       <orderId>ORD-2024-001</orderId>
       <customerId>CUST-12345</customerId>
       <items>
@@ -40,6 +40,6 @@
         <giftWrap>false</giftWrap>
         <specialInstructions>Leave at front door</specialInstructions>
       </options>
-    </ProcessOrderRequest>
+    </m:ProcessOrderRequest>
   </soap:Body>
 </soap:Envelope>
