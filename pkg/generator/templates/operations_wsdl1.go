@@ -51,6 +51,10 @@ const OperationsWSDL1Template = `
 		{{if not (and $generic $.GenericsOnly) -}}
 		{{$oneWay := not .Output.Message}}
 		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) {{if $oneWay}}error{{else}}(*{{$responseType}}, error){{end}} {
+			{{if usesSOAP12 $portTypeName}}
+			// The port type is bound only with SOAP 1.2.
+			ctx = soap.ContextWithSOAP12(ctx)
+			{{end}}
 			{{if isRPCPortType $portTypeName}}
 				// RPC-style operation: wrap request in operation element
 				{{$opName := .Name}}
@@ -147,6 +151,10 @@ const OperationsWSDL1Template = `
 			if request == nil {
 				return soap.Result[{{$responseType}}]{}, soap.ErrNilRequest
 			}
+			{{if usesSOAP12 $portTypeName}}
+			// The port type is bound only with SOAP 1.2.
+			ctx = soap.ContextWithSOAP12(ctx)
+			{{end}}
 			return service.client.CallResult[{{$responseType}}](ctx, "{{$soapAction}}", request), nil
 		}
 		{{end}}

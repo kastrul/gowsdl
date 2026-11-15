@@ -100,11 +100,27 @@ func (g *Generator) bindingsForInterface(iface string) []*parser.WSDL2Binding {
 // isRPCPortType checks if a port type is used in an RPC-style binding
 func (g *Generator) isRPCPortType(portTypeName string) bool {
 	for _, binding := range g.bindingsForPortType(portTypeName) {
-		if binding.SOAPBinding.Style == "rpc" {
+		if binding.SOAPBinding.Style == "rpc" || (binding.SOAP12Binding != nil && binding.SOAP12Binding.Style == "rpc") {
 			return true
 		}
 	}
 	return false
+}
+
+// usesSOAP12 reports whether the port type is bound only with SOAP 1.2, so
+// its generated client sends SOAP 1.2 messages. A port type that also has a
+// SOAP 1.1 binding uses SOAP 1.1.
+func (g *Generator) usesSOAP12(portTypeName string) bool {
+	soap12 := false
+	for _, binding := range g.bindingsForPortType(portTypeName) {
+		if binding.SOAPBinding != (parser.WSDLSOAPBinding{}) {
+			return false
+		}
+		if binding.SOAP12Binding != nil {
+			soap12 = true
+		}
+	}
+	return soap12
 }
 
 // isRPCStyleMessage determines if a message requires a wrapper type
@@ -191,18 +207,21 @@ func (g *Generator) findType(message string) string {
 // none does.
 // rpcOperationNamespace returns the namespace of the element that wraps the
 // input, or with output the output, of an RPC-style operation: the
-// namespace of the operation's soap:body in the port type's binding (WSDL
-// 1.1 section 3.5), or the WSDL targetNamespace when the binding declares
-// none.
+// namespace of the operation's soap:body or soap12:body in the port type's
+// binding (WSDL 1.1 section 3.5), or the WSDL targetNamespace when the
+// binding declares none.
 func (g *Generator) rpcOperationNamespace(operation, portType string, output bool) string {
 	for _, binding := range g.bindingsForPortType(portType) {
 		for _, op := range binding.Operations {
 			if op.Name != operation {
 				continue
 			}
-			ns := op.Input.SOAPBody.Namespace
+			ns, body12 := op.Input.SOAPBody.Namespace, op.Input.SOAP12Body
 			if output {
-				ns = op.Output.SOAPBody.Namespace
+				ns, body12 = op.Output.SOAPBody.Namespace, op.Output.SOAP12Body
+			}
+			if ns == "" && body12 != nil {
+				ns = body12.Namespace
 			}
 			if ns != "" {
 				return ns
@@ -219,6 +238,9 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 	for _, binding := range g.bindingsForPortType(portType) {
 		for _, op := range binding.Operations {
 			if op.Name == operation {
+				if op.SOAPOperation.SOAPAction == "" && op.SOAP12Operation != nil {
+					return op.SOAP12Operation.SOAPAction
+				}
 				return op.SOAPOperation.SOAPAction
 			}
 		}

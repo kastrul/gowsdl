@@ -157,6 +157,8 @@ type WSDLInput struct {
 	Doc        string            `xml:"documentation"`
 	SOAPBody   WSDLSOAPBody      `xml:"http://schemas.xmlsoap.org/wsdl/soap/ body"`
 	SOAPHeader []*WSDLSOAPHeader `xml:"http://schemas.xmlsoap.org/wsdl/soap/ header"`
+	// SOAP12Body is set when a SOAP 1.2 binding declares a soap12:body.
+	SOAP12Body *WSDLSOAPBody `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ body"`
 }
 
 // WSDLOutput represents a WSDL output message.
@@ -166,6 +168,8 @@ type WSDLOutput struct {
 	Doc        string            `xml:"documentation"`
 	SOAPBody   WSDLSOAPBody      `xml:"http://schemas.xmlsoap.org/wsdl/soap/ body"`
 	SOAPHeader []*WSDLSOAPHeader `xml:"http://schemas.xmlsoap.org/wsdl/soap/ header"`
+	// SOAP12Body is set when a SOAP 1.2 binding declares a soap12:body.
+	SOAP12Body *WSDLSOAPBody `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ body"`
 }
 
 // WSDLOperation represents the contract of an entire operation or function.
@@ -176,6 +180,9 @@ type WSDLOperation struct {
 	Output        WSDLOutput        `xml:"output"`
 	Faults        []*WSDLFault      `xml:"fault"`
 	SOAPOperation WSDLSOAPOperation `xml:"http://schemas.xmlsoap.org/wsdl/soap/ operation"`
+	// SOAP12Operation is set when a SOAP 1.2 binding declares a
+	// soap12:operation.
+	SOAP12Operation *WSDLSOAPOperation `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ operation"`
 }
 
 // WSDLPortType defines the service, operations that can be performed and the messages involved.

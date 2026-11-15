@@ -124,6 +124,7 @@ func wsdl1StubFuncMap() template.FuncMap {
 		"findSOAPAction":  func(operation, _ string) string { return operation },
 		"isRPCPortType":   func(_ string) bool { return false },
 		"bodyElementPart": func(any) any { return nil },
+		"usesSOAP12":      func(_ string) bool { return false },
 	}
 }
 
