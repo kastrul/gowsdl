@@ -108,6 +108,11 @@ for _, result := range results {
 - ✅ Operation element must be in correct namespace
 - ❌ Catches `<tns:operation>` instead of `<operation xmlns="...">`
 
+### RPC Part Accessor Rule
+- ✅ Part accessors (the children of the RPC operation wrapper) must be in no namespace (WS-I Basic Profile R2735)
+- ❌ Catches `<getUser xmlns="..."><userId>` where `userId` inherits the wrapper's namespace; `<userId xmlns="">` or a prefixed wrapper is correct
+- Descendants of the accessors are not checked: their qualification depends on the part type's schema (R2737)
+
 ### Document Style Rule
 - ✅ Document operations should use element-based messages
 - ⚠️ Warns about operation wrappers in document style
