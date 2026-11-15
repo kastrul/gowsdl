@@ -2,13 +2,14 @@ package generator
 
 import (
 	"go/format"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerator_UntypedElement_IsStringAtEverySite(t *testing.T) {
+func TestGenerator_UntypedElement_IsAnyTypeAtEverySite(t *testing.T) {
 	out := generate(t, writeWSDL(t, `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
              xmlns:tns="http://example.com/x"
@@ -57,25 +58,25 @@ func TestGenerator_UntypedElement_IsStringAtEverySite(t *testing.T) {
 
 	seq := structBody(t, types, "Seq")
 	assert.Regexp(t, `\sTyped int32 .xml:"typed,omitempty" json:"typed,omitempty"`, seq)
-	assert.Regexp(t, `\sUntyped string .xml:"untyped,omitempty" json:"untyped,omitempty".`, seq)
-	assert.Regexp(t, `\sUntypedMany \[\]string .xml:"untypedMany,omitempty" json:"untypedMany,omitempty".`, seq)
+	assert.Regexp(t, `\sUntyped soap\.AnyType .xml:"untyped,omitempty" json:"untyped,omitzero".`, seq)
+	assert.Regexp(t, `\sUntypedMany \[\]soap\.AnyType .xml:"untypedMany,omitempty" json:"untypedMany,omitempty".`, seq)
 
 	inl := structBody(t, types, "SeqInlType")
-	assert.Regexp(t, `\sUntypedIn string .xml:"untypedIn,omitempty" json:"untypedIn,omitempty".`, inl)
-	assert.Regexp(t, `\sUntypedInMany \[\]string `, inl)
-	assert.Regexp(t, `\sIc string `, structBody(t, types, "SeqInlChoiceType"))
-	assert.Regexp(t, `\sIa string `, structBody(t, types, "SeqInlAllType"))
+	assert.Regexp(t, `\sUntypedIn soap\.AnyType .xml:"untypedIn,omitempty" json:"untypedIn,omitzero".`, inl)
+	assert.Regexp(t, `\sUntypedInMany \[\]soap\.AnyType `, inl)
+	assert.Regexp(t, `\sIc soap\.AnyType `, structBody(t, types, "SeqInlChoiceType"))
+	assert.Regexp(t, `\sIa soap\.AnyType `, structBody(t, types, "SeqInlAllType"))
 
 	chooser := structBody(t, types, "Chooser")
 	assert.Regexp(t, `\sC1 int32 `, chooser)
-	assert.Regexp(t, `\sCUntyped string .xml:"cUntyped,omitempty" json:"cUntyped,omitempty".`, chooser)
+	assert.Regexp(t, `\sCUntyped soap\.AnyType .xml:"cUntyped,omitempty" json:"cUntyped,omitzero".`, chooser)
 
-	assert.Regexp(t, `\sAUntyped string `, structBody(t, types, "Everything"))
+	assert.Regexp(t, `\sAUntyped soap\.AnyType `, structBody(t, types, "Everything"))
 
 	derived := structBody(t, types, "Derived")
 	assert.Regexp(t, `\sD1 string .xml:"d1,omitempty" json:"d1,omitempty".`, derived)
-	assert.Regexp(t, `\sDUntyped string .xml:"dUntyped,omitempty" json:"dUntyped,omitempty".`, derived)
-	assert.Regexp(t, `\sDUntypedMany \[\]string `, derived)
+	assert.Regexp(t, `\sDUntyped soap\.AnyType .xml:"dUntyped,omitempty" json:"dUntyped,omitzero".`, derived)
+	assert.Regexp(t, `\sDUntypedMany \[\]soap\.AnyType `, derived)
 
 	assertGeneratedCodeBuilds(t, "untyped", out)
 }
@@ -399,4 +400,112 @@ func TestGenerator_ExtensionSequenceElement_InlineComplexTypeWinsOverTypeAttribu
 	assert.Regexp(t, `\sBoth PlainBothType .xml:"both,omitempty" json:"both,`, structBody(t, types, "Plain"))
 	assert.Regexp(t, `\sBoth DerivedBothType .xml:"both,omitempty" json:"both,`, structBody(t, types, "Derived"),
 		"an extension sequence must resolve an element the same way a plain sequence does")
+}
+
+const untypedElementWSDL = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:tns="http://example.com/x"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/x">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/x">
+            <xsd:complexType name="Base"><xsd:sequence><xsd:element name="baseId" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            <xsd:complexType name="Seq">
+                <xsd:sequence>
+                    <xsd:element name="one"%s/>
+                    <xsd:element name="many" maxOccurs="unbounded"%s/>
+                    <xsd:element name="nil" nillable="true"%s/>
+                    <xsd:element name="opt" minOccurs="0"%s/>
+                    <xsd:element name="inl">
+                        <xsd:complexType><xsd:sequence><xsd:element name="in"%s/></xsd:sequence></xsd:complexType>
+                    </xsd:element>
+                </xsd:sequence>
+            </xsd:complexType>
+            <xsd:complexType name="Chooser"><xsd:choice><xsd:element name="c"%s/></xsd:choice></xsd:complexType>
+            <xsd:complexType name="Everything"><xsd:all><xsd:element name="a"%s/></xsd:all></xsd:complexType>
+            <xsd:complexType name="Derived">
+                <xsd:complexContent>
+                    <xsd:extension base="tns:Base"><xsd:sequence><xsd:element name="d"%s/></xsd:sequence></xsd:extension>
+                </xsd:complexContent>
+            </xsd:complexType>
+            <xsd:element name="Wrapper">
+                <xsd:complexType><xsd:sequence><xsd:element name="w"%s/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+</definitions>`
+
+func TestGenerator_UntypedElement_GeneratesLikeExplicitAnyType(t *testing.T) {
+	untyped := generate(t, writeWSDL(t, strings.ReplaceAll(untypedElementWSDL, "%s", "")), WithPackage("test"))
+	explicit := generate(t, writeWSDL(t, strings.ReplaceAll(untypedElementWSDL, "%s", ` type="xsd:anyType"`)), WithPackage("test"))
+
+	for _, name := range []string{"Seq", "SeqInlType", "Chooser", "Everything", "Derived", "Wrapper"} {
+		assert.Equal(t, explicit.decl(t, name), untyped.decl(t, name), name)
+	}
+	assert.Equal(t, explicit.client(t), untyped.client(t))
+}
+
+const untypedElementRoundTrip = `package test
+
+import (
+	"encoding/json"
+	"encoding/xml"
+	"testing"
+
+	"github.com/kastrul/gowsdl/soap"
+)
+
+func TestUntypedElementRoundTrip(t *testing.T) {
+	var s Seq
+	in := "<Seq><one>first</one><many><k>1</k></many><many>2</many><inl><in>nested</in></inl></Seq>"
+	if err := xml.Unmarshal([]byte(in), &s); err != nil {
+		t.Fatal(err)
+	}
+	var one string
+	if err := s.One.Decode(&one); err != nil || one != "first" {
+		t.Fatalf("one = %q, %v", one, err)
+	}
+	var k struct {
+		K int ` + "`" + `xml:"k"` + "`" + `
+	}
+	if len(s.Many) != 2 || s.Many[0].Decode(&k) != nil || k.K != 1 || s.Many[1].InnerXML != "2" {
+		t.Fatalf("many = %+v", s.Many)
+	}
+	if s.Inl.In.InnerXML != "nested" {
+		t.Fatalf("inl.in = %+v", s.Inl.In)
+	}
+	if !s.Opt.IsZero() {
+		t.Fatalf("opt should be unset: %+v", s.Opt)
+	}
+
+	out, err := xml.Marshal(Seq{One: s.One, Many: s.Many, Opt: soap.AnyType{Value: "sent"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "<Seq><one>first</one><many><k xmlns=\"\">1</k></many><many>2</many><opt>sent</opt><inl></inl></Seq>"
+	if string(out) != want {
+		t.Fatalf("marshalled\n%s\nwant\n%s", out, want)
+	}
+
+	var c Chooser
+	if err := xml.Unmarshal([]byte("<Chooser><c>picked</c></Chooser>"), &c); err != nil || c.C.InnerXML != "picked" {
+		t.Fatalf("choice = %+v, %v", c, err)
+	}
+	var d Derived
+	if err := xml.Unmarshal([]byte("<Derived><baseId>b</baseId><d>ext</d></Derived>"), &d); err != nil || d.D.InnerXML != "ext" {
+		t.Fatalf("extension = %+v, %v", d, err)
+	}
+
+	js, err := json.Marshal(Chooser{})
+	if err != nil || string(js) != "{}" {
+		t.Fatalf("json = %s, %v", js, err)
+	}
+}
+`
+
+func TestGenerator_UntypedElement_RoundTripsThroughEncodingXML(t *testing.T) {
+	out := generate(t, writeWSDL(t, strings.ReplaceAll(untypedElementWSDL, "%s", "")), WithPackage("test"))
+	runGeneratedModuleTests(t, "example.com/untyped", out, map[string]string{
+		"untyped_test.go": untypedElementRoundTrip,
+	})
 }

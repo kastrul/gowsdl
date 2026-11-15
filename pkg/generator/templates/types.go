@@ -37,7 +37,7 @@ const TypesTemplate = `
 {{/*
 ElementFields emits one struct field per XSD element. An element with an inline
 simple type gets the base of its restriction; an element with no type
-information at all gets a string.
+information at all is an xsd:anyType, as XML Schema defines.
 */}}
 {{define "ElementFields"}}
 	{{range .}}
@@ -71,10 +71,12 @@ information at all gets a string.
 
 {{/*
 UntypedField emits the field of an element with no type information at all: no
-ref, no type attribute and no inline type.
+ref, no type attribute and no inline type. Such an element is an xsd:anyType,
+so its field is the one an element declared type="xsd:anyType" gets.
 */}}
 {{define "UntypedField"}}
-	{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+	{{$memberType := toGoType "anyType" .Nillable}}
+	{{replaceReservedWords .Name | makeFieldPublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 {{end}}
 
 {{/*

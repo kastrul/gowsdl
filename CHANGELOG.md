@@ -55,9 +55,16 @@ not compile or did not work before.
   now becomes the field `IdAttr`, as it already did when declared directly on
   a type. XML and JSON names are unchanged.
 - **Regenerate.** An element with no type information at all (no `ref`, no
-  `type`, no inline type) now gets a `string` field everywhere, or `[]string`
-  when it repeats. Before, it got an undeclared type named after the element,
-  a `string`, or no field at all, depending on where it stood.
+  `type`, no inline type) is an `xsd:anyType`, as XML Schema defines, and now
+  gets exactly the field an element declared `type="xsd:anyType"` gets:
+  `soap.AnyType`, or `[]soap.AnyType` when it repeats, with
+  `json:"name,omitzero"` on the single field. Before, it got an undeclared
+  type named after the element, a `string`, or no field at all, depending on
+  where it stood; v0.2.6 made it `string` everywhere. Read a received value
+  with `Decode` or `InnerXML` and send one as `soap.AnyType{Value: v}`; child
+  elements in the content are now kept instead of being flattened to their
+  text. In JSON the field is now an object (`{"innerXML":"..."}`) instead of
+  a string, and an unset field is omitted.
 - Generated code spells `interface{}` as `any`. The types are identical.
 - **Regenerate.** A global element whose inline `simpleType` has neither a
   union nor a restriction base (an empty one, or an `xs:list`) is now declared
