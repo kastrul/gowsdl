@@ -86,6 +86,13 @@ not compile or did not work before.
 
 ### Fixed
 
+- **Regenerate.** A global element whose anonymous `complexType` is a
+  `complexContent` extension now has the fields of the extension's sequence
+  and attributes, as a named type does. Before, its struct held only the
+  embedded base type, so those elements and attributes were never sent and
+  were dropped from responses. In the chromedata fixture, 14 request and
+  response elements gain their fields, among them `VehicleDescription`,
+  `VehicleDescriptionRequest`, `VersionInfo` and `Divisions`.
 - **Regenerate.** A WSDL 1.1 port type bound only with SOAP 1.2 now gets a
   client that sends SOAP 1.2, with its SOAP actions from `soap12:operation`;
   a `soap12:binding style="rpc"` makes it RPC-style, with the wrapper

@@ -217,6 +217,19 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{end}}
 {{end}}
 
+{{/*
+ComplexTypeFields emits the fields of a complex type declared by name or as the
+anonymous type of a global element.
+*/}}
+{{define "ComplexTypeFields"}}
+	{{template "ComplexTypeInline" .}}
+	{{with .ComplexContent}}
+		{{template "ElementFields" .Extension.Sequence}}
+		{{template "AttributeFields" .Extension.Attributes}}
+	{{end}}
+	{{template "SimpleContentFields" .SimpleContent}}
+{{end}}
+
 {{define "ComplexType"}}
 	{{$type := replaceReservedWords .Name | makePublic}}
 	{{if .Abstract}}
@@ -226,12 +239,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 		{{if isMessageElement .Name}}
 			{{template "XMLNameField" (dict "Name" .Name "Namespace" (complexTypeNamespace .) "Qualified" (isQualified .))}}
 		{{end}}
-		{{template "ComplexTypeInline" .}}
-		{{with .ComplexContent}}
-			{{template "ElementFields" .Extension.Sequence}}
-			{{template "AttributeFields" .Extension.Attributes}}
-		{{end}}
-		{{template "SimpleContentFields" .SimpleContent}}
+		{{template "ComplexTypeFields" .}}
 	}
 	
 	{{if isMessageElement .Name}}
@@ -339,8 +347,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 			{{else}}
 				type {{$outerType}} struct {
 					{{template "XMLNameField" (dict "Name" .Name "Namespace" (elementNamespace .) "Qualified" (isQualified .))}}
-					{{template "ComplexTypeInline" .ComplexType}}
-					{{template "SimpleContentFields" .ComplexType.SimpleContent}}
+					{{template "ComplexTypeFields" .ComplexType}}
 				}
 
 				{{if not (isQualified .)}}
