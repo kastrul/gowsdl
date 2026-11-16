@@ -76,7 +76,7 @@ func TestGenerator_UnderscoreElement_ExportedField(t *testing.T) {
 	out := generateUnderscoreWSDL(t, `<xsd:element name="_this" type="xsd:string"/>`)
 	code := out.client(t)
 
-	assert.Regexp(t, regexp.MustCompile(`\bThis\s+string\s+`+"`"+`xml:"_this,omitempty" json:"_this,omitempty"`+"`"), code)
+	assert.Regexp(t, regexp.MustCompile(`\bThis\s+string\s+`+"`"+`xml:"_this" json:"_this,omitempty"`+"`"), code)
 	assert.NotRegexp(t, regexp.MustCompile(`(?m)^\s*_this\s`), code)
 	assert.Regexp(t, regexp.MustCompile(`\bAttr\s+string\s+`+"`"+`xml:"_attr,attr,omitempty"`), code)
 	assert.NotRegexp(t, regexp.MustCompile(`(?m)^\s*_attr\s`), code)
@@ -87,8 +87,8 @@ func TestGenerator_UnderscoreElement_NameCollision(t *testing.T) {
                         <xsd:element name="_this" type="xsd:string"/>`)
 	code := out.client(t)
 
-	assert.Regexp(t, regexp.MustCompile(`\bThis\s+string\s+`+"`"+`xml:"this,omitempty"`), code)
-	assert.Regexp(t, regexp.MustCompile(`\bThis_\s+string\s+`+"`"+`xml:"_this,omitempty"`), code)
+	assert.Regexp(t, regexp.MustCompile(`\bThis\s+string\s+`+"`"+`xml:"this"`), code)
+	assert.Regexp(t, regexp.MustCompile(`\bThis_\s+string\s+`+"`"+`xml:"_this"`), code)
 }
 
 func TestGenerator_UnderscoreElement_MarshalsXML(t *testing.T) {

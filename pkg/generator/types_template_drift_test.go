@@ -74,7 +74,7 @@ func TestGenerator_UntypedElement_IsAnyTypeAtEverySite(t *testing.T) {
 	assert.Regexp(t, `\sAUntyped soap\.AnyType `, structBody(t, types, "Everything"))
 
 	derived := structBody(t, types, "Derived")
-	assert.Regexp(t, `\sD1 string .xml:"d1,omitempty" json:"d1,omitempty".`, derived)
+	assert.Regexp(t, `\sD1 string .xml:"d1" json:"d1,omitempty".`, derived)
 	assert.Regexp(t, `\sDUntyped soap\.AnyType .xml:"dUntyped,omitempty" json:"dUntyped,omitzero".`, derived)
 	assert.Regexp(t, `\sDUntypedMany \[\]soap\.AnyType `, derived)
 
@@ -304,9 +304,9 @@ func TestGenerator_ExtensionSequenceElements_HaveJSONTags(t *testing.T) {
 	require.NoError(t, err)
 
 	derived := structBody(t, string(formatted), "Derived")
-	assert.Regexp(t, `\sTyped string .xml:"typed,omitempty" json:"typed,omitempty".`, derived)
+	assert.Regexp(t, `\sTyped string .xml:"typed" json:"typed,omitempty".`, derived)
 	assert.Regexp(t, `\sMany \[\]int32 .xml:"many,omitempty" json:"many,omitempty".`, derived)
-	assert.Regexp(t, `\sShared Shared .xml:"Shared,omitempty" json:"Shared,omitempty".`, derived)
+	assert.Regexp(t, `\sShared Shared .xml:"Shared" json:"Shared,omitempty".`, derived)
 	assert.Regexp(t, `\sOpt \*DerivedOptType .xml:"opt,omitempty" json:"opt,omitempty".`, derived)
 	assert.Regexp(t, `\sList \[\]DerivedListType .xml:"list,omitempty" json:"list,omitempty".`, derived)
 }

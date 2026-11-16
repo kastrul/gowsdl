@@ -28,9 +28,11 @@ const (
 )
 
 // sendsZeroValue reports whether a required field of kind k is sent even when
-// it holds its zero value, i.e. whether its xml tag drops omitempty.
+// it holds its zero value, i.e. whether its xml tag drops omitempty. A zero
+// string is sent as an empty element or attribute. The soap date and time
+// types write nothing for their zero value whatever the tag says.
 func sendsZeroValue(k scalarKind) bool {
-	return k == boolOrNumber
+	return k == boolOrNumber || k == textual
 }
 
 // goScalarKind classifies a Go type produced by the type mapper.

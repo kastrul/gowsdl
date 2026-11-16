@@ -112,7 +112,7 @@ func TestGenerator_XRoad_MixedQualificationTypes(t *testing.T) {
 
 	assert.Regexp(t, `XRoadInstance\s+XRoadInstance\s+`+"`"+`xml:"http://example.com/identifiers xRoadInstance,omitempty"`, code,
 		"complexContent restriction must keep its particles, qualified with the identifiers namespace")
-	assert.Regexp(t, `ObjectType\s+string\s+`+"`"+`xml:"http://example.com/identifiers objectType,attr,omitempty"`, code,
+	assert.Regexp(t, `ObjectType\s+string\s+`+"`"+`xml:"http://example.com/identifiers objectType,attr"`, code,
 		"a ref to a global attribute must carry its namespace")
 	assert.Contains(t, code, "return soap.MarshalParts(e, h)")
 }

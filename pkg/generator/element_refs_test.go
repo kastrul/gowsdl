@@ -35,8 +35,8 @@ func TestGenerator_RefElementTagNames(t *testing.T) {
 		{
 			structName: "PartyType",
 			fields: []string{
-				"PartyClass PartyClass `xml:\"partyClass,omitempty\" json:\"partyClass,omitempty\"`",
-				"PartyCode PartyCode `xml:\"urn:refs:other partyCode,omitempty\" json:\"partyCode,omitempty\"`",
+				"PartyClass PartyClass `xml:\"partyClass\" json:\"partyClass,omitempty\"`",
+				"PartyCode PartyCode `xml:\"urn:refs:other partyCode\" json:\"partyCode,omitempty\"`",
 				"MemberTag []MemberTag `xml:\"memberTag,omitempty\" json:\"memberTag,omitempty\"`",
 			},
 		},
@@ -44,7 +44,7 @@ func TestGenerator_RefElementTagNames(t *testing.T) {
 			structName: "RepresentedPartyType",
 			fields: []string{
 				"PartyRole PartyRole `xml:\"urn:refs:repr partyRole,omitempty\" json:\"partyRole,omitempty\"`",
-				"PartyId PartyId `xml:\"urn:refs:repr partyId,omitempty\" json:\"partyId,omitempty\"`",
+				"PartyId PartyId `xml:\"urn:refs:repr partyId\" json:\"partyId,omitempty\"`",
 			},
 		},
 		{
@@ -57,14 +57,14 @@ func TestGenerator_RefElementTagNames(t *testing.T) {
 		{
 			structName: "AllType",
 			fields: []string{
-				"AnyOrder AnyOrder `xml:\"anyOrder,omitempty\" json:\"anyOrder,omitempty\"`",
+				"AnyOrder AnyOrder `xml:\"anyOrder\" json:\"anyOrder,omitempty\"`",
 			},
 		},
 		{
 			structName: "HolderTypeNestedType",
 			fields: []string{
-				"PartyClass PartyClass `xml:\"partyClass,omitempty\" json:\"partyClass,omitempty\"`",
-				"PartyCode PartyCode `xml:\"urn:refs:other partyCode,omitempty\" json:\"partyCode,omitempty\"`",
+				"PartyClass PartyClass `xml:\"partyClass\" json:\"partyClass,omitempty\"`",
+				"PartyCode PartyCode `xml:\"urn:refs:other partyCode\" json:\"partyCode,omitempty\"`",
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestGenerator_RefElementTagNames(t *testing.T) {
 		{
 			structName: "HolderTypeNestedAllType",
 			fields: []string{
-				"AnyOrder AnyOrder `xml:\"anyOrder,omitempty\" json:\"anyOrder,omitempty\"`",
+				"AnyOrder AnyOrder `xml:\"anyOrder\" json:\"anyOrder,omitempty\"`",
 			},
 		},
 	}

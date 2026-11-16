@@ -85,7 +85,7 @@ func TestGenerator_XRoad_ResolvesSchemaImports(t *testing.T) {
 
 	assert.Equal(t, 1, declarationCount(t, out, "ClientIdentifierType"), "nested import identifiers.xsd should be loaded")
 	assert.Contains(t, code, "Client Client `")
-	assert.Contains(t, code, "ObjectType string `xml:\"http://example.com/xsd/identifiers objectType,attr,omitempty\"")
+	assert.Contains(t, code, "ObjectType string `xml:\"http://example.com/xsd/identifiers objectType,attr\"")
 	assert.Contains(t, code, "Lang string `xml:\"http://example.com/xsd/identifiers lang,attr,omitempty\"")
 }
 
