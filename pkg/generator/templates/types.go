@@ -49,7 +49,7 @@ information at all is an xsd:anyType, as XML Schema defines.
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}}{{elementOmitEmpty .}}" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+				{{$memberName}} {{elementFieldType . $memberType}} ` + "`" + `xml:"{{refXMLName .}}{{elementOmitEmpty .}}" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
 			{{template "InlineComplexField" .}}
@@ -64,7 +64,7 @@ information at all is an xsd:anyType, as XML Schema defines.
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}}{{elementOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} {{elementFieldType . $memberType}} ` + "`" + `xml:"{{.Name}}{{elementOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
@@ -87,16 +87,18 @@ base of its restriction, or string when it has none (a list or a union).
 	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}}{{elementOmitEmpty $el}}" json:"{{$el.Name}},omitempty"` + "`" + `
 {{end}}
 
+{{/*
+InlineComplexField emits the field of an element with an anonymous complex
+type: a slice when it is unbounded, otherwise the type elementFieldType gives.
+*/}}
 {{define "InlineComplexField"}}
 	{{$el := .}}
 	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
 	{{$inlineTypeName := inlineTypeName $el}}
 	{{if eq $el.MaxOccurs "unbounded"}}
 		{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
-	{{else if eq $el.MinOccurs "0"}}
-		{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 	{{else}}
-		{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
+		{{$memberName}} {{elementFieldType $el $inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 	{{end}}
 {{end}}
 

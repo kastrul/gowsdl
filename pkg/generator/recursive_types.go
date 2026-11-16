@@ -13,18 +13,31 @@ import (
 
 // containment is a by-value use of a locally declared type inside another type.
 // ident is the field's type identifier when the edge can be broken by turning
-// that field into a pointer, and nil for embedded fields and defined types.
+// that field into a pointer, and nil for embedded fields, defined types and
+// optionalPointer fields, which are pointers already.
 type containment struct {
 	to    string
 	ident *ast.Ident
 }
 
+// optionalPointer returns the type of a field holding an optional element of
+// the complex type goType, as the types template writes it: *(goType). The
+// parentheses mark the pointer for breakRecursiveStructs, which counts the
+// field as a by-value use, and are removed by unwrapOptionalPointers.
+// Counting it so keeps cycles broken at the fields chosen when optional
+// elements of complex type were struct values, so that required fields keep
+// their types.
+func optionalPointer(goType string) string {
+	return "*(" + goType + ")"
+}
+
 // breakRecursiveStructs makes generated structs that contain themselves by
 // value, directly or through other structs, valid Go by turning the named
 // field that closes each cycle into a pointer. XSD allows a complex type to
-// hold an optional element of its own type, which the templates emit as a
-// value field. The source is returned unchanged if it cannot be parsed or has
-// no such cycle.
+// hold a required element of its own type, which the templates emit as a
+// value field. An optionalPointer field counts as a by-value use that is
+// already broken. The source is returned unchanged if it cannot be parsed or
+// has no such cycle.
 func breakRecursiveStructs(src []byte) []byte {
 	const prefix = "package p\n"
 	fset := token.NewFileSet()
@@ -135,9 +148,61 @@ func structContainments(st *ast.StructType, decls map[string][]containment) []co
 				c.ident = t
 			}
 			result = append(result, c)
+		case *ast.StarExpr:
+			if id := optionalPointerIdent(t); id != nil {
+				if _, local := decls[id.Name]; local {
+					result = append(result, containment{to: id.Name})
+				}
+			}
 		case *ast.StructType:
 			result = append(result, structContainments(t, decls)...)
 		}
 	}
 	return result
+}
+
+// optionalPointerIdent returns the type identifier of an optionalPointer
+// field type, or nil when star is not one.
+func optionalPointerIdent(star *ast.StarExpr) *ast.Ident {
+	paren, ok := star.X.(*ast.ParenExpr)
+	if !ok {
+		return nil
+	}
+	id, _ := paren.X.(*ast.Ident)
+	return id
+}
+
+// unwrapOptionalPointers removes the parentheses of the optionalPointer field
+// types in src. The source is returned unchanged if it cannot be parsed.
+func unwrapOptionalPointers(src []byte) []byte {
+	const prefix = "package p\n"
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "", prefix+string(src), parser.SkipObjectResolution)
+	if err != nil {
+		return src
+	}
+
+	var offsets []int
+	base := fset.File(file.Pos()).Base()
+	ast.Inspect(file, func(n ast.Node) bool {
+		field, ok := n.(*ast.Field)
+		if !ok {
+			return true
+		}
+		if star, ok := field.Type.(*ast.StarExpr); ok && optionalPointerIdent(star) != nil {
+			paren := star.X.(*ast.ParenExpr)
+			offsets = append(offsets, int(paren.Lparen)-base-len(prefix), int(paren.Rparen)-base-len(prefix))
+		}
+		return true
+	})
+	if len(offsets) == 0 {
+		return src
+	}
+
+	sort.Sort(sort.Reverse(sort.IntSlice(offsets)))
+	out := append([]byte(nil), src...)
+	for _, off := range offsets {
+		out = append(out[:off], out[off+1:]...)
+	}
+	return out
 }

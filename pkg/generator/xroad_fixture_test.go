@@ -44,7 +44,7 @@ func TestGenerator_XRoad_LowercaseTypeReferences(t *testing.T) {
 	code := out.client(t)
 
 	assert.Contains(t, code, "Kind InsuranceKindType `")
-	assert.Contains(t, code, "Errors ErrorListType `")
+	assert.Contains(t, code, "Errors *ErrorListType `")
 	assert.Contains(t, code, "Request SubmitRequestType `")
 	assert.Contains(t, code, "Response SubmitResponseType `")
 	assert.NotRegexp(t, `\s(insuranceKindType|errorListType|submitRequestType|submitResponseType)\s`, code)

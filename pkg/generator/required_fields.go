@@ -17,14 +17,18 @@ import (
 type scalarKind int
 
 const (
-	// notScalar is a struct, slice, pointer or a type that cannot be
-	// resolved. Its xml tag keeps omitempty.
+	// notScalar is a slice, soap.AnyType, one of the other struct types
+	// the type mapper produces, or a type that cannot be resolved. Its xml
+	// tag keeps omitempty.
 	notScalar scalarKind = iota
 	// boolOrNumber is a bool, integer or float, or a named type of one.
 	boolOrNumber
 	// textual is a string, or a named type of one, or one of the soap
 	// date and time types.
 	textual
+	// complexStruct is the struct generated for a complex type, named or
+	// anonymous. Its xml tag keeps omitempty.
+	complexStruct
 )
 
 // sendsZeroValue reports whether a required field of kind k is sent even when
@@ -72,20 +76,55 @@ func (g *Generator) attributeOmitEmpty(attr *parser.XSDAttribute) string {
 	return ""
 }
 
+// elementFieldType returns goType, the type of the single, non-slice field
+// generated for el, as a pointer when el is optional and of complex type, so
+// that an unset field is left out of a request and an element absent from a
+// response decodes to nil. A required element of complex type stays a struct
+// value and is always sent. goType is returned unchanged when it is already a
+// pointer, as it is for a nillable element.
+//
+// An element with an anonymous type and minOccurs="0" has always had a
+// pointer field. Any other pointer is written as an optionalPointer marker,
+// which breakRecursiveStructs reads as a by-value use. An element whose
+// maxOccurs is given and other than 1, which the types template emits as a
+// single field unless it is unbounded, is left as it is.
+func (g *Generator) elementFieldType(el *parser.XSDElement, goType string) string {
+	switch {
+	case strings.HasPrefix(goType, "*"):
+		return goType
+	case el.ComplexType != nil && el.MinOccurs == "0":
+		return "*" + goType
+	case elementOptional(el) && !elementRepeated(el) && g.elementKind(el) == complexStruct:
+		return optionalPointer(goType)
+	}
+	return goType
+}
+
 // elementRequired reports whether el must occur exactly once in every
 // instance of the type declaring it.
 func elementRequired(el *parser.XSDElement) bool {
-	if el.InOptionalGroup || el.Nillable {
-		return false
-	}
-	if maxOccurs := strings.TrimSpace(el.MaxOccurs); maxOccurs != "" && maxOccurs != "1" {
-		return false
+	return !el.Nillable && !elementOptional(el) && !elementRepeated(el)
+}
+
+// elementRepeated reports whether el may occur more than once: its maxOccurs
+// is given and other than 1.
+func elementRepeated(el *parser.XSDElement) bool {
+	maxOccurs := strings.TrimSpace(el.MaxOccurs)
+	return maxOccurs != "" && maxOccurs != "1"
+}
+
+// elementOptional reports whether an instance of the type declaring el may
+// leave el out: its minOccurs is 0, or a choice or an optional sequence or all
+// encloses it.
+func elementOptional(el *parser.XSDElement) bool {
+	if el.InOptionalGroup {
+		return true
 	}
 	if minOccurs := strings.TrimSpace(el.MinOccurs); minOccurs != "" {
 		n, err := strconv.Atoi(minOccurs)
-		return err == nil && n >= 1
+		return err != nil || n < 1
 	}
-	return true
+	return false
 }
 
 // elementKind classifies the Go type the types template generates for the
@@ -95,7 +134,7 @@ func (g *Generator) elementKind(el *parser.XSDElement) scalarKind {
 	case el.Ref != "":
 		return g.globalElementKind(utils.LocalName(el.Ref))
 	case el.ComplexType != nil:
-		return notScalar
+		return complexStruct
 	case el.Type != "":
 		return g.typeKind(el.Type, nil)
 	case el.SimpleType != nil:
@@ -119,7 +158,7 @@ func (g *Generator) globalElementKind(name string) scalarKind {
 			case el.Type != "":
 				return g.typeKind(el.Type, nil)
 			case el.ComplexType != nil:
-				return notScalar
+				return complexStruct
 			case el.SimpleType != nil:
 				if el.SimpleType.Union.MemberTypes == "" && el.SimpleType.Restriction.Base != "" {
 					return g.typeKind(el.SimpleType.Restriction.Base, nil)
@@ -150,7 +189,7 @@ func (g *Generator) typeKind(xsdType string, seen map[string]bool) scalarKind {
 	for _, schema := range g.getSchemas() {
 		for _, ct := range schema.ComplexTypes {
 			if ct.Name == local {
-				return notScalar
+				return complexStruct
 			}
 		}
 	}
