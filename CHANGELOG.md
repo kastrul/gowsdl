@@ -53,6 +53,9 @@ not compile or did not work before.
   extension's content model. `parser.XSDGroup` gains `MinOccurs`,
   `MaxOccurs`, `InOptionalGroup` and `Position` for a reference, and
   `Elements` and `GroupRefs` for a definition's content at any depth.
+- `parser.XSDElement.InRepeatedGroup` and `parser.XSDGroup.InRepeatedGroup`
+  report that a sequence or choice enclosing an element or group reference
+  within its type may occur more than once.
 
 ### Changed
 
@@ -205,6 +208,24 @@ not compile or did not work before.
   `"1"` are unchanged. `generator.IsOptionalType` now reports false for such
   an element, as it does for an unbounded one. None of the fixtures declares
   one.
+- **Regenerate.** An element inside a model group that may occur more than
+  once (an `xs:sequence` or `xs:choice` with `maxOccurs="unbounded"` or a
+  number above 1, or an `xs:group ref` with such a `maxOccurs`, at any depth
+  within its type) is now a slice field, `[]T`, even when the element itself
+  occurs at most once. Before, it was a single field, so a request could
+  carry only one occurrence and decoding a response with several, such as
+  `<event/><message/><event/>` in a repeated choice, kept only one. This
+  breaks code that uses such a field as a single value, in the same way as
+  the bounded `maxOccurs` entry above: assign a slice and read an element of
+  it. Such a field is never required, so its xml tag has `omitempty`, and a
+  field of complex type that was a pointer or struct value is a slice
+  instead. Decoding keeps every occurrence in any order, and a repeated
+  choice is sent correctly. One limit remains: the members of a repeated
+  sequence are separate slices, so sending several occurrences writes all of
+  one element before the next (`<a/><a/><b/><b/>` rather than
+  `<a/><b/><a/><b/>`), which a validating server rejects; sending one
+  occurrence is correct. In the fixtures, epcis's `EventListType.Extension`
+  becomes `[]EPCISEventListExtensionType`.
 
 ### Fixed
 
@@ -243,7 +264,8 @@ not compile or did not work before.
   optional, so a pointer if of complex type and `omitempty` if a scalar, when
   its reference has `minOccurs="0"` or stands in a choice or optional group,
   or when it is optional within the group. A repeated reference
-  (`maxOccurs` above 1) still gives single fields. This only adds fields: in
+  (`maxOccurs` above 1) gives slices, as described in the entry on repeated
+  model groups. This only adds fields: in
   the fixtures, ten ec2 `Describe*AttributeType` and `Reset*AttributeType`
   requests gain the choice of attribute to describe or reset (37 fields, all
   optional pointers), and epcis's `Scope` gains `Type`, `InstanceIdentifier`

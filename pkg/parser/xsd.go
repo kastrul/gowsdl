@@ -161,6 +161,12 @@ type XSDElement struct {
 	// own minOccurs: a choice, or a sequence or all with minOccurs="0". The
 	// parser sets it; it is always false for global elements.
 	InOptionalGroup bool `xml:"urn:gowsdl:parser inOptionalGroup,attr"`
+	// InRepeatedGroup reports that a model group between the element and
+	// the complex type declaring it may occur more than once: a sequence or
+	// choice with maxOccurs "unbounded" or above 1. The element may then
+	// occur several times in one instance whatever its own maxOccurs. The
+	// parser sets it; it is always false for global elements.
+	InRepeatedGroup bool `xml:"urn:gowsdl:parser inRepeatedGroup,attr"`
 	// Position is the 1-based document order of the element's declaration
 	// among the element declarations of the complex type declaring it, so
 	// that its elements can be put in schema order whichever of Sequence,
@@ -321,9 +327,10 @@ func readElementTokens(d *xml.Decoder, start xml.StartElement) ([]xml.Token, err
 // markOptionalGroupMembers sets optionalGroupAttr on each element declaration
 // and group reference in tokens that a model group may leave out: one with a
 // choice, or a sequence or all with minOccurs="0", between it and its nearest
-// enclosing complexType.
-// Any optionalGroupAttr already present is replaced, so the result is the same
-// when tokens of a nested complex type are marked again.
+// enclosing complexType. It sets repeatedGroupAttr on those a model group may
+// repeat: one with a sequence or choice whose maxOccurs is "unbounded" or
+// above 1 in between. Any such attribute already present is replaced, so the
+// result is the same when tokens of a nested complex type are marked again.
 func markOptionalGroupMembers(tokens []xml.Token) {
 	var stack []xml.StartElement
 	for i, t := range tokens {
@@ -332,12 +339,15 @@ func markOptionalGroupMembers(tokens []xml.Token) {
 			if t.Name.Local == "element" || isGroupRef(t) {
 				attrs := t.Attr[:0:0]
 				for _, a := range t.Attr {
-					if a.Name != optionalGroupAttr {
+					if a.Name != optionalGroupAttr && a.Name != repeatedGroupAttr {
 						attrs = append(attrs, a)
 					}
 				}
 				if inOptionalGroup(stack) {
 					attrs = append(attrs, xml.Attr{Name: optionalGroupAttr, Value: "true"})
+				}
+				if inRepeatedGroup(stack) {
+					attrs = append(attrs, xml.Attr{Name: repeatedGroupAttr, Value: "true"})
 				}
 				t.Attr = attrs
 				tokens[i] = t
@@ -347,6 +357,41 @@ func markOptionalGroupMembers(tokens []xml.Token) {
 			stack = stack[:len(stack)-1]
 		}
 	}
+}
+
+// repeatedGroupAttr is the attribute markOptionalGroupMembers adds to
+// element declarations and group references inside a repeated model group,
+// read into their InRepeatedGroup.
+var repeatedGroupAttr = xml.Name{Space: "urn:gowsdl:parser", Local: "inRepeatedGroup"}
+
+// inRepeatedGroup reports whether the open elements in stack, read from the
+// innermost up to the nearest complexType, include a sequence or choice that
+// may occur more than once.
+func inRepeatedGroup(stack []xml.StartElement) bool {
+	for i := len(stack) - 1; i >= 0; i-- {
+		switch stack[i].Name.Local {
+		case "complexType":
+			return false
+		case "sequence", "choice":
+			for _, a := range stack[i].Attr {
+				if a.Name.Local == "maxOccurs" && a.Name.Space == "" && maxOccursRepeats(a.Value) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// maxOccursRepeats reports whether maxOccurs is "unbounded" or a number
+// above 1. A value that is neither is taken to repeat.
+func maxOccursRepeats(maxOccurs string) bool {
+	maxOccurs = strings.TrimSpace(maxOccurs)
+	if maxOccurs == "" {
+		return false
+	}
+	n, err := strconv.Atoi(maxOccurs)
+	return err != nil || n > 1
 }
 
 // positionAttr is the attribute markPositions adds to element declarations,
@@ -436,6 +481,8 @@ func groupRefFromAttrs(attrs []xml.Attr) *XSDGroup {
 		switch {
 		case a.Name == optionalGroupAttr:
 			g.InOptionalGroup = strings.TrimSpace(a.Value) == "true"
+		case a.Name == repeatedGroupAttr:
+			g.InRepeatedGroup = strings.TrimSpace(a.Value) == "true"
 		case a.Name == positionAttr:
 			g.Position, _ = strconv.Atoi(a.Value)
 		case a.Name.Space != "":
@@ -526,6 +573,11 @@ type XSDGroup struct {
 	// minOccurs="0", between the reference and the type or definition lets
 	// the group's elements be absent whatever the reference's own minOccurs.
 	InOptionalGroup bool `xml:"urn:gowsdl:parser inOptionalGroup,attr"`
+	// InRepeatedGroup reports, for a group reference, that a sequence or
+	// choice between the reference and its type or definition may occur
+	// more than once, so that the group's elements may repeat whatever the
+	// reference's own maxOccurs.
+	InRepeatedGroup bool `xml:"urn:gowsdl:parser inRepeatedGroup,attr"`
 	// Position is a group reference's document order among the element
 	// declarations and group references of its complex type or group
 	// definition, comparable with their XSDElement.Position.

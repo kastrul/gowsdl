@@ -16,7 +16,9 @@ import (
 // everything walking a type's elements, from the types template to type
 // pruning, sees them as if they were declared in place. Each element is a
 // copy that is optional when the reference is: when the reference has
-// minOccurs="0" or sits in a choice or optional group of the type. The
+// minOccurs="0" or sits in a choice or optional group of the type; and
+// repeated when the reference has maxOccurs above 1 or sits in a repeated
+// sequence or choice. The
 // positions of a type's elements are renumbered so that they sort into
 // document order with the copies standing where their reference does.
 // Groups are found by local name in any of the schemas; a reference to an
@@ -79,7 +81,7 @@ func (e *groupExpander) complexType(ct *parser.XSDComplexType) {
 }
 
 // expand returns copies of the elements of the groups refs name, made
-// optional when their reference is, and renumbers the positions of the
+// optional or repeated when their reference is, and renumbers the positions of the
 // copies and of the elements of own, the lists holding the content model
 // the references belong to, so that all of them sort into document order.
 func (e *groupExpander) expand(refs []*parser.XSDGroup, own ...[]*parser.XSDElement) []*parser.XSDElement {
@@ -98,9 +100,11 @@ func (e *groupExpander) expand(refs []*parser.XSDGroup, own ...[]*parser.XSDElem
 	var added []*parser.XSDElement
 	for _, ref := range refs {
 		optional := particleOptional(ref.MinOccurs, ref.InOptionalGroup)
+		repeated := ref.InRepeatedGroup || maxOccursRepeats(ref.MaxOccurs)
 		for i, member := range e.groupElements(ref) {
 			c := copyElement(member)
 			c.InOptionalGroup = c.InOptionalGroup || optional
+			c.InRepeatedGroup = c.InRepeatedGroup || repeated
 			added = append(added, c)
 			all = append(all, particle{pos: ref.Position, sub: i + 1, el: c})
 		}

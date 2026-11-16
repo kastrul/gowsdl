@@ -562,3 +562,70 @@ func elementNamesOf(elements []XSDElement) []string {
 	}
 	return names
 }
+
+func TestXSDComplexType_InRepeatedGroup(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:sequence>
+    <xs:element name="once"/>
+    <xs:element name="ownMax" maxOccurs="5"/>
+    <xs:sequence maxOccurs="1"><xs:element name="inSingleSequence"/></xs:sequence>
+    <xs:sequence maxOccurs="unbounded">
+      <xs:element name="inRepeatedSequence"/>
+      <xs:choice><xs:element name="deep"/></xs:choice>
+      <xs:group ref="tns:G"/>
+    </xs:sequence>
+    <xs:choice maxOccurs="3"><xs:element name="inRepeatedChoice"/></xs:choice>
+    <xs:group ref="tns:H"/>
+    <xs:sequence maxOccurs="2">
+      <xs:element name="nested">
+        <xs:complexType><xs:sequence><xs:element name="inNested"/></xs:sequence></xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:sequence>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	got := map[string]bool{}
+	for _, list := range [][]*XSDElement{ct.Sequence, ct.SequenceChoice, ct.Choice} {
+		for _, el := range list {
+			got[el.Name] = el.InRepeatedGroup
+			if el.ComplexType != nil {
+				for _, inner := range el.ComplexType.Sequence {
+					got[inner.Name] = inner.InRepeatedGroup
+				}
+			}
+		}
+	}
+	assert.Equal(t, map[string]bool{
+		"once":               false,
+		"ownMax":             false,
+		"inSingleSequence":   false,
+		"inRepeatedSequence": true,
+		"deep":               true,
+		"inRepeatedChoice":   true,
+		"nested":             true,
+		"inNested":           false,
+	}, got)
+
+	require.Len(t, ct.GroupRefs, 2)
+	assert.True(t, ct.GroupRefs[0].InRepeatedGroup, "tns:G is in a repeated sequence")
+	assert.False(t, ct.GroupRefs[1].InRepeatedGroup, "tns:H is not")
+}
+
+func TestXSDGroup_InRepeatedGroup(t *testing.T) {
+	const src = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="G">
+    <xs:sequence>
+      <xs:element name="a"/>
+      <xs:choice maxOccurs="unbounded"><xs:element name="b"/></xs:choice>
+    </xs:sequence>
+  </xs:group>
+</xs:schema>`
+	var s XSDSchema
+	require.NoError(t, xml.Unmarshal([]byte(src), &s))
+	require.Len(t, s.Groups, 1)
+	require.Len(t, s.Groups[0].Elements, 2)
+	assert.False(t, s.Groups[0].Elements[0].InRepeatedGroup)
+	assert.True(t, s.Groups[0].Elements[1].InRepeatedGroup)
+}

@@ -56,7 +56,7 @@ func goScalarKind(goType string) scalarKind {
 // elementOmitEmpty returns the ",omitempty" option for the xml tag of the
 // field generated for el, or "" when the element is required and its field a
 // scalar that must be sent even when it holds its zero value. An element is
-// required when it occurs at most once (see maxOccursRepeats), its minOccurs
+// required when it occurs at most once (see elementRepeated), its minOccurs
 // is absent or at least 1, and no choice or optional sequence or all encloses
 // it. Nillable elements are pointers and keep omitempty.
 func (g *Generator) elementOmitEmpty(el *parser.XSDElement) string {
@@ -105,10 +105,12 @@ func elementRequired(el *parser.XSDElement) bool {
 	return !el.Nillable && !elementOptional(el) && !elementRepeated(el)
 }
 
-// elementRepeated reports whether el may occur more than once, so that its
-// field is a slice: see maxOccursRepeats.
+// elementRepeated reports whether el may occur more than once in one
+// instance, so that its field is a slice: its own maxOccurs repeats (see
+// maxOccursRepeats), or a sequence, choice or group reference enclosing it
+// within its type does.
 func elementRepeated(el *parser.XSDElement) bool {
-	return maxOccursRepeats(el.MaxOccurs)
+	return el.InRepeatedGroup || maxOccursRepeats(el.MaxOccurs)
 }
 
 // maxOccursRepeats reports whether a particle with the given maxOccurs may
