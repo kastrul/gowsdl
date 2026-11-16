@@ -48,7 +48,7 @@ xsd:anyType, as XML Schema defines.
 			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
+			{{if elementRepeated .}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
 				{{$memberName}} {{elementFieldType . $memberType}} ` + "`" + `xml:"{{refXMLName .}}{{elementOmitEmpty .}}" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
@@ -63,7 +63,7 @@ xsd:anyType, as XML Schema defines.
 				{{$typeName = .Type | removeNamespacePrefix}}
 			{{end}}
 			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
+			{{if elementRepeated .}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else}}
 				{{$memberName}} {{elementFieldType . $memberType}} ` + "`" + `xml:"{{.Name}}{{elementOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
@@ -82,7 +82,7 @@ base of its restriction, or string when it has none (a list or a union).
 	{{$memberType := "string"}}
 	{{if $el.SimpleType.Restriction.Base}}
 		{{$memberType = toGoType ($el.SimpleType.Restriction.Base | removeNamespacePrefix) $el.Nillable}}
-		{{if eq $el.MaxOccurs "unbounded"}}
+		{{if elementRepeated $el}}
 			{{$memberType = printf "[]%s" $memberType}}
 		{{end}}
 	{{end}}
@@ -91,13 +91,13 @@ base of its restriction, or string when it has none (a list or a union).
 
 {{/*
 InlineComplexField emits the field of an element with an anonymous complex
-type: a slice when it is unbounded, otherwise the type elementFieldType gives.
+type: a slice when it repeats, otherwise the type elementFieldType gives.
 */}}
 {{define "InlineComplexField"}}
 	{{$el := .}}
 	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
 	{{$inlineTypeName := inlineTypeName $el}}
-	{{if eq $el.MaxOccurs "unbounded"}}
+	{{if elementRepeated $el}}
 		{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 	{{else}}
 		{{$memberName}} {{elementFieldType $el $inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `

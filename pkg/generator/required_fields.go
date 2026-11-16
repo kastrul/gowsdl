@@ -56,7 +56,7 @@ func goScalarKind(goType string) scalarKind {
 // elementOmitEmpty returns the ",omitempty" option for the xml tag of the
 // field generated for el, or "" when the element is required and its field a
 // scalar that must be sent even when it holds its zero value. An element is
-// required when it occurs exactly once (maxOccurs absent or 1), its minOccurs
+// required when it occurs at most once (see maxOccursRepeats), its minOccurs
 // is absent or at least 1, and no choice or optional sequence or all encloses
 // it. Nillable elements are pointers and keep omitempty.
 func (g *Generator) elementOmitEmpty(el *parser.XSDElement) string {
@@ -85,9 +85,8 @@ func (g *Generator) attributeOmitEmpty(attr *parser.XSDAttribute) string {
 //
 // An element with an anonymous type and minOccurs="0" has always had a
 // pointer field. Any other pointer is written as an optionalPointer marker,
-// which breakRecursiveStructs reads as a by-value use. An element whose
-// maxOccurs is given and other than 1, which the types template emits as a
-// single field unless it is unbounded, is left as it is.
+// which breakRecursiveStructs reads as a by-value use. A repeated element
+// gets a slice field from the types template and is left as it is here.
 func (g *Generator) elementFieldType(el *parser.XSDElement, goType string) string {
 	switch {
 	case strings.HasPrefix(goType, "*"):
@@ -106,11 +105,23 @@ func elementRequired(el *parser.XSDElement) bool {
 	return !el.Nillable && !elementOptional(el) && !elementRepeated(el)
 }
 
-// elementRepeated reports whether el may occur more than once: its maxOccurs
-// is given and other than 1.
+// elementRepeated reports whether el may occur more than once, so that its
+// field is a slice: see maxOccursRepeats.
 func elementRepeated(el *parser.XSDElement) bool {
-	maxOccurs := strings.TrimSpace(el.MaxOccurs)
-	return maxOccurs != "" && maxOccurs != "1"
+	return maxOccursRepeats(el.MaxOccurs)
+}
+
+// maxOccursRepeats reports whether a particle with the given maxOccurs may
+// occur more than once: maxOccurs is "unbounded" or a number greater than 1.
+// An absent maxOccurs means 1. A value that is neither a number nor
+// "unbounded" is taken to repeat, so that no occurrence is dropped.
+func maxOccursRepeats(maxOccurs string) bool {
+	maxOccurs = strings.TrimSpace(maxOccurs)
+	if maxOccurs == "" {
+		return false
+	}
+	n, err := strconv.Atoi(maxOccurs)
+	return err != nil || n > 1
 }
 
 // elementOptional reports whether an instance of the type declaring el may

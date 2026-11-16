@@ -48,6 +48,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"attributeOmitEmpty":       g.attributeOmitEmpty,
 		"elementFieldType":         g.elementFieldType,
 		"contentElements":          contentElements,
+		"elementRepeated":          elementRepeated,
 	}
 }
 

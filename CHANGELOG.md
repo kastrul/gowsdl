@@ -174,6 +174,31 @@ not compile or did not work before.
   `VehicleDescriptionRequest` and `VehicleDescriptionRequestType`, and ec2's
   `AuthorizeSecurityGroupIngressType`, `RevokeSecurityGroupIngressType`,
   `AssociateAddressType` and `ConversionTaskType` are reordered.
+- **Regenerate.** An element whose `maxOccurs` is a number greater than 1,
+  such as `maxOccurs="3"`, is now a slice field, `[]T`, exactly as one with
+  `maxOccurs="unbounded"` is. Before, it was a single field, so a request
+  could carry only one occurrence and decoding a response with several kept
+  only one. This breaks code that uses the field as a single value:
+
+  ```go
+  // before
+  req.Note = "gift"
+  code := resp.Code
+  // after
+  req.Note = []string{"gift"}
+  var code int32
+  if len(resp.Code) > 0 {
+      code = resp.Code[0]
+  }
+  ```
+
+  The xml tag keeps `omitempty`. A field of complex type that was a struct
+  value now has `json:"name,omitempty"` instead of `json:"name,omitzero"`,
+  and one that was a pointer, because the element was optional or closed a
+  recursive cycle, is a slice instead. Elements with `maxOccurs="0"` or
+  `"1"` are unchanged. `generator.IsOptionalType` now reports false for such
+  an element, as it does for an unbounded one. None of the fixtures declares
+  one.
 
 ### Fixed
 
