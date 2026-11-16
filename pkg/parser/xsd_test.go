@@ -198,3 +198,62 @@ func TestXSDComplexType_ComplexContentExtensionStillParsed(t *testing.T) {
 	assert.Empty(t, ct.Sequence)
 	assert.Empty(t, ct.Attributes)
 }
+
+func TestXSDComplexType_InOptionalGroup(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:sequence>
+    <xs:element name="required"/>
+    <xs:element name="ownMinOccurs" minOccurs="0"/>
+    <xs:sequence minOccurs="1"><xs:element name="inRequiredSequence"/></xs:sequence>
+    <xs:sequence minOccurs="0">
+      <xs:element name="inOptionalSequence"/>
+      <xs:sequence><xs:element name="deep"/></xs:sequence>
+    </xs:sequence>
+    <xs:choice><xs:element name="branch"/><xs:sequence><xs:element name="inBranch"/></xs:sequence></xs:choice>
+    <xs:element name="nested">
+      <xs:complexType><xs:sequence><xs:element name="inNested"/></xs:sequence></xs:complexType>
+    </xs:element>
+  </xs:sequence>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	got := map[string]bool{}
+	for _, list := range [][]*XSDElement{ct.Sequence, ct.SequenceChoice, ct.Choice} {
+		for _, el := range list {
+			got[el.Name] = el.InOptionalGroup
+			if el.ComplexType != nil {
+				for _, inner := range el.ComplexType.Sequence {
+					got[inner.Name] = inner.InOptionalGroup
+				}
+			}
+		}
+	}
+	assert.Equal(t, map[string]bool{
+		"required":           false,
+		"ownMinOccurs":       false,
+		"inRequiredSequence": false,
+		"inOptionalSequence": true,
+		"deep":               true,
+		"branch":             true,
+		"inBranch":           true,
+		"nested":             false,
+		"inNested":           false,
+	}, got)
+}
+
+func TestXSDComplexType_InOptionalGroupResetAtNestedType(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:choice>
+    <xs:element name="branch">
+      <xs:complexType><xs:sequence><xs:element name="inner"/></xs:sequence></xs:complexType>
+    </xs:element>
+  </xs:choice>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+	require.Len(t, ct.Choice, 1)
+	assert.True(t, ct.Choice[0].InOptionalGroup)
+	require.Len(t, ct.Choice[0].ComplexType.Sequence, 1)
+	assert.False(t, ct.Choice[0].ComplexType.Sequence[0].InOptionalGroup, "an element is required relative to its own type")
+}
