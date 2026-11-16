@@ -76,11 +76,11 @@ func (t *GroupParentFixture) UnmarshalXML(d *xml.Decoder, start xml.StartElement
 		M4           ModelGroupMember `xml:"y"`
 	}{
 		GroupParentFixture: t,
-		M0:          GroupMember[groupOuter](0),
-		M1:          GroupMember[groupOuter](1),
-		M2:          GroupMember[groupOuter](2),
-		M3:          GroupMember[groupOuter](3, 0),
-		M4:          GroupMember[groupOuter](3, 1),
+		M0:                 GroupMember[groupOuter](0),
+		M1:                 GroupMember[groupOuter](1),
+		M2:                 GroupMember[groupOuter](2),
+		M3:                 GroupMember[groupOuter](3, 0),
+		M4:                 GroupMember[groupOuter](3, 1),
 	})
 }
 
@@ -114,13 +114,13 @@ func (t *GroupDerivedFixture) UnmarshalXML(d *xml.Decoder, start xml.StartElemen
 		M6           ModelGroupMember `xml:"q"`
 	}{
 		GroupDerivedFixture: t,
-		M0:           GroupMember[groupOuter](0),
-		M1:           GroupMember[groupOuter](1),
-		M2:           GroupMember[groupOuter](2),
-		M3:           GroupMember[groupOuter](3, 0),
-		M4:           GroupMember[groupOuter](3, 1),
-		M5:           GroupMember[groupPair](0),
-		M6:           GroupMember[groupPair](1),
+		M0:                  GroupMember[groupOuter](0),
+		M1:                  GroupMember[groupOuter](1),
+		M2:                  GroupMember[groupOuter](2),
+		M3:                  GroupMember[groupOuter](3, 0),
+		M4:                  GroupMember[groupOuter](3, 1),
+		M5:                  GroupMember[groupPair](0),
+		M6:                  GroupMember[groupPair](1),
 	})
 }
 
