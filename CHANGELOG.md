@@ -180,6 +180,17 @@ not compile or did not work before.
   were dropped from responses. In the chromedata fixture, 14 request and
   response elements gain their fields, among them `VehicleDescription`,
   `VehicleDescriptionRequest`, `VersionInfo` and `Divisions`.
+- **Regenerate.** The elements of an `xs:choice` in a `complexContent`
+  extension, whether the choice is the extension's content or stands inside
+  its sequence, now get struct fields, and an inline `complexType` among them
+  gets its named type. Elements of sequences and choices nested inside an
+  extension's sequence or choice are now kept too, as they already were for a
+  type's own content. Before, all of these got no field, so they could
+  neither be sent nor decoded. Choice members keep `omitempty`, so only the
+  branch you set is sent. The fields follow those of the extension's
+  sequence. In the chromedata fixture, `ModelsRequest` gains `DivisionId` and
+  `SubdivisionId`, and `VehicleDescriptionRequest` gains `StyleId`,
+  `ModelYear`, `MakeName`, `ModelName`, `Vin` and `ReducingStyleId`.
 - **Regenerate.** A WSDL 1.1 port type bound only with SOAP 1.2 now gets a
   client that sends SOAP 1.2, with its SOAP actions from `soap12:operation`;
   a `soap12:binding style="rpc"` makes it RPC-style, with the wrapper

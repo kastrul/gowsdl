@@ -109,6 +109,8 @@ func (c *inlineTypes) collectNested(parentTypeName string, ct *parser.XSDComplex
 	collect(ct.SequenceChoice)
 	collect(ct.All)
 	collect(ct.ComplexContent.Extension.Sequence)
+	collect(ct.ComplexContent.Extension.Choice)
+	collect(ct.ComplexContent.Extension.SequenceChoice)
 }
 
 // nameOf returns the Go type name assigned to the anonymous complex type of

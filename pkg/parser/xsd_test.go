@@ -257,3 +257,98 @@ func TestXSDComplexType_InOptionalGroupResetAtNestedType(t *testing.T) {
 	require.Len(t, ct.Choice[0].ComplexType.Sequence, 1)
 	assert.False(t, ct.Choice[0].ComplexType.Sequence[0].InOptionalGroup, "an element is required relative to its own type")
 }
+
+func TestXSDExtension_NestedGroupsFlattened(t *testing.T) {
+	tests := []struct {
+		name               string
+		body               string
+		wantSequence       []string
+		wantChoice         []string
+		wantSequenceChoice []string
+	}{
+		{
+			name:       "choice",
+			body:       `<xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice>`,
+			wantChoice: []string{"a", "b"},
+		},
+		{
+			name:               "sequence>choice",
+			body:               `<xs:sequence><xs:element name="year"/><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:sequence>`,
+			wantSequence:       []string{"year"},
+			wantSequenceChoice: []string{"a", "b"},
+		},
+		{
+			name:               "sequence>sequence",
+			body:               `<xs:sequence><xs:element name="a"/><xs:sequence><xs:element name="b"/><xs:choice><xs:element name="c"/></xs:choice></xs:sequence></xs:sequence>`,
+			wantSequence:       []string{"a", "b"},
+			wantSequenceChoice: []string{"c"},
+		},
+		{
+			name:               "sequence>choice>sequence and choice",
+			body:               `<xs:sequence><xs:choice><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence><xs:element name="c"/><xs:choice><xs:element name="d"/></xs:choice></xs:choice><xs:element name="e"/></xs:sequence>`,
+			wantSequence:       []string{"e"},
+			wantSequenceChoice: []string{"c", "a", "b", "d"},
+		},
+		{
+			name:       "choice>sequence and choice",
+			body:       `<xs:choice><xs:element name="a"/><xs:sequence><xs:element name="b"/></xs:sequence><xs:choice><xs:element name="c"/></xs:choice></xs:choice>`,
+			wantChoice: []string{"a", "b", "c"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexContent><xs:extension base="Base">` +
+				tt.body + `</xs:extension></xs:complexContent></xs:complexType>`
+			var ct XSDComplexType
+			require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+			ext := ct.ComplexContent.Extension
+			assert.ElementsMatch(t, tt.wantSequence, elementNames(ext.Sequence), "Sequence")
+			assert.ElementsMatch(t, tt.wantChoice, elementNames(ext.Choice), "Choice")
+			assert.ElementsMatch(t, tt.wantSequenceChoice, elementNames(ext.SequenceChoice), "SequenceChoice")
+			assert.Empty(t, ct.Sequence)
+			assert.Empty(t, ct.Choice)
+			assert.Empty(t, ct.SequenceChoice)
+		})
+	}
+}
+
+func TestXSDExtension_ChoiceMembersInOptionalGroup(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexContent>
+    <xs:extension base="Base">
+      <xs:sequence>
+        <xs:element name="required"/>
+        <xs:sequence><xs:element name="inRequiredSequence"/></xs:sequence>
+        <xs:choice>
+          <xs:element name="branch"/>
+          <xs:sequence><xs:element name="inBranch"/></xs:sequence>
+        </xs:choice>
+      </xs:sequence>
+    </xs:extension>
+  </xs:complexContent>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	ext := ct.ComplexContent.Extension
+	got := map[string]bool{}
+	for _, list := range [][]*XSDElement{ext.Sequence, ext.Choice, ext.SequenceChoice} {
+		for _, el := range list {
+			got[el.Name] = el.InOptionalGroup
+		}
+	}
+	assert.Equal(t, map[string]bool{
+		"required":           false,
+		"inRequiredSequence": false,
+		"branch":             true,
+		"inBranch":           true,
+	}, got)
+
+	const topChoice = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexContent><xs:extension base="Base"><xs:choice><xs:element name="a"/></xs:choice></xs:extension></xs:complexContent>
+</xs:complexType>`
+	var choice XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(topChoice), &choice))
+	require.Len(t, choice.ComplexContent.Extension.Choice, 1)
+	assert.True(t, choice.ComplexContent.Extension.Choice[0].InOptionalGroup)
+}
