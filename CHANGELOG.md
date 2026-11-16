@@ -43,6 +43,10 @@ not compile or did not work before.
   an empty reply, such as HTTP 202 Accepted with no body or Content-Type,
   succeeds; a fault or an error status is still reported, and any other
   reply content is ignored.
+- `parser.XSDElement.Position` is the document order of an element
+  declaration among those of the complex type declaring it, so that elements
+  the parser files under different lists (`Sequence`, `Choice`,
+  `SequenceChoice`, `All`) can be put back in schema order.
 
 ### Changed
 
@@ -151,6 +155,25 @@ not compile or did not work before.
         city = resp.ShippingAddress.City
     }
     ```
+- **Regenerate.** Struct fields now follow the schema's document order.
+  Before, the elements of an `xs:sequence` or `xs:choice` nested inside a
+  type's content (its own, a `complexContent` extension's or restriction's,
+  or an inline type's) came after the type's other fields, sequence elements
+  before choice members, wherever they stood in the schema. `encoding/xml`
+  writes fields in declaration order, so such a request sent its elements in
+  an order the `xs:sequence` does not allow, which a validating server
+  rejects. Field names, types and tags are unchanged, and decoding does not
+  depend on field order, but:
+
+  - The request changes on the wire: elements of nested groups are now sent
+    where the schema puts them.
+  - Unkeyed struct literals (`gen.T{"a", 1}`) of a reordered type assign to
+    different fields or stop compiling. Use keyed literals.
+
+  In the fixtures, chromedata's `GenericEquipment`, `TechnicalSpecification`,
+  `VehicleDescriptionRequest` and `VehicleDescriptionRequestType`, and ec2's
+  `AuthorizeSecurityGroupIngressType`, `RevokeSecurityGroupIngressType`,
+  `AssociateAddressType` and `ConversionTaskType` are reordered.
 
 ### Fixed
 
@@ -187,8 +210,8 @@ not compile or did not work before.
   extension's sequence or choice are now kept too, as they already were for a
   type's own content. Before, all of these got no field, so they could
   neither be sent nor decoded. Choice members keep `omitempty`, so only the
-  branch you set is sent. The fields follow those of the extension's
-  sequence. In the chromedata fixture, `ModelsRequest` gains `DivisionId` and
+  branch you set is sent. The fields stand where their elements do in the
+  schema (see the entry on document order above). In the chromedata fixture, `ModelsRequest` gains `DivisionId` and
   `SubdivisionId`, and `VehicleDescriptionRequest` gains `StyleId`,
   `ModelYear`, `MakeName`, `ModelName`, `Vin` and `ReducingStyleId`.
 - **Regenerate.** A WSDL 1.1 port type bound only with SOAP 1.2 now gets a

@@ -35,9 +35,11 @@ const TypesTemplate = `
 {{end}}
 
 {{/*
-ElementFields emits one struct field per XSD element. An element with an inline
-simple type gets the base of its restriction; an element with no type
-information at all is an xsd:anyType, as XML Schema defines.
+ElementFields emits one struct field per XSD element, in the order given:
+callers pass a content model's elements through contentElements, which puts
+them in schema document order. An element with an inline simple type gets the
+base of its restriction; an element with no type information at all is an
+xsd:anyType, as XML Schema defines.
 */}}
 {{define "ElementFields"}}
 	{{range .}}
@@ -186,16 +188,11 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{$complexType := .}}
 	{{with $complexType.ComplexContent}}
 		{{template "ExtensionBase" .}}
-		{{template "ElementFields" .Extension.Sequence}}
-		{{template "ElementFields" .Extension.Choice}}
-		{{template "ElementFields" .Extension.SequenceChoice}}
+		{{template "ElementFields" (contentElements .Extension.Sequence .Extension.Choice .Extension.SequenceChoice)}}
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 
-	{{template "ElementFields" $complexType.Sequence}}
-	{{template "ElementFields" $complexType.Choice}}
-	{{template "ElementFields" $complexType.SequenceChoice}}
-	{{template "ElementFields" $complexType.All}}
+	{{template "ElementFields" (contentElements $complexType.Sequence $complexType.Choice $complexType.SequenceChoice $complexType.All)}}
 
 	{{template "AttributeFields" $complexType.Attributes}}
 
@@ -208,10 +205,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{with .}}
 	{{template "ExtensionBase" .ComplexContent}}
 
-	{{template "ElementFields" .Sequence}}
-	{{template "ElementFields" .Choice}}
-	{{template "ElementFields" .SequenceChoice}}
-	{{template "ElementFields" .All}}
+	{{template "ElementFields" (contentElements .Sequence .Choice .SequenceChoice .All)}}
 
 	{{template "AttributeFields" .Attributes}}
 
@@ -228,9 +222,7 @@ anonymous type of a global element.
 {{define "ComplexTypeFields"}}
 	{{template "ComplexTypeInline" .}}
 	{{with .ComplexContent}}
-		{{template "ElementFields" .Extension.Sequence}}
-		{{template "ElementFields" .Extension.Choice}}
-		{{template "ElementFields" .Extension.SequenceChoice}}
+		{{template "ElementFields" (contentElements .Extension.Sequence .Extension.Choice .Extension.SequenceChoice)}}
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 	{{template "SimpleContentFields" .SimpleContent}}

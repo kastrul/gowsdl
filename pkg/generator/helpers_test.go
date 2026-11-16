@@ -310,3 +310,12 @@ func runGeneratedModuleTests(tb testing.TB, module string, out generated, extra 
 	}
 	runGo(tb, goModule(tb, module, files), "test", "-count=1", "./...")
 }
+
+// assertServerAndGenericsBuild generates server code, and separately client
+// code with generics, from the WSDL file at path and builds each as a
+// temporary module.
+func assertServerAndGenericsBuild(tb testing.TB, path, pkg string) {
+	tb.Helper()
+	assertGeneratedCodeBuilds(tb, pkg, generate(tb, path, WithPackage(pkg), WithServerGeneration(true)))
+	assertGeneratedCodeBuilds(tb, pkg, generate(tb, path, WithPackage(pkg), WithGenerics()))
+}
