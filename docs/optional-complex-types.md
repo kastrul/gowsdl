@@ -15,8 +15,8 @@ but empty" can be told apart. An element may be left out when:
 This holds for named complex types, complex types with `simpleContent`, `ref`s
 to global elements of complex type, and anonymous (inline) complex types.
 Required elements of complex type stay struct values and are always sent.
-Repeated elements (`maxOccurs="unbounded"`) are slices, and nillable elements
-are pointers whether optional or not.
+Repeated elements (`maxOccurs="unbounded"` or a number greater than 1) are
+slices, and nillable elements are pointers whether optional or not.
 
 ## Behavior
 
