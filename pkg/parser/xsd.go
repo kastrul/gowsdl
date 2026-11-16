@@ -354,7 +354,8 @@ func markPositions(tokens []xml.Token) {
 				attrs = append(attrs, a)
 			}
 		}
-		t.Attr = append(attrs, xml.Attr{Name: positionAttr, Value: strconv.Itoa(n)})
+		attrs = append(attrs, xml.Attr{Name: positionAttr, Value: strconv.Itoa(n)})
+		t.Attr = attrs
 		tokens[i] = t
 	}
 }
