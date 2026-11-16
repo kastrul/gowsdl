@@ -185,6 +185,8 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{with $complexType.ComplexContent}}
 		{{template "ExtensionBase" .}}
 		{{template "ElementFields" .Extension.Sequence}}
+		{{template "ElementFields" .Extension.Choice}}
+		{{template "ElementFields" .Extension.SequenceChoice}}
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 
@@ -225,6 +227,8 @@ anonymous type of a global element.
 	{{template "ComplexTypeInline" .}}
 	{{with .ComplexContent}}
 		{{template "ElementFields" .Extension.Sequence}}
+		{{template "ElementFields" .Extension.Choice}}
+		{{template "ElementFields" .Extension.SequenceChoice}}
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 	{{template "SimpleContentFields" .SimpleContent}}
