@@ -8,7 +8,9 @@ Starting from version [current], gowsdl automatically generates named types for 
 
 When WSDL defines inline complex types, gowsdl now:
 1. Generates named types for all inline complex types
-2. Uses pointers to these named types for optional fields (`minOccurs="0"`)
+2. Uses pointers to these named types for optional fields (`minOccurs="0"`,
+   choice members, and elements in an optional sequence or all), like any
+   other optional element of complex type; see `optional-complex-types.md`
 3. Generates descriptive type names based on the parent type hierarchy
 
 Example WSDL:
@@ -34,8 +36,8 @@ type OrderType struct {
 }
 
 type OrderTypeShippingAddressType struct {
-    Street string `xml:"street,omitempty" json:"street,omitempty"`
-    City   string `xml:"city,omitempty" json:"city,omitempty"`
+    Street string `xml:"street" json:"street,omitempty"`
+    City   string `xml:"city" json:"city,omitempty"`
 }
 ```
 

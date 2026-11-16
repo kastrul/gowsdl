@@ -113,6 +113,44 @@ not compile or did not work before.
   in the request, which a server may accept and store, where a missing
   required element gets a validation fault from a server that checks. Set
   every required date and time field before calling.
+- **Regenerate.** An optional element of a complex type that occurs at most
+  once is now a pointer field, `*T` instead of `T`, with
+  `xml:"name,omitempty" json:"name,omitempty"`, the form optional inline
+  complex types already had. Optional means what it means for the required
+  scalar entries above: `minOccurs="0"`, a member of an `xs:choice`, or inside
+  an `xs:sequence` or `xs:all` with `minOccurs="0"`. It covers named complex
+  types, `simpleContent` types (a value plus attributes), `ref`s to global
+  elements of complex type, and anonymous types in a choice or optional
+  group. Before, `encoding/xml` could not omit the struct value, so every
+  request sent the element even when the caller never set it, with its
+  required children (`<optAddr><city></city></optAddr>`), and a choice sent
+  every branch. Now a nil field is not sent, and a response that leaves the
+  element out decodes to nil. Required elements of complex type stay struct
+  values and are always sent; repeated, nillable and `xs:anyType` fields are
+  unchanged. This breaks code using such a field in two ways:
+
+  - Assigning it needs a pointer:
+
+    ```go
+    // before
+    req := shop.OrderType{ShippingAddress: shop.Address{City: "Tartu"}}
+    // after
+    req := shop.OrderType{ShippingAddress: &shop.Address{City: "Tartu"}}
+    ```
+
+  - Reading it needs a nil check. A response without the element gave a zero
+    struct before and gives a nil pointer now, so `resp.ShippingAddress.City`
+    panics where it used to read `""`:
+
+    ```go
+    // before
+    city := resp.ShippingAddress.City
+    // after
+    city := ""
+    if resp.ShippingAddress != nil {
+        city = resp.ShippingAddress.City
+    }
+    ```
 
 ### Fixed
 
