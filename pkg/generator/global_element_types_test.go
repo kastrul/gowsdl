@@ -45,7 +45,7 @@ func TestGenerator_GlobalElementAnonymousExtension_KeepsExtensionFields(t *testi
 
 	Base
 
-	E	string	`+"`"+`xml:"e,omitempty" json:"e,omitempty"`+"`"+`
+	E	string	`+"`"+`xml:"e" json:"e,omitempty"`+"`"+`
 
 	At	string	`+"`"+`xml:"at,attr,omitempty" json:"at,omitempty"`+"`"+`
 }`, out.decl(t, "Anon"))

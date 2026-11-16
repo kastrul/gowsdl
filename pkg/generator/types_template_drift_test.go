@@ -57,7 +57,7 @@ func TestGenerator_UntypedElement_IsAnyTypeAtEverySite(t *testing.T) {
 	types := string(formatted)
 
 	seq := structBody(t, types, "Seq")
-	assert.Regexp(t, `\sTyped int32 .xml:"typed,omitempty" json:"typed,omitempty"`, seq)
+	assert.Regexp(t, `\sTyped int32 .xml:"typed" json:"typed,omitempty"`, seq)
 	assert.Regexp(t, `\sUntyped soap\.AnyType .xml:"untyped,omitempty" json:"untyped,omitzero".`, seq)
 	assert.Regexp(t, `\sUntypedMany \[\]soap\.AnyType .xml:"untypedMany,omitempty" json:"untypedMany,omitempty".`, seq)
 
@@ -74,7 +74,7 @@ func TestGenerator_UntypedElement_IsAnyTypeAtEverySite(t *testing.T) {
 	assert.Regexp(t, `\sAUntyped soap\.AnyType `, structBody(t, types, "Everything"))
 
 	derived := structBody(t, types, "Derived")
-	assert.Regexp(t, `\sD1 string .xml:"d1,omitempty" json:"d1,omitempty".`, derived)
+	assert.Regexp(t, `\sD1 string .xml:"d1" json:"d1,omitempty".`, derived)
 	assert.Regexp(t, `\sDUntyped soap\.AnyType .xml:"dUntyped,omitempty" json:"dUntyped,omitzero".`, derived)
 	assert.Regexp(t, `\sDUntypedMany \[\]soap\.AnyType `, derived)
 
@@ -218,11 +218,11 @@ func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T)
 	types := string(formatted)
 
 	seq := structBody(t, types, "Seq")
-	assert.Regexp(t, `\sS int32 .xml:"s,omitempty" json:"s,omitempty"`, seq)
+	assert.Regexp(t, `\sS int32 .xml:"s" json:"s,omitempty"`, seq)
 	assert.Regexp(t, `\sSMany \[\]int32 .xml:"sMany,omitempty" json:"sMany,omitempty"`, seq)
 	assert.Regexp(t, `\sSList string `, seq, "a simple type without a restriction base stays a string")
 
-	assert.Regexp(t, `\sI int32 .xml:"i,omitempty" json:"i,omitempty"`, structBody(t, types, "SeqInlType"))
+	assert.Regexp(t, `\sI int32 .xml:"i" json:"i,omitempty"`, structBody(t, types, "SeqInlType"))
 	assert.Regexp(t, `\sIc int32 `, structBody(t, types, "SeqInlChoiceType"))
 	assert.Regexp(t, `\sIa int32 `, structBody(t, types, "SeqInlAllType"))
 
@@ -232,7 +232,7 @@ func TestGenerator_InlineSimpleType_UsesRestrictionBaseAtEverySite(t *testing.T)
 	assert.Regexp(t, `\sA int32 `, structBody(t, types, "Everything"))
 
 	derived := structBody(t, types, "Derived")
-	assert.Regexp(t, `\sD int32 .xml:"d,omitempty" json:"d,omitempty".`, derived)
+	assert.Regexp(t, `\sD int32 .xml:"d" json:"d,omitempty".`, derived)
 	assert.Regexp(t, `\sDMany \[\]int32 .xml:"dMany,omitempty" json:"dMany,omitempty".`, derived)
 }
 
@@ -304,9 +304,9 @@ func TestGenerator_ExtensionSequenceElements_HaveJSONTags(t *testing.T) {
 	require.NoError(t, err)
 
 	derived := structBody(t, string(formatted), "Derived")
-	assert.Regexp(t, `\sTyped string .xml:"typed,omitempty" json:"typed,omitempty".`, derived)
+	assert.Regexp(t, `\sTyped string .xml:"typed" json:"typed,omitempty".`, derived)
 	assert.Regexp(t, `\sMany \[\]int32 .xml:"many,omitempty" json:"many,omitempty".`, derived)
-	assert.Regexp(t, `\sShared Shared .xml:"Shared,omitempty" json:"Shared,omitempty".`, derived)
+	assert.Regexp(t, `\sShared Shared .xml:"Shared" json:"Shared,omitempty".`, derived)
 	assert.Regexp(t, `\sOpt \*DerivedOptType .xml:"opt,omitempty" json:"opt,omitempty".`, derived)
 	assert.Regexp(t, `\sList \[\]DerivedListType .xml:"list,omitempty" json:"list,omitempty".`, derived)
 }

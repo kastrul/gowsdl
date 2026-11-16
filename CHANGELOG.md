@@ -83,6 +83,31 @@ not compile or did not work before.
 - Every generated `TargetNamespace` method has a doc comment.
 - The library uses the Go 1.26/1.27 idioms suggested by `go fix`. Exported
   signatures are unchanged.
+- **Regenerate.** A required element or attribute of a boolean or numeric
+  type (`xs:boolean`, the integer types, `xs:float`, `xs:double`,
+  `xs:decimal`, and simple types restricting them) is now sent when it holds
+  `false` or `0`. Before, its xml tag had `omitempty`, so a client that set
+  such a field to `false` or `0` sent no element or attribute at all, and the
+  request did not satisfy its own schema. An element counts as required when
+  its own `minOccurs` is absent or at least 1, it occurs at most once, it is
+  not nillable, and no `xs:choice` and no `xs:sequence` or `xs:all` with
+  `minOccurs="0"` encloses it within its type; an attribute when it has
+  `use="required"`. Only the xml tag changes: field types, json tags and
+  decoding are unchanged, and optional elements, choice members and repeated
+  elements are still omitted when zero.
+- **Regenerate.** A required element or attribute of a string type
+  (`xs:string` and the other string-like built-ins, enumerations and other
+  simple types restricting them, unions) now has no `omitempty` either, by the
+  same rule as the boolean and numeric entry above. A field left unset is now
+  sent as an empty element (`<name></name>`) or attribute (`code=""`), where
+  before nothing was sent. That is what the schema asks for, since the element
+  or attribute is required, but it can change how a server answers: an empty
+  value can fail validation for an enumeration, a pattern or a `minLength`,
+  where a lenient server accepted the missing element. Set every required
+  string field before calling. Required `xs:dateTime`, `xs:date` and `xs:time`
+  fields get the same tag, but `soap.XSDDateTime`, `soap.XSDDate` and
+  `soap.XSDTime` still write nothing for a zero value, so for them nothing
+  changes on the wire.
 
 ### Fixed
 

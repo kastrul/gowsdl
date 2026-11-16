@@ -93,7 +93,7 @@ func TestFixStructOmitempty_InvalidSource(t *testing.T) {
 func TestGenerator_EC2_StructFieldsUseOmitzero(t *testing.T) {
 	code := generate(t, filepath.Join("..", "..", "fixtures", "ec2.wsdl"), WithPackage("ec2")).client(t)
 
-	assert.Regexp(t, `LaunchTime\s+soap\.XSDDateTime\s+`+"`"+`xml:"launchTime,omitempty" json:"launchTime,omitzero"`, code)
+	assert.Regexp(t, `LaunchTime\s+soap\.XSDDateTime\s+`+"`"+`xml:"launchTime" json:"launchTime,omitzero"`, code)
 	assert.Regexp(t, `\[\]\w+\s+`+"`"+`xml:"\w+,omitempty" json:"\w+,omitempty"`, code)
 	assert.NotRegexp(t, regexp.MustCompile(`soap\.XSDDateTime\s+`+"`"+`[^`+"`"+`]*json:"[^"]*omitempty`), code)
 }

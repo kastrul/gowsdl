@@ -61,17 +61,7 @@ var undrivableFixtureRequests = map[string]string{}
 // request is known to differ from the expected XML, with the differences and
 // which side is wrong. The test fails when a listed case starts matching, so
 // the table can only shrink.
-var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{
-	"document_literal/complex_document": {
-		diff: `different soap:Body/ProcessOrderRequest/options/giftWrap/giftWrap/text(): expected "false", actual "Leave at front door"
-different soap:Body/ProcessOrderRequest/options/giftWrap: expected "giftWrap", actual "specialInstructions"
-missing soap:Body/ProcessOrderRequest/options/specialInstructions: expected "specialInstructions", actual ""`,
-		diagnosis: "the generator is wrong: ProcessingOptions declares giftWrap with no minOccurs, so it is required " +
-			"(XML Schema 1.0 Part 1 section 3.3.2, minOccurs defaults to 1), and its default=\"false\" only supplies the " +
-			"value of an element that is present and empty. The generated field is a bool with omitempty, so the " +
-			"client omits <giftWrap>false</giftWrap> and sends a request its schema rejects",
-	},
-}
+var knownFixtureRequestMismatches = map[string]struct{ diff, diagnosis string }{}
 
 // fixtureRequestDriver calls one generated operation with values decoded from
 // a JSON file. It exits with status 2 when the values do not decode into the

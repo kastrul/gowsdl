@@ -6,6 +6,8 @@ package parser
 
 import (
 	"encoding/xml"
+	"io"
+	"strings"
 )
 
 const xmlschema11 = "http://www.w3.org/2001/XMLSchema"
@@ -143,6 +145,11 @@ type XSDElement struct {
 	ComplexType *XSDComplexType `xml:"complexType"` // local
 	SimpleType  *XSDSimpleType  `xml:"simpleType"`
 	Groups      []*XSDGroup     `xml:"group"`
+	// InOptionalGroup reports that a model group between the element and
+	// the complex type declaring it lets the element be absent whatever its
+	// own minOccurs: a choice, or a sequence or all with minOccurs="0". The
+	// parser sets it; it is always false for global elements.
+	InOptionalGroup bool `xml:"urn:gowsdl:parser inOptionalGroup,attr"`
 }
 
 // XSDAny represents a Schema element.
@@ -202,7 +209,18 @@ func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 		} `xml:"complexContent"`
 	}{Base: (*Base)(ct)}
 
-	if err := d.DecodeElement(&aux, &start); err != nil {
+	tokens, err := readElementTokens(d, start)
+	if err != nil {
+		return err
+	}
+	markOptionalGroupMembers(tokens)
+	replay := xml.NewTokenDecoder(&tokenReplay{tokens: tokens})
+	first, err := replay.Token()
+	if err != nil {
+		return err
+	}
+	replayStart, _ := first.(xml.StartElement)
+	if err := replay.DecodeElement(&aux, &replayStart); err != nil {
 		return err
 	}
 	ct.XMLName = start.Name
@@ -233,6 +251,96 @@ func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 		g.flattenAll(&ct.Choice)
 	}
 	return nil
+}
+
+// optionalGroupAttr is the attribute markOptionalGroupMembers adds to element
+// declarations, read into XSDElement.InOptionalGroup.
+var optionalGroupAttr = xml.Name{Space: "urn:gowsdl:parser", Local: "inOptionalGroup"}
+
+// readElementTokens returns copies of start and of every token up to and
+// including its matching end element, consuming them from d.
+func readElementTokens(d *xml.Decoder, start xml.StartElement) ([]xml.Token, error) {
+	tokens := []xml.Token{start.Copy()}
+	for depth := 1; depth > 0; {
+		t, err := d.Token()
+		if err != nil {
+			return nil, err
+		}
+		switch t.(type) {
+		case xml.StartElement:
+			depth++
+		case xml.EndElement:
+			depth--
+		}
+		tokens = append(tokens, xml.CopyToken(t))
+	}
+	return tokens, nil
+}
+
+// markOptionalGroupMembers sets optionalGroupAttr on each element declaration
+// in tokens that a model group may leave out: one with a choice, or a sequence
+// or all with minOccurs="0", between it and its nearest enclosing complexType.
+// Any optionalGroupAttr already present is replaced, so the result is the same
+// when tokens of a nested complex type are marked again.
+func markOptionalGroupMembers(tokens []xml.Token) {
+	var stack []xml.StartElement
+	for i, t := range tokens {
+		switch t := t.(type) {
+		case xml.StartElement:
+			if t.Name.Local == "element" {
+				attrs := t.Attr[:0:0]
+				for _, a := range t.Attr {
+					if a.Name != optionalGroupAttr {
+						attrs = append(attrs, a)
+					}
+				}
+				if inOptionalGroup(stack) {
+					attrs = append(attrs, xml.Attr{Name: optionalGroupAttr, Value: "true"})
+				}
+				t.Attr = attrs
+				tokens[i] = t
+			}
+			stack = append(stack, t)
+		case xml.EndElement:
+			stack = stack[:len(stack)-1]
+		}
+	}
+}
+
+// inOptionalGroup reports whether the open elements in stack, read from the
+// innermost up to the nearest complexType, include a choice or a sequence or
+// all with minOccurs="0".
+func inOptionalGroup(stack []xml.StartElement) bool {
+	for i := len(stack) - 1; i >= 0; i-- {
+		switch stack[i].Name.Local {
+		case "complexType":
+			return false
+		case "choice":
+			return true
+		case "sequence", "all":
+			for _, a := range stack[i].Attr {
+				if a.Name.Local == "minOccurs" && a.Name.Space == "" && strings.TrimSpace(a.Value) == "0" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// tokenReplay is an xml.TokenReader returning a recorded token sequence.
+type tokenReplay struct {
+	tokens []xml.Token
+}
+
+// Token returns the next recorded token, or io.EOF after the last one.
+func (r *tokenReplay) Token() (xml.Token, error) {
+	if len(r.tokens) == 0 {
+		return nil, io.EOF
+	}
+	t := r.tokens[0]
+	r.tokens = r.tokens[1:]
+	return t, nil
 }
 
 // flattenSequence appends the group's elements to seq, descending into nested

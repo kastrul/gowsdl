@@ -49,7 +49,7 @@ information at all is an xsd:anyType, as XML Schema defines.
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}}{{elementOmitEmpty .}}" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
 			{{template "InlineComplexField" .}}
@@ -64,7 +64,7 @@ information at all is an xsd:anyType, as XML Schema defines.
 			{{if eq .MaxOccurs "unbounded"}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}}{{elementOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
@@ -84,7 +84,7 @@ base of its restriction, or string when it has none (a list or a union).
 			{{$memberType = printf "[]%s" $memberType}}
 		{{end}}
 	{{end}}
-	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
+	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}}{{elementOmitEmpty $el}}" json:"{{$el.Name}},omitempty"` + "`" + `
 {{end}}
 
 {{define "InlineComplexField"}}
@@ -114,7 +114,7 @@ field of an element of that name.
 		{{if eq .Name "id"}}
 			{{$name = "idAttr"}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makeFieldPublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{attrXMLName .}},attr{{attributeOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 {{end}}
 
