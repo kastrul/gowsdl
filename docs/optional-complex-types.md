@@ -21,7 +21,10 @@ to global elements of complex type, and anonymous (inline) complex types.
 Required elements of complex type stay struct values and are always sent.
 Repeated elements (`maxOccurs="unbounded"` or a number greater than 1, or
 inside a sequence, choice or group reference that may occur more than once)
-are slices, and nillable elements are pointers whether optional or not.
+are slices, and nillable elements are pointers whether optional or not. The
+elements of a repeated sequence of several elements are fields of a struct
+holding one occurrence, and follow these rules within it: see
+[repeated sequences](repeated-sequences.md).
 
 ## Behavior
 

@@ -56,6 +56,17 @@ not compile or did not work before.
 - `parser.XSDElement.InRepeatedGroup` and `parser.XSDGroup.InRepeatedGroup`
   report that a sequence or choice enclosing an element or group reference
   within its type may occur more than once.
+- `parser.XSDElement.Compositors` and `parser.XSDGroup.Compositors` list the
+  sequences, choices and alls (`parser.XSDCompositor`) between an element or
+  group reference and its complex type or group definition, outermost first,
+  each with a document-order ID, its own `minOccurs` and `maxOccurs`, and the
+  name of the group definition whose model group it is.
+- `soap.MarshalModelGroup`, `soap.UnmarshalModelGroups`,
+  `soap.ModelGroupMember` and `soap.GroupMember` write and read the
+  occurrences of a repeated sequence, which generated code holds as a slice
+  of structs with no element around each; see the entry on repeated
+  sequences under Changed. `generator.InlineComplexType.RepeatedSequence`
+  marks the generated type of one occurrence.
 
 ### Changed
 
@@ -219,13 +230,67 @@ not compile or did not work before.
   the bounded `maxOccurs` entry above: assign a slice and read an element of
   it. Such a field is never required, so its xml tag has `omitempty`, and a
   field of complex type that was a pointer or struct value is a slice
-  instead. Decoding keeps every occurrence in any order, and a repeated
-  choice is sent correctly. One limit remains: the members of a repeated
-  sequence are separate slices, so sending several occurrences writes all of
-  one element before the next (`<a/><a/><b/><b/>` rather than
-  `<a/><b/><a/><b/>`), which a validating server rejects; sending one
-  occurrence is correct. In the fixtures, epcis's `EventListType.Extension`
-  becomes `[]EPCISEventListExtensionType`.
+  instead. Decoding keeps every occurrence. In a repeated choice, the
+  elements of each branch are kept in order, but not the order between
+  branches: `<event/><message/><event/>` decodes to two events and one
+  message, and is sent back as event, event, message. A repeated sequence of
+  several elements no longer gets one slice per element: see the next
+  entry. In the fixtures, epcis's `EventListType.Extension` becomes
+  `[]EPCISEventListExtensionType`.
+- **Regenerate.** A repeated `xs:sequence` of several elements (or an
+  `xs:group ref` with `maxOccurs` above 1 to a group whose model group is a
+  sequence) is now one slice field of a generated struct holding one
+  occurrence, instead of a slice per element. With separate slices, sending
+  several occurrences wrote all of one element before the next
+  (`<a/><a/><b/><b/>` rather than `<a/><b/><a/><b/>`), which a validating
+  server rejects, and decoding lost which elements belonged together, so
+  that with an optional member `<a/><b/><a/>` and `<a/><a/><b/>` decoded
+  the same. For
+
+  ```xml
+  <xs:complexType name="Order">
+    <xs:sequence>
+      <xs:element name="id" type="xs:int"/>
+      <xs:sequence maxOccurs="unbounded">
+        <xs:element name="name" type="xs:string"/>
+        <xs:element name="qty" type="xs:int" minOccurs="0"/>
+      </xs:sequence>
+    </xs:sequence>
+  </xs:complexType>
+  ```
+
+  a caller that wrote
+
+  ```go
+  order := Order{Id: 1, Name: []string{"a", "b"}, Qty: []int32{2}}
+  for i, name := range resp.Name { /* which Qty goes with name? */ }
+  ```
+
+  now writes
+
+  ```go
+  order := Order{Id: 1, NameGroup: []OrderNameGroup{{Name: "a", Qty: 2}, {Name: "b"}}}
+  for _, line := range resp.NameGroup { use(line.Name, line.Qty) }
+  ```
+
+  and `<id>1</id><name>a</name><qty>2</qty><name>b</name>` is sent. The
+  field is named after the group, or after the sequence's first element,
+  with `Group` added; its type is the enclosing type's name followed by the
+  field's, made unique among the generated types. Within the occurrence
+  type, each element follows the usual rules relative to one occurrence:
+  required scalars are always sent, optional ones and elements of a choice
+  are omitted when zero, optional elements of complex type are pointers, and
+  repeated elements and nested repeated sequences are slices. When decoding,
+  an element starts a new occurrence when it cannot follow the elements
+  already in the current one: it comes earlier in the sequence, or it is the
+  same element and occurs at most once. The occurrence type has a
+  `MarshalXML` method, and every type holding such a field, or embedding
+  one that does, has an `UnmarshalXML` method. A repeated sequence of one
+  element is still a slice of that element, and repeated choices are
+  unchanged. None of the fixtures declares such a sequence; in the tests,
+  the `Order` type of the repeated model groups test changes from `Name`
+  and `Qty` to `NameGroup []OrderNameGroup`, and from `LineSku` and
+  `LineQty` to `LineGroup []OrderLineGroup`.
 
 ### Fixed
 
@@ -264,8 +329,8 @@ not compile or did not work before.
   optional, so a pointer if of complex type and `omitempty` if a scalar, when
   its reference has `minOccurs="0"` or stands in a choice or optional group,
   or when it is optional within the group. A repeated reference
-  (`maxOccurs` above 1) gives slices, as described in the entry on repeated
-  model groups. This only adds fields: in
+  (`maxOccurs` above 1) gives slices, as described in the entries on
+  repeated model groups and repeated sequences. This only adds fields: in
   the fixtures, ten ec2 `Describe*AttributeType` and `Reset*AttributeType`
   requests gain the choice of attribute to describe or reset (37 fields, all
   optional pointers), and epcis's `Scope` gains `Type`, `InstanceIdentifier`
