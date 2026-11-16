@@ -5,10 +5,13 @@
 package generator
 
 import (
+	"encoding/xml"
 	"strings"
 	"testing"
 
+	"github.com/kastrul/gowsdl/pkg/parser"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // groupRefsWSDL refers to named model groups from a global element's
@@ -320,4 +323,41 @@ func TestGenerator_GroupRefs_TypePruning(t *testing.T) {
 	for _, name := range []string{"Card", "Address", "Node", "CustomerExtraType"} {
 		assert.Contains(t, " "+types+" ", " "+name+" ")
 	}
+}
+
+func TestExpandGroupRefs_ComposesCompositors(t *testing.T) {
+	const src = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:g" targetNamespace="urn:g">
+  <xs:group name="Inner"><xs:sequence><xs:element name="i"/></xs:sequence></xs:group>
+  <xs:group name="Pair">
+    <xs:sequence>
+      <xs:element name="x"/>
+      <xs:group ref="tns:Inner" maxOccurs="2"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:element name="id"/>
+      <xs:group ref="tns:Pair" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice><xs:group ref="tns:Pair"/></xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`
+	var s parser.XSDSchema
+	require.NoError(t, xml.Unmarshal([]byte(src), &s))
+	expandGroupRefs([]*parser.XSDSchema{&s})
+
+	ct := s.ComplexTypes[0]
+	var got []string
+	for _, el := range contentElements(ct.Sequence, ct.Choice, ct.SequenceChoice) {
+		got = append(got, el.Name+" "+el.Compositors.String())
+	}
+	assert.Equal(t, []string{
+		"id sequence:1::",
+		"x sequence:1:: sequence:3:0:unbounded",
+		"i sequence:1:: sequence:3:0:unbounded sequence:4::2",
+		"x sequence:1:: choice:2:: sequence:5::",
+		"i sequence:1:: choice:2:: sequence:5:: sequence:6::2",
+	}, got, "each reference gets its own IDs, and the definition's model group takes its occurrence")
+	assert.Equal(t, "Pair", contentElements(ct.Sequence)[1].Compositors[1].Group)
+	assert.Equal(t, "Inner", contentElements(ct.Sequence)[2].Compositors[2].Group)
 }

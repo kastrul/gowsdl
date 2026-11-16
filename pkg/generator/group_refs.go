@@ -98,13 +98,16 @@ func (e *groupExpander) expand(refs []*parser.XSDGroup, own ...[]*parser.XSDElem
 		all = append(all, particle{pos: el.Position, el: el})
 	}
 	var added []*parser.XSDElement
+	nextID := maxCompositorID(refs, own) + 1
 	for _, ref := range refs {
 		optional := particleOptional(ref.MinOccurs, ref.InOptionalGroup)
 		repeated := ref.InRepeatedGroup || maxOccursRepeats(ref.MaxOccurs)
+		ids := make(map[int]int)
 		for i, member := range e.groupElements(ref) {
 			c := copyElement(member)
 			c.InOptionalGroup = c.InOptionalGroup || optional
 			c.InRepeatedGroup = c.InRepeatedGroup || repeated
+			c.Compositors = referencedCompositors(ref, member.Compositors, ids, &nextID)
 			added = append(added, c)
 			all = append(all, particle{pos: ref.Position, sub: i + 1, el: c})
 		}
@@ -120,6 +123,58 @@ func (e *groupExpander) expand(refs []*parser.XSDGroup, own ...[]*parser.XSDElem
 		p.el.Position = i + 1
 	}
 	return added
+}
+
+// referencedCompositors returns the compositors of a copy of a member of the
+// group ref names: those of the reference, then those of the member within
+// the group definition. The outermost of the latter, the definition's own
+// model group, takes the reference's minOccurs and maxOccurs when they make
+// it optional or repeated, as the reference stands for the model group. The
+// member's compositors get IDs unused in the reference's type or
+// definition: ids maps the definition's IDs, the same for every member of
+// one reference, to new ones taken from next.
+func referencedCompositors(ref *parser.XSDGroup, member parser.XSDCompositors, ids map[int]int, next *int) parser.XSDCompositors {
+	out := make(parser.XSDCompositors, 0, len(ref.Compositors)+len(member))
+	out = append(out, ref.Compositors...)
+	for i, c := range member {
+		if i == 0 {
+			if particleOptional(ref.MinOccurs, false) {
+				c.MinOccurs = "0"
+			}
+			if maxOccursRepeats(ref.MaxOccurs) {
+				c.MaxOccurs = ref.MaxOccurs
+			}
+		}
+		id, ok := ids[c.ID]
+		if !ok {
+			id = *next
+			*next++
+			ids[c.ID] = id
+		}
+		c.ID = id
+		out = append(out, c)
+	}
+	return out
+}
+
+// maxCompositorID returns the largest compositor ID used by refs and by the
+// elements of lists.
+func maxCompositorID(refs []*parser.XSDGroup, lists [][]*parser.XSDElement) int {
+	highest := 0
+	note := func(path parser.XSDCompositors) {
+		for _, c := range path {
+			highest = max(highest, c.ID)
+		}
+	}
+	for _, ref := range refs {
+		note(ref.Compositors)
+	}
+	for _, list := range lists {
+		for _, el := range list {
+			note(el.Compositors)
+		}
+	}
+	return highest
 }
 
 // groupElements returns the elements of the group definition ref names, the

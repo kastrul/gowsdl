@@ -167,6 +167,12 @@ type XSDElement struct {
 	// occur several times in one instance whatever its own maxOccurs. The
 	// parser sets it; it is always false for global elements.
 	InRepeatedGroup bool `xml:"urn:gowsdl:parser inRepeatedGroup,attr"`
+	// Compositors lists the sequences, choices and alls between the
+	// element and the complex type or group definition declaring it,
+	// outermost first, so that the elements a repeated sequence holds can be
+	// told apart from those around it. The parser sets it; it is empty for
+	// global elements.
+	Compositors XSDCompositors `xml:"urn:gowsdl:parser compositors,attr"`
 	// Position is the 1-based document order of the element's declaration
 	// among the element declarations of the complex type declaring it, so
 	// that its elements can be put in schema order whichever of Sequence,
@@ -329,17 +335,21 @@ func readElementTokens(d *xml.Decoder, start xml.StartElement) ([]xml.Token, err
 // choice, or a sequence or all with minOccurs="0", between it and its nearest
 // enclosing complexType. It sets repeatedGroupAttr on those a model group may
 // repeat: one with a sequence or choice whose maxOccurs is "unbounded" or
-// above 1 in between. Any such attribute already present is replaced, so the
-// result is the same when tokens of a nested complex type are marked again.
+// above 1 in between. It sets compositorsAttr on each to the compositors in
+// between, numbering the compositors in document order. Any such attribute
+// already present is replaced, so the result is the same when tokens of a
+// nested complex type are marked again.
 func markOptionalGroupMembers(tokens []xml.Token) {
 	var stack []xml.StartElement
+	var ids []int
+	compositors := 0
 	for i, t := range tokens {
 		switch t := t.(type) {
 		case xml.StartElement:
 			if t.Name.Local == "element" || isGroupRef(t) {
 				attrs := t.Attr[:0:0]
 				for _, a := range t.Attr {
-					if a.Name != optionalGroupAttr && a.Name != repeatedGroupAttr {
+					if a.Name != optionalGroupAttr && a.Name != repeatedGroupAttr && a.Name != compositorsAttr {
 						attrs = append(attrs, a)
 					}
 				}
@@ -349,12 +359,23 @@ func markOptionalGroupMembers(tokens []xml.Token) {
 				if inRepeatedGroup(stack) {
 					attrs = append(attrs, xml.Attr{Name: repeatedGroupAttr, Value: "true"})
 				}
+				if path := compositorPath(stack, ids); len(path) > 0 {
+					attrs = append(attrs, xml.Attr{Name: compositorsAttr, Value: path.String()})
+				}
 				t.Attr = attrs
 				tokens[i] = t
 			}
+			id := 0
+			switch t.Name.Local {
+			case "sequence", "choice", "all":
+				compositors++
+				id = compositors
+			}
 			stack = append(stack, t)
+			ids = append(ids, id)
 		case xml.EndElement:
 			stack = stack[:len(stack)-1]
+			ids = ids[:len(ids)-1]
 		}
 	}
 }
@@ -483,6 +504,8 @@ func groupRefFromAttrs(attrs []xml.Attr) *XSDGroup {
 			g.InOptionalGroup = strings.TrimSpace(a.Value) == "true"
 		case a.Name == repeatedGroupAttr:
 			g.InRepeatedGroup = strings.TrimSpace(a.Value) == "true"
+		case a.Name == compositorsAttr:
+			_ = g.Compositors.UnmarshalXMLAttr(a)
 		case a.Name == positionAttr:
 			g.Position, _ = strconv.Atoi(a.Value)
 		case a.Name.Space != "":
@@ -578,6 +601,10 @@ type XSDGroup struct {
 	// more than once, so that the group's elements may repeat whatever the
 	// reference's own maxOccurs.
 	InRepeatedGroup bool `xml:"urn:gowsdl:parser inRepeatedGroup,attr"`
+	// Compositors lists, for a group reference, the sequences, choices and
+	// alls between the reference and its complex type or group definition,
+	// outermost first.
+	Compositors XSDCompositors `xml:"urn:gowsdl:parser compositors,attr"`
 	// Position is a group reference's document order among the element
 	// declarations and group references of its complex type or group
 	// definition, comparable with their XSDElement.Position.
@@ -623,7 +650,23 @@ func (g *XSDGroup) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	}
 	sort.SliceStable(g.Elements, func(i, j int) bool { return g.Elements[i].Position < g.Elements[j].Position })
 	g.GroupRefs = collectGroupRefs(tokens, "sequence", "choice", "all")
+	if g.Name != "" {
+		for _, el := range g.Elements {
+			markGroupTop(el.Compositors, g.Name)
+		}
+		for _, ref := range g.GroupRefs {
+			markGroupTop(ref.Compositors, g.Name)
+		}
+	}
 	return nil
+}
+
+// markGroupTop records in path, the compositors of a particle of the group
+// definition name, that the outermost is the definition's model group.
+func markGroupTop(path XSDCompositors, name string) {
+	if len(path) > 0 {
+		path[0].Group = name
+	}
 }
 
 // decodeTokens decodes tokens, the tokens of one element, into v.
