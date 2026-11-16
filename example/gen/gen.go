@@ -23,16 +23,16 @@ type AnyURI string
 type NCName string
 
 type TradePriceType struct {
-	Price float32 `xml:"price,omitempty" json:"price,omitempty"`
+	Price float32 `xml:"price" json:"price,omitempty"`
 }
 
 type TradePriceRequestType struct {
-	TickerSymbol string `xml:"tickerSymbol,omitempty" json:"tickerSymbol,omitempty"`
+	TickerSymbol string `xml:"tickerSymbol" json:"tickerSymbol,omitempty"`
 }
 
 type TradePriceRequest struct {
 	XMLName      xml.Name `xml:"tns:TradePriceRequest"`
-	TickerSymbol string   `xml:"tickerSymbol,omitempty" json:"tickerSymbol,omitempty"`
+	TickerSymbol string   `xml:"tickerSymbol" json:"tickerSymbol,omitempty"`
 }
 
 // TargetNamespace returns the target namespace for SOAP envelope configuration
@@ -42,7 +42,7 @@ func (t TradePriceRequest) TargetNamespace() string {
 
 type TradePrice struct {
 	XMLName xml.Name `xml:"TradePrice"`
-	Price   float32  `xml:"price,omitempty" json:"price,omitempty"`
+	Price   float32  `xml:"price" json:"price,omitempty"`
 }
 
 // TargetNamespace returns the target namespace for SOAP envelope configuration
