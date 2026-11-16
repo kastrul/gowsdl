@@ -129,7 +129,7 @@ func TestGenerator_InlineComplexTypes_AnonymousElement_Compiles(t *testing.T) {
 	assert.Regexp(t, `Note\s+string`, many)
 	assert.Regexp(t, `Extra\s+string\s+`+"`"+`xml:"extra,attr`, many)
 
-	assert.Regexp(t, `Picked\s+HolderPickedType\s`, structBody(t, code, "Holder"))
+	assert.Regexp(t, `Picked\s+\*HolderPickedType\s`, structBody(t, code, "Holder"))
 
 	assertGeneratedCodeBuilds(t, "inline", out)
 }

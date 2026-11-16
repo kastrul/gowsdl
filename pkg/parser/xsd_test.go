@@ -6,6 +6,7 @@ package parser
 
 import (
 	"encoding/xml"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -351,4 +352,74 @@ func TestXSDExtension_ChoiceMembersInOptionalGroup(t *testing.T) {
 	require.NoError(t, xml.Unmarshal([]byte(topChoice), &choice))
 	require.Len(t, choice.ComplexContent.Extension.Choice, 1)
 	assert.True(t, choice.ComplexContent.Extension.Choice[0].InOptionalGroup)
+}
+
+// byPosition returns the names of the elements of lists ordered by Position.
+func byPosition(lists ...[]*XSDElement) []string {
+	var all []*XSDElement
+	for _, list := range lists {
+		all = append(all, list...)
+	}
+	sort.SliceStable(all, func(i, j int) bool { return all[i].Position < all[j].Position })
+	return elementNames(all)
+}
+
+func TestXSDComplexType_PositionIsDocumentOrder(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:sequence>
+    <xs:element name="a"/>
+    <xs:choice><xs:element name="b"/><xs:sequence><xs:element name="c"/></xs:sequence></xs:choice>
+    <xs:sequence><xs:element name="d"/><xs:choice><xs:element name="e"/></xs:choice></xs:sequence>
+    <xs:element name="f">
+      <xs:complexType>
+        <xs:sequence><xs:element name="fA"/><xs:choice><xs:element name="fB"/></xs:choice><xs:element name="fC"/></xs:sequence>
+      </xs:complexType>
+    </xs:element>
+    <xs:element name="g"/>
+  </xs:sequence>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	assert.Equal(t, []string{"a", "f", "g", "d"}, elementNames(ct.Sequence), "Sequence keeps its flattened order")
+	assert.Equal(t, []string{"a", "b", "c", "d", "e", "f", "g"}, byPosition(ct.Sequence, ct.SequenceChoice))
+	for _, el := range append(ct.Sequence, ct.SequenceChoice...) {
+		assert.Positive(t, el.Position, el.Name)
+	}
+
+	var f *XSDElement
+	for _, el := range ct.Sequence {
+		if el.Name == "f" {
+			f = el
+		}
+	}
+	require.NotNil(t, f)
+	assert.Equal(t, []string{"fA", "fB", "fC"}, byPosition(f.ComplexType.Sequence, f.ComplexType.SequenceChoice))
+}
+
+func TestXSDExtension_PositionIsDocumentOrder(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexContent>
+    <xs:extension base="Base">
+      <xs:sequence>
+        <xs:element name="a"/>
+        <xs:choice><xs:element name="b"/></xs:choice>
+        <xs:sequence><xs:element name="c"/></xs:sequence>
+        <xs:element name="d"/>
+      </xs:sequence>
+    </xs:extension>
+  </xs:complexContent>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+	ext := ct.ComplexContent.Extension
+	assert.Equal(t, []string{"a", "b", "c", "d"}, byPosition(ext.Sequence, ext.Choice, ext.SequenceChoice))
+}
+
+func TestXSDSchema_GlobalElementHasNoPosition(t *testing.T) {
+	const src = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="g" type="xs:string"/></xs:schema>`
+	var s XSDSchema
+	require.NoError(t, xml.Unmarshal([]byte(src), &s))
+	require.Len(t, s.Elements, 1)
+	assert.Zero(t, s.Elements[0].Position)
 }

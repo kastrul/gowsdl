@@ -43,6 +43,10 @@ not compile or did not work before.
   an empty reply, such as HTTP 202 Accepted with no body or Content-Type,
   succeeds; a fault or an error status is still reported, and any other
   reply content is ignored.
+- `parser.XSDElement.Position` is the document order of an element
+  declaration among those of the complex type declaring it, so that elements
+  the parser files under different lists (`Sequence`, `Choice`,
+  `SequenceChoice`, `All`) can be put back in schema order.
 
 ### Changed
 
@@ -107,10 +111,111 @@ not compile or did not work before.
   string field before calling. Required `xs:dateTime`, `xs:date` and `xs:time`
   fields get the same tag, but `soap.XSDDateTime`, `soap.XSDDate` and
   `soap.XSDTime` still write nothing for a zero value, so for them nothing
-  changes on the wire.
+  changes on the wire: a required date or time field left unset is still
+  omitted from the request. This is deliberate. A zero `time.Time` is Go's
+  "not set", and sending it would put the year-1 date `0001-01-01T00:00:00Z`
+  in the request, which a server may accept and store, where a missing
+  required element gets a validation fault from a server that checks. Set
+  every required date and time field before calling.
+- **Regenerate.** An optional element of a complex type that occurs at most
+  once is now a pointer field, `*T` instead of `T`, with
+  `xml:"name,omitempty" json:"name,omitempty"`, the form optional inline
+  complex types already had. Optional means what it means for the required
+  scalar entries above: `minOccurs="0"`, a member of an `xs:choice`, or inside
+  an `xs:sequence` or `xs:all` with `minOccurs="0"`. It covers named complex
+  types, `simpleContent` types (a value plus attributes), `ref`s to global
+  elements of complex type, and anonymous types in a choice or optional
+  group. Before, `encoding/xml` could not omit the struct value, so every
+  request sent the element even when the caller never set it, with its
+  required children (`<optAddr><city></city></optAddr>`), and a choice sent
+  every branch. Now a nil field is not sent, and a response that leaves the
+  element out decodes to nil. Required elements of complex type stay struct
+  values and are always sent; repeated, nillable and `xs:anyType` fields are
+  unchanged. This breaks code using such a field in two ways:
+
+  - Assigning it needs a pointer:
+
+    ```go
+    // before
+    req := shop.OrderType{ShippingAddress: shop.Address{City: "Tartu"}}
+    // after
+    req := shop.OrderType{ShippingAddress: &shop.Address{City: "Tartu"}}
+    ```
+
+  - Reading it needs a nil check. A response without the element gave a zero
+    struct before and gives a nil pointer now, so `resp.ShippingAddress.City`
+    panics where it used to read `""`:
+
+    ```go
+    // before
+    city := resp.ShippingAddress.City
+    // after
+    city := ""
+    if resp.ShippingAddress != nil {
+        city = resp.ShippingAddress.City
+    }
+    ```
+- **Regenerate.** Struct fields now follow the schema's document order.
+  Before, the elements of an `xs:sequence` or `xs:choice` nested inside a
+  type's content (its own, a `complexContent` extension's or restriction's,
+  or an inline type's) came after the type's other fields, sequence elements
+  before choice members, wherever they stood in the schema. `encoding/xml`
+  writes fields in declaration order, so such a request sent its elements in
+  an order the `xs:sequence` does not allow, which a validating server
+  rejects. Field names, types and tags are unchanged, and decoding does not
+  depend on field order, but:
+
+  - The request changes on the wire: elements of nested groups are now sent
+    where the schema puts them.
+  - Unkeyed struct literals (`gen.T{"a", 1}`) of a reordered type assign to
+    different fields or stop compiling. Use keyed literals.
+
+  In the fixtures, chromedata's `GenericEquipment`, `TechnicalSpecification`,
+  `VehicleDescriptionRequest` and `VehicleDescriptionRequestType`, and ec2's
+  `AuthorizeSecurityGroupIngressType`, `RevokeSecurityGroupIngressType`,
+  `AssociateAddressType` and `ConversionTaskType` are reordered.
+- **Regenerate.** An element whose `maxOccurs` is a number greater than 1,
+  such as `maxOccurs="3"`, is now a slice field, `[]T`, exactly as one with
+  `maxOccurs="unbounded"` is. Before, it was a single field, so a request
+  could carry only one occurrence and decoding a response with several kept
+  only one. This breaks code that uses the field as a single value:
+
+  ```go
+  // before
+  req.Note = "gift"
+  code := resp.Code
+  // after
+  req.Note = []string{"gift"}
+  var code int32
+  if len(resp.Code) > 0 {
+      code = resp.Code[0]
+  }
+  ```
+
+  The xml tag keeps `omitempty`. A field of complex type that was a struct
+  value now has `json:"name,omitempty"` instead of `json:"name,omitzero"`,
+  and one that was a pointer, because the element was optional or closed a
+  recursive cycle, is a slice instead. Elements with `maxOccurs="0"` or
+  `"1"` are unchanged. `generator.IsOptionalType` now reports false for such
+  an element, as it does for an unbounded one. None of the fixtures declares
+  one.
 
 ### Fixed
 
+- A `soap.XSDDateTime` or `soap.XSDDate` decoded from a response whose text
+  was the instant `0001-01-01T00:00:00Z` (such as `0001-01-01T00:00:00`,
+  `0001-01-01T02:00:00+02:00` or the date `0001-01-01`; .NET sends
+  `DateTime.MinValue` this way) is now written when sent back in a request,
+  in the timezone form it was received in. Before, it decoded without error
+  but was then marshalled as nothing, so echoing a received record dropped the
+  element or attribute, even a required one. Values built with
+  `CreateXsdDateTime` or `CreateXsdDate`, and unset ones, are marshalled
+  exactly as before, a zero `time.Time` still as nothing. No regeneration is
+  needed.
+- Decoding an empty `xsd:time` element or attribute into a `soap.XSDTime`
+  that already held a time now leaves the zero value, as decoding it into a
+  fresh one does. Before, the old timezone flag was kept, so `Location()`
+  returned UTC instead of nil. Nothing changes on the wire.
 - A global element with no type information at all (no `type`, no inline
   type) is now declared as `xsd:anyType`, exactly as if it were declared
   `type="xsd:anyType"`: a defined type over `soap.AnyType`. Before, it was
@@ -130,8 +235,8 @@ not compile or did not work before.
   extension's sequence or choice are now kept too, as they already were for a
   type's own content. Before, all of these got no field, so they could
   neither be sent nor decoded. Choice members keep `omitempty`, so only the
-  branch you set is sent. The fields follow those of the extension's
-  sequence. In the chromedata fixture, `ModelsRequest` gains `DivisionId` and
+  branch you set is sent. The fields stand where their elements do in the
+  schema (see the entry on document order above). In the chromedata fixture, `ModelsRequest` gains `DivisionId` and
   `SubdivisionId`, and `VehicleDescriptionRequest` gains `StyleId`,
   `ModelYear`, `MakeName`, `ModelName`, `Vin` and `ReducingStyleId`.
 - **Regenerate.** A WSDL 1.1 port type bound only with SOAP 1.2 now gets a

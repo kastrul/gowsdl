@@ -180,7 +180,9 @@ func FindInlineType(inlineTypes map[string]*InlineComplexType, parentName, eleme
 	return "", false
 }
 
-// IsOptionalType checks if the type should use a pointer
+// IsOptionalType checks if the type should use a pointer: minOccurs is 0
+// and the element occurs at most once. A repeated element, with maxOccurs
+// "unbounded" or a number greater than 1, is a slice instead.
 func IsOptionalType(minOccurs string, maxOccurs string) bool {
-	return minOccurs == "0" && maxOccurs != "unbounded"
+	return minOccurs == "0" && !maxOccursRepeats(maxOccurs)
 }

@@ -231,7 +231,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return nil, err
 	}
 
-	return fixStructOmitempty(breakRecursiveStructs(dedupeStructFields(code))), nil
+	return fixStructOmitempty(unwrapOptionalPointers(breakRecursiveStructs(dedupeStructFields(code)))), nil
 }
 
 // filterSlice returns the elements of items for which keep returns true.

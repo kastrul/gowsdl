@@ -29,11 +29,11 @@ type ResponseStatus struct {
 
 type ResponseStatusStatusType struct {
 	Value string `xml:",chardata" json:"value"`
-	Code  string `xml:"code,attr,omitempty" json:"code,omitempty"`
+	Code  string `xml:"code,attr" json:"code,omitempty"`
 }
 
 type GetInfoType struct {
-	Id string `xml:"Id,omitempty" json:"Id,omitempty"`
+	Id string `xml:"Id" json:"Id,omitempty"`
 }
 
 type GetInfoResponseType struct {
@@ -42,7 +42,7 @@ type GetInfoResponseType struct {
 
 type GetInfo struct {
 	XMLName xml.Name `xml:"http://www.mnb.hu/webservices/ GetInfo"`
-	Id      string   `xml:"Id,omitempty" json:"Id,omitempty"`
+	Id      string   `xml:"Id" json:"Id,omitempty"`
 }
 
 type GetInfoResponse struct {

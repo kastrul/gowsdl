@@ -184,7 +184,7 @@ func main() {
 		PartyClass: "COM",
 		PartyCode:  "12345",
 		MemberTag:  []refs.MemberTag{"a", "b"},
-		Represented: refs.RepresentedPartyType{
+		Represented: &refs.RepresentedPartyType{
 			PartyRole: "COM",
 			PartyId:   "70000000",
 		},

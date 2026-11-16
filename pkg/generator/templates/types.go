@@ -35,9 +35,11 @@ const TypesTemplate = `
 {{end}}
 
 {{/*
-ElementFields emits one struct field per XSD element. An element with an inline
-simple type gets the base of its restriction; an element with no type
-information at all is an xsd:anyType, as XML Schema defines.
+ElementFields emits one struct field per XSD element, in the order given:
+callers pass a content model's elements through contentElements, which puts
+them in schema document order. An element with an inline simple type gets the
+base of its restriction; an element with no type information at all is an
+xsd:anyType, as XML Schema defines.
 */}}
 {{define "ElementFields"}}
 	{{range .}}
@@ -46,10 +48,10 @@ information at all is an xsd:anyType, as XML Schema defines.
 			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
 			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
+			{{if elementRepeated .}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{refXMLName .}},omitempty" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{refXMLName .}}{{elementOmitEmpty .}}" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+				{{$memberName}} {{elementFieldType . $memberType}} ` + "`" + `xml:"{{refXMLName .}}{{elementOmitEmpty .}}" json:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
 			{{end}}
 		{{else if .ComplexType}}
 			{{template "InlineComplexField" .}}
@@ -61,10 +63,10 @@ information at all is an xsd:anyType, as XML Schema defines.
 				{{$typeName = .Type | removeNamespacePrefix}}
 			{{end}}
 			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
+			{{if elementRepeated .}}
 				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}}{{elementOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
+				{{$memberName}} {{elementFieldType . $memberType}} ` + "`" + `xml:"{{.Name}}{{elementOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
@@ -80,23 +82,25 @@ base of its restriction, or string when it has none (a list or a union).
 	{{$memberType := "string"}}
 	{{if $el.SimpleType.Restriction.Base}}
 		{{$memberType = toGoType ($el.SimpleType.Restriction.Base | removeNamespacePrefix) $el.Nillable}}
-		{{if eq $el.MaxOccurs "unbounded"}}
+		{{if elementRepeated $el}}
 			{{$memberType = printf "[]%s" $memberType}}
 		{{end}}
 	{{end}}
 	{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$el.Name}}{{elementOmitEmpty $el}}" json:"{{$el.Name}},omitempty"` + "`" + `
 {{end}}
 
+{{/*
+InlineComplexField emits the field of an element with an anonymous complex
+type: a slice when it repeats, otherwise the type elementFieldType gives.
+*/}}
 {{define "InlineComplexField"}}
 	{{$el := .}}
 	{{$memberName := $el.Name | replaceReservedWords | makeFieldPublic}}
 	{{$inlineTypeName := inlineTypeName $el}}
-	{{if eq $el.MaxOccurs "unbounded"}}
+	{{if elementRepeated $el}}
 		{{$memberName}} []{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
-	{{else if eq $el.MinOccurs "0"}}
-		{{$memberName}} *{{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 	{{else}}
-		{{$memberName}} {{$inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
+		{{$memberName}} {{elementFieldType $el $inlineTypeName}} ` + "`" + `xml:"{{$el.Name}},omitempty" json:"{{$el.Name}},omitempty"` + "`" + `
 	{{end}}
 {{end}}
 
@@ -184,16 +188,11 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{$complexType := .}}
 	{{with $complexType.ComplexContent}}
 		{{template "ExtensionBase" .}}
-		{{template "ElementFields" .Extension.Sequence}}
-		{{template "ElementFields" .Extension.Choice}}
-		{{template "ElementFields" .Extension.SequenceChoice}}
+		{{template "ElementFields" (contentElements .Extension.Sequence .Extension.Choice .Extension.SequenceChoice)}}
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 
-	{{template "ElementFields" $complexType.Sequence}}
-	{{template "ElementFields" $complexType.Choice}}
-	{{template "ElementFields" $complexType.SequenceChoice}}
-	{{template "ElementFields" $complexType.All}}
+	{{template "ElementFields" (contentElements $complexType.Sequence $complexType.Choice $complexType.SequenceChoice $complexType.All)}}
 
 	{{template "AttributeFields" $complexType.Attributes}}
 
@@ -206,10 +205,7 @@ and Qualified whether the schema declaring it has elementFormDefault="qualified"
 	{{with .}}
 	{{template "ExtensionBase" .ComplexContent}}
 
-	{{template "ElementFields" .Sequence}}
-	{{template "ElementFields" .Choice}}
-	{{template "ElementFields" .SequenceChoice}}
-	{{template "ElementFields" .All}}
+	{{template "ElementFields" (contentElements .Sequence .Choice .SequenceChoice .All)}}
 
 	{{template "AttributeFields" .Attributes}}
 
@@ -226,9 +222,7 @@ anonymous type of a global element.
 {{define "ComplexTypeFields"}}
 	{{template "ComplexTypeInline" .}}
 	{{with .ComplexContent}}
-		{{template "ElementFields" .Extension.Sequence}}
-		{{template "ElementFields" .Extension.Choice}}
-		{{template "ElementFields" .Extension.SequenceChoice}}
+		{{template "ElementFields" (contentElements .Extension.Sequence .Extension.Choice .Extension.SequenceChoice)}}
 		{{template "AttributeFields" .Extension.Attributes}}
 	{{end}}
 	{{template "SimpleContentFields" .SimpleContent}}

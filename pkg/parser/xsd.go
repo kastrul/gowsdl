@@ -7,6 +7,7 @@ package parser
 import (
 	"encoding/xml"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -150,6 +151,12 @@ type XSDElement struct {
 	// own minOccurs: a choice, or a sequence or all with minOccurs="0". The
 	// parser sets it; it is always false for global elements.
 	InOptionalGroup bool `xml:"urn:gowsdl:parser inOptionalGroup,attr"`
+	// Position is the 1-based document order of the element's declaration
+	// among the element declarations of the complex type declaring it, so
+	// that its elements can be put in schema order whichever of Sequence,
+	// Choice, SequenceChoice and All holds them. The parser sets it; it is 0
+	// for global elements.
+	Position int `xml:"urn:gowsdl:parser position,attr"`
 }
 
 // XSDAny represents a Schema element.
@@ -210,6 +217,7 @@ func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 		return err
 	}
 	markOptionalGroupMembers(tokens)
+	markPositions(tokens)
 	replay := xml.NewTokenDecoder(&tokenReplay{tokens: tokens})
 	first, err := replay.Token()
 	if err != nil {
@@ -320,6 +328,35 @@ func markOptionalGroupMembers(tokens []xml.Token) {
 		case xml.EndElement:
 			stack = stack[:len(stack)-1]
 		}
+	}
+}
+
+// positionAttr is the attribute markPositions adds to element declarations,
+// read into XSDElement.Position.
+var positionAttr = xml.Name{Space: "urn:gowsdl:parser", Local: "position"}
+
+// markPositions sets positionAttr on each element declaration in tokens to
+// its 1-based document order among them, replacing any positionAttr already
+// present. Elements of a nested complex type are numbered along with the
+// rest and renumbered when that type is unmarshalled; either way their order
+// among themselves is their document order.
+func markPositions(tokens []xml.Token) {
+	n := 0
+	for i, t := range tokens {
+		t, ok := t.(xml.StartElement)
+		if !ok || t.Name.Local != "element" {
+			continue
+		}
+		n++
+		attrs := t.Attr[:0:0]
+		for _, a := range t.Attr {
+			if a.Name != positionAttr {
+				attrs = append(attrs, a)
+			}
+		}
+		attrs = append(attrs, xml.Attr{Name: positionAttr, Value: strconv.Itoa(n)})
+		t.Attr = attrs
+		tokens[i] = t
 	}
 }
 

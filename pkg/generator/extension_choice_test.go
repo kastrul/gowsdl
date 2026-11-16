@@ -147,8 +147,8 @@ func TestGenerator_ExtensionChoice_Fields(t *testing.T) {
 	tags := fieldTags(t, code, "ModelsResult")
 	assert.Equal(t, "`xml:\"modelId,omitempty\" json:\"modelId,omitempty\"`", tags["ModelId"])
 	assert.Equal(t, "`xml:\"message,omitempty\" json:\"message,omitempty\"`", tags["Message"])
-	assert.Equal(t, "`xml:\"detail,omitempty\" json:\"detail,omitzero\"`", tags["Detail"])
-	assert.Regexp(t, `\n Detail ModelsResultDetailType `, structBody(t, code, "ModelsResult"))
+	assert.Equal(t, "`xml:\"detail,omitempty\" json:\"detail,omitempty\"`", tags["Detail"])
+	assert.Regexp(t, `\n Detail \*ModelsResultDetailType `, structBody(t, code, "ModelsResult"))
 }
 
 func TestGenerator_ExtensionChoice_InlineComplexTypes(t *testing.T) {
@@ -159,7 +159,7 @@ func TestGenerator_ExtensionChoice_InlineComplexTypes(t *testing.T) {
 
 	assert.Equal(t, []string{"ByName", "ById", "Nested"}, structFieldNames(t, code, "HolderItemType"))
 	assert.Regexp(t, `^ BaseResult\n`, structBody(t, code, "HolderItemType"))
-	assert.Regexp(t, `\n Nested HolderItemTypeNestedType `, structBody(t, code, "HolderItemType"))
+	assert.Regexp(t, `\n Nested \*HolderItemTypeNestedType `, structBody(t, code, "HolderItemType"))
 	assert.Equal(t, []string{"N"}, structFieldNames(t, code, "HolderItemTypeNestedType"))
 	assert.Equal(t, "`xml:\"n\" json:\"n,omitempty\"`", fieldTags(t, code, "HolderItemTypeNestedType")["N"])
 }
