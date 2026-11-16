@@ -197,12 +197,8 @@ func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 	type Base XSDComplexType
 	aux := struct {
 		*Base
-		SequenceSequences       []*xsdModelGroup `xml:"sequence>sequence"`
-		SequenceChoiceSequences []*xsdModelGroup `xml:"sequence>choice>sequence"`
-		SequenceChoiceChoices   []*xsdModelGroup `xml:"sequence>choice>choice"`
-		ChoiceSequences         []*xsdModelGroup `xml:"choice>sequence"`
-		ChoiceChoices           []*xsdModelGroup `xml:"choice>choice"`
-		ComplexContent          *struct {
+		xsdNestedGroups
+		ComplexContent *struct {
 			XMLName     xml.Name       `xml:"complexContent"`
 			Extension   XSDExtension   `xml:"extension"`
 			Restriction *xsdModelGroup `xml:"restriction"`
@@ -241,16 +237,36 @@ func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 		}
 	}
 
-	for _, g := range aux.SequenceSequences {
-		g.flattenSequence(&ct.Sequence, &ct.SequenceChoice)
-	}
-	for _, g := range append(aux.SequenceChoiceSequences, aux.SequenceChoiceChoices...) {
-		g.flattenAll(&ct.SequenceChoice)
-	}
-	for _, g := range append(aux.ChoiceSequences, aux.ChoiceChoices...) {
-		g.flattenAll(&ct.Choice)
-	}
+	aux.flatten(&ct.Sequence, &ct.SequenceChoice, &ct.Choice)
 	return nil
+}
+
+// xsdNestedGroups captures the sequences and choices nested inside the
+// top-level sequence or choice of a complex type or of a complexContent
+// extension, whose elements the struct tags of XSDComplexType and
+// XSDExtension do not reach.
+type xsdNestedGroups struct {
+	SequenceSequences       []*xsdModelGroup `xml:"sequence>sequence"`
+	SequenceChoiceSequences []*xsdModelGroup `xml:"sequence>choice>sequence"`
+	SequenceChoiceChoices   []*xsdModelGroup `xml:"sequence>choice>choice"`
+	ChoiceSequences         []*xsdModelGroup `xml:"choice>sequence"`
+	ChoiceChoices           []*xsdModelGroup `xml:"choice>choice"`
+}
+
+// flatten appends the elements of the nested groups to seq, seqChoice and
+// choice: those of a sequence nested in the top-level sequence to seq, and
+// every element below a choice to seqChoice or choice, by whether that
+// choice is inside the top-level sequence or is the top-level choice.
+func (n *xsdNestedGroups) flatten(seq, seqChoice, choice *[]*XSDElement) {
+	for _, g := range n.SequenceSequences {
+		g.flattenSequence(seq, seqChoice)
+	}
+	for _, g := range append(n.SequenceChoiceSequences, n.SequenceChoiceChoices...) {
+		g.flattenAll(seqChoice)
+	}
+	for _, g := range append(n.ChoiceSequences, n.ChoiceChoices...) {
+		g.flattenAll(choice)
+	}
 }
 
 // optionalGroupAttr is the attribute markOptionalGroupMembers adds to element
@@ -397,6 +413,23 @@ type XSDExtension struct {
 	Sequence       []*XSDElement   `xml:"sequence>element"`
 	Choice         []*XSDElement   `xml:"choice>element"`
 	SequenceChoice []*XSDElement   `xml:"sequence>choice>element"`
+}
+
+// UnmarshalXML implements xml.Unmarshaler for XSDExtension. Elements of
+// sequences and choices nested inside the extension's top-level sequence or
+// choice are flattened into Sequence, SequenceChoice and Choice, as they are
+// for the content of an XSDComplexType.
+func (e *XSDExtension) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	type Base XSDExtension
+	aux := struct {
+		*Base
+		xsdNestedGroups
+	}{Base: (*Base)(e)}
+	if err := d.DecodeElement(&aux, &start); err != nil {
+		return err
+	}
+	aux.flatten(&e.Sequence, &e.SequenceChoice, &e.Choice)
+	return nil
 }
 
 // XSDAttribute represent an element attribute. Simple elements cannot have
