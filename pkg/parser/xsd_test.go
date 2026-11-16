@@ -423,3 +423,209 @@ func TestXSDSchema_GlobalElementHasNoPosition(t *testing.T) {
 	require.Len(t, s.Elements, 1)
 	assert.Zero(t, s.Elements[0].Position)
 }
+
+func TestXSDSchema_GroupDefinitions(t *testing.T) {
+	const src = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:g" targetNamespace="urn:g">
+  <xs:group name="G">
+    <xs:sequence>
+      <xs:element name="a" type="xs:string"/>
+      <xs:choice><xs:element name="b"/><xs:sequence><xs:element name="c"/></xs:sequence></xs:choice>
+      <xs:group ref="tns:H" minOccurs="0" maxOccurs="2"/>
+      <xs:element name="d">
+        <xs:complexType><xs:sequence><xs:group ref="tns:Inner"/></xs:sequence></xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="H"><xs:choice><xs:element name="h"/></xs:choice></xs:group>
+</xs:schema>`
+	var s XSDSchema
+	require.NoError(t, xml.Unmarshal([]byte(src), &s))
+	require.Len(t, s.Groups, 2)
+
+	g := s.Groups[0]
+	assert.Equal(t, "G", g.Name)
+	assert.Equal(t, []string{"a", "d"}, elementNamesOf(g.Sequence), "Sequence is read as before")
+	assert.Equal(t, []string{"a", "b", "c", "d"}, elementNames(g.Elements))
+	optional := map[string]bool{}
+	for _, el := range g.Elements {
+		optional[el.Name] = el.InOptionalGroup
+	}
+	assert.Equal(t, map[string]bool{"a": false, "b": true, "c": true, "d": false}, optional)
+
+	require.Len(t, g.GroupRefs, 1, "the reference inside d's type belongs to that type")
+	ref := g.GroupRefs[0]
+	assert.Equal(t, "tns:H", ref.Ref)
+	assert.Equal(t, "0", ref.MinOccurs)
+	assert.Equal(t, "2", ref.MaxOccurs)
+	assert.False(t, ref.InOptionalGroup)
+	assert.Greater(t, ref.Position, g.Elements[2].Position, "after c")
+	assert.Less(t, ref.Position, g.Elements[3].Position, "before d")
+
+	require.NotNil(t, g.Elements[3].ComplexType)
+	require.Len(t, g.Elements[3].ComplexType.GroupRefs, 1)
+	assert.Equal(t, "tns:Inner", g.Elements[3].ComplexType.GroupRefs[0].Ref)
+
+	assert.Equal(t, []string{"h"}, elementNames(s.Groups[1].Elements))
+	assert.True(t, s.Groups[1].Elements[0].InOptionalGroup)
+}
+
+func TestXSDComplexType_GroupRefs(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:sequence>
+    <xs:element name="a"/>
+    <xs:group ref="tns:First"/>
+    <xs:choice>
+      <xs:group ref="tns:InChoice"/>
+      <xs:element name="b"/>
+    </xs:choice>
+    <xs:sequence minOccurs="0"><xs:group ref="tns:InOptional"/></xs:sequence>
+    <xs:group ref="tns:Optional" minOccurs="0"/>
+    <xs:element name="c">
+      <xs:complexType><xs:sequence><xs:group ref="tns:Nested"/></xs:sequence></xs:complexType>
+    </xs:element>
+  </xs:sequence>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	var refs []string
+	optional := map[string]bool{}
+	for _, r := range ct.GroupRefs {
+		refs = append(refs, r.Ref)
+		optional[r.Ref] = r.InOptionalGroup
+	}
+	assert.Equal(t, []string{"tns:First", "tns:InChoice", "tns:InOptional", "tns:Optional"}, refs)
+	assert.Equal(t, map[string]bool{"tns:First": false, "tns:InChoice": true, "tns:InOptional": true, "tns:Optional": false}, optional)
+	assert.Equal(t, "0", ct.GroupRefs[3].MinOccurs)
+
+	positions := map[string]int{}
+	for _, el := range append(ct.Sequence, ct.SequenceChoice...) {
+		positions[el.Name] = el.Position
+	}
+	for _, r := range ct.GroupRefs {
+		positions[r.Ref] = r.Position
+	}
+	assert.Less(t, positions["a"], positions["tns:First"])
+	assert.Less(t, positions["tns:First"], positions["tns:InChoice"])
+	assert.Less(t, positions["tns:InChoice"], positions["b"])
+	assert.Less(t, positions["tns:Optional"], positions["c"])
+
+	require.Len(t, ct.Sequence, 2)
+	require.Len(t, ct.Sequence[1].ComplexType.GroupRefs, 1)
+	assert.Equal(t, "tns:Nested", ct.Sequence[1].ComplexType.GroupRefs[0].Ref)
+}
+
+func TestXSDExtension_GroupRefs(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexContent>
+    <xs:extension base="Base">
+      <xs:sequence>
+        <xs:element name="a"/>
+        <xs:group ref="tns:G"/>
+        <xs:choice><xs:group ref="tns:H"/></xs:choice>
+      </xs:sequence>
+    </xs:extension>
+  </xs:complexContent>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+	assert.Empty(t, ct.GroupRefs, "the extension's references are its own")
+	ext := ct.ComplexContent.Extension
+	require.Len(t, ext.GroupRefs, 2)
+	assert.Equal(t, "tns:G", ext.GroupRefs[0].Ref)
+	assert.False(t, ext.GroupRefs[0].InOptionalGroup)
+	assert.Equal(t, "tns:H", ext.GroupRefs[1].Ref)
+	assert.True(t, ext.GroupRefs[1].InOptionalGroup)
+	assert.Equal(t, []string{"a"}, elementNames(ext.Sequence))
+	assert.Less(t, ext.Sequence[0].Position, ext.GroupRefs[0].Position)
+}
+
+func TestXSDComplexType_RestrictionGroupRefs(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexContent>
+    <xs:restriction base="xs:anyType">
+      <xs:sequence><xs:group ref="tns:G"/></xs:sequence>
+    </xs:restriction>
+  </xs:complexContent>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+	require.Len(t, ct.GroupRefs, 1)
+	assert.Equal(t, "tns:G", ct.GroupRefs[0].Ref)
+}
+
+// elementNamesOf returns the names of elements.
+func elementNamesOf(elements []XSDElement) []string {
+	names := make([]string, 0, len(elements))
+	for _, el := range elements {
+		names = append(names, el.Name)
+	}
+	return names
+}
+
+func TestXSDComplexType_InRepeatedGroup(t *testing.T) {
+	const src = `<xs:complexType name="T" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:sequence>
+    <xs:element name="once"/>
+    <xs:element name="ownMax" maxOccurs="5"/>
+    <xs:sequence maxOccurs="1"><xs:element name="inSingleSequence"/></xs:sequence>
+    <xs:sequence maxOccurs="unbounded">
+      <xs:element name="inRepeatedSequence"/>
+      <xs:choice><xs:element name="deep"/></xs:choice>
+      <xs:group ref="tns:G"/>
+    </xs:sequence>
+    <xs:choice maxOccurs="3"><xs:element name="inRepeatedChoice"/></xs:choice>
+    <xs:group ref="tns:H"/>
+    <xs:sequence maxOccurs="2">
+      <xs:element name="nested">
+        <xs:complexType><xs:sequence><xs:element name="inNested"/></xs:sequence></xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:sequence>
+</xs:complexType>`
+	var ct XSDComplexType
+	require.NoError(t, xml.Unmarshal([]byte(src), &ct))
+
+	got := map[string]bool{}
+	for _, list := range [][]*XSDElement{ct.Sequence, ct.SequenceChoice, ct.Choice} {
+		for _, el := range list {
+			got[el.Name] = el.InRepeatedGroup
+			if el.ComplexType != nil {
+				for _, inner := range el.ComplexType.Sequence {
+					got[inner.Name] = inner.InRepeatedGroup
+				}
+			}
+		}
+	}
+	assert.Equal(t, map[string]bool{
+		"once":               false,
+		"ownMax":             false,
+		"inSingleSequence":   false,
+		"inRepeatedSequence": true,
+		"deep":               true,
+		"inRepeatedChoice":   true,
+		"nested":             true,
+		"inNested":           false,
+	}, got)
+
+	require.Len(t, ct.GroupRefs, 2)
+	assert.True(t, ct.GroupRefs[0].InRepeatedGroup, "tns:G is in a repeated sequence")
+	assert.False(t, ct.GroupRefs[1].InRepeatedGroup, "tns:H is not")
+}
+
+func TestXSDGroup_InRepeatedGroup(t *testing.T) {
+	const src = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="G">
+    <xs:sequence>
+      <xs:element name="a"/>
+      <xs:choice maxOccurs="unbounded"><xs:element name="b"/></xs:choice>
+    </xs:sequence>
+  </xs:group>
+</xs:schema>`
+	var s XSDSchema
+	require.NoError(t, xml.Unmarshal([]byte(src), &s))
+	require.Len(t, s.Groups, 1)
+	require.Len(t, s.Groups[0].Elements, 2)
+	assert.False(t, s.Groups[0].Elements[0].InRepeatedGroup)
+	assert.True(t, s.Groups[0].Elements[1].InRepeatedGroup)
+}

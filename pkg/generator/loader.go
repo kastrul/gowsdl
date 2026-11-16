@@ -60,6 +60,7 @@ func (g *Generator) unmarshal(ctx context.Context) error {
 	}
 
 	g.resolveSchemaExternals(ctx)
+	expandGroupRefs(g.getSchemas())
 	ResolveAttributeRefs(g.getSchemas())
 	g.refNamespaces = resolveElementRefNamespaces(g.getSchemas(), g.getTargetNamespace())
 	g.attrNamespaces = resolveAttributeRefNamespaces(g.getSchemas(), g.getTargetNamespace())

@@ -7,6 +7,7 @@ package parser
 import (
 	"encoding/xml"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -28,6 +29,9 @@ type XSDSchema struct {
 	Attributes         []*XSDAttribute   `xml:"attribute"`
 	ComplexTypes       []*XSDComplexType `xml:"complexType"` // global
 	SimpleType         []*XSDSimpleType  `xml:"simpleType"`
+	// Groups holds the schema's named model group definitions, xs:group
+	// with a name, which complex types include with xs:group ref.
+	Groups []*XSDGroup `xml:"group"`
 }
 
 // UnmarshalXML implements interface xml.Unmarshaler for XSDSchema.
@@ -107,6 +111,12 @@ Loop:
 					return err
 				}
 				s.SimpleType = append(s.SimpleType, x)
+			case "group":
+				x := new(XSDGroup)
+				if err := d.DecodeElement(x, &t); err != nil {
+					return err
+				}
+				s.Groups = append(s.Groups, x)
 			default:
 				if err := d.Skip(); err != nil {
 					return err
@@ -151,6 +161,12 @@ type XSDElement struct {
 	// own minOccurs: a choice, or a sequence or all with minOccurs="0". The
 	// parser sets it; it is always false for global elements.
 	InOptionalGroup bool `xml:"urn:gowsdl:parser inOptionalGroup,attr"`
+	// InRepeatedGroup reports that a model group between the element and
+	// the complex type declaring it may occur more than once: a sequence or
+	// choice with maxOccurs "unbounded" or above 1. The element may then
+	// occur several times in one instance whatever its own maxOccurs. The
+	// parser sets it; it is always false for global elements.
+	InRepeatedGroup bool `xml:"urn:gowsdl:parser inRepeatedGroup,attr"`
 	// Position is the 1-based document order of the element's declaration
 	// among the element declarations of the complex type declaring it, so
 	// that its elements can be put in schema order whichever of Sequence,
@@ -183,6 +199,12 @@ type XSDComplexType struct {
 	SimpleContent  XSDSimpleContent  `xml:"simpleContent"`
 	Attributes     []*XSDAttribute   `xml:"attribute"`
 	Any            []*XSDAny         `xml:"sequence>any"`
+	// GroupRefs holds the xs:group references in the type's own content
+	// model, at any depth of its sequences, choices and alls and in a
+	// complexContent restriction, in document order. The elements of the
+	// groups they name are not in the lists above. The references of a
+	// complexContent extension are in its own GroupRefs.
+	GroupRefs []*XSDGroup `xml:"-"`
 }
 
 // xsdModelGroup captures a nested sequence or choice so that its elements can
@@ -218,6 +240,7 @@ func (ct *XSDComplexType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 	}
 	markOptionalGroupMembers(tokens)
 	markPositions(tokens)
+	ct.GroupRefs = collectGroupRefs(tokens, "sequence", "choice", "all", "complexContent", "restriction")
 	replay := xml.NewTokenDecoder(&tokenReplay{tokens: tokens})
 	first, err := replay.Token()
 	if err != nil {
@@ -302,24 +325,29 @@ func readElementTokens(d *xml.Decoder, start xml.StartElement) ([]xml.Token, err
 }
 
 // markOptionalGroupMembers sets optionalGroupAttr on each element declaration
-// in tokens that a model group may leave out: one with a choice, or a sequence
-// or all with minOccurs="0", between it and its nearest enclosing complexType.
-// Any optionalGroupAttr already present is replaced, so the result is the same
-// when tokens of a nested complex type are marked again.
+// and group reference in tokens that a model group may leave out: one with a
+// choice, or a sequence or all with minOccurs="0", between it and its nearest
+// enclosing complexType. It sets repeatedGroupAttr on those a model group may
+// repeat: one with a sequence or choice whose maxOccurs is "unbounded" or
+// above 1 in between. Any such attribute already present is replaced, so the
+// result is the same when tokens of a nested complex type are marked again.
 func markOptionalGroupMembers(tokens []xml.Token) {
 	var stack []xml.StartElement
 	for i, t := range tokens {
 		switch t := t.(type) {
 		case xml.StartElement:
-			if t.Name.Local == "element" {
+			if t.Name.Local == "element" || isGroupRef(t) {
 				attrs := t.Attr[:0:0]
 				for _, a := range t.Attr {
-					if a.Name != optionalGroupAttr {
+					if a.Name != optionalGroupAttr && a.Name != repeatedGroupAttr {
 						attrs = append(attrs, a)
 					}
 				}
 				if inOptionalGroup(stack) {
 					attrs = append(attrs, xml.Attr{Name: optionalGroupAttr, Value: "true"})
+				}
+				if inRepeatedGroup(stack) {
+					attrs = append(attrs, xml.Attr{Name: repeatedGroupAttr, Value: "true"})
 				}
 				t.Attr = attrs
 				tokens[i] = t
@@ -331,20 +359,56 @@ func markOptionalGroupMembers(tokens []xml.Token) {
 	}
 }
 
+// repeatedGroupAttr is the attribute markOptionalGroupMembers adds to
+// element declarations and group references inside a repeated model group,
+// read into their InRepeatedGroup.
+var repeatedGroupAttr = xml.Name{Space: "urn:gowsdl:parser", Local: "inRepeatedGroup"}
+
+// inRepeatedGroup reports whether the open elements in stack, read from the
+// innermost up to the nearest complexType, include a sequence or choice that
+// may occur more than once.
+func inRepeatedGroup(stack []xml.StartElement) bool {
+	for i := len(stack) - 1; i >= 0; i-- {
+		switch stack[i].Name.Local {
+		case "complexType":
+			return false
+		case "sequence", "choice":
+			for _, a := range stack[i].Attr {
+				if a.Name.Local == "maxOccurs" && a.Name.Space == "" && maxOccursRepeats(a.Value) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// maxOccursRepeats reports whether maxOccurs is "unbounded" or a number
+// above 1. A value that is neither is taken to repeat.
+func maxOccursRepeats(maxOccurs string) bool {
+	maxOccurs = strings.TrimSpace(maxOccurs)
+	if maxOccurs == "" {
+		return false
+	}
+	n, err := strconv.Atoi(maxOccurs)
+	return err != nil || n > 1
+}
+
 // positionAttr is the attribute markPositions adds to element declarations,
 // read into XSDElement.Position.
 var positionAttr = xml.Name{Space: "urn:gowsdl:parser", Local: "position"}
 
-// markPositions sets positionAttr on each element declaration in tokens to
-// its 1-based document order among them, replacing any positionAttr already
-// present. Elements of a nested complex type are numbered along with the
-// rest and renumbered when that type is unmarshalled; either way their order
-// among themselves is their document order.
+// markPositions sets positionAttr on each element declaration and group
+// reference in tokens to its 1-based document order among them, replacing
+// any positionAttr already present. Particles of a nested complex type are
+// numbered along with the rest and renumbered when that type is
+// unmarshalled; either way their order among themselves is their document
+// order.
 func markPositions(tokens []xml.Token) {
 	n := 0
 	for i, t := range tokens {
 		t, ok := t.(xml.StartElement)
-		if !ok || t.Name.Local != "element" {
+		if !ok || (t.Name.Local != "element" && !isGroupRef(t)) {
 			continue
 		}
 		n++
@@ -358,6 +422,81 @@ func markPositions(tokens []xml.Token) {
 		t.Attr = attrs
 		tokens[i] = t
 	}
+}
+
+// isGroupRef reports whether t starts an xs:group reference.
+func isGroupRef(t xml.StartElement) bool {
+	if t.Name.Local != "group" {
+		return false
+	}
+	for _, a := range t.Attr {
+		if a.Name.Space == "" && a.Name.Local == "ref" {
+			return true
+		}
+	}
+	return false
+}
+
+// collectGroupRefs returns the group references in tokens, the tokens of one
+// element, that are reached from it through elements named in through only,
+// so that references inside a nested element declaration, or in a part of
+// the content model another type records, are left out. The references are
+// read from their attributes, including those markOptionalGroupMembers and
+// markPositions added.
+func collectGroupRefs(tokens []xml.Token, through ...string) []*XSDGroup {
+	pass := make(map[string]bool, len(through))
+	for _, name := range through {
+		pass[name] = true
+	}
+	var refs []*XSDGroup
+	blocked := 0
+	depth := 0
+	for _, t := range tokens {
+		switch t := t.(type) {
+		case xml.StartElement:
+			depth++
+			if depth == 1 {
+				continue
+			}
+			if blocked == 0 && isGroupRef(t) {
+				refs = append(refs, groupRefFromAttrs(t.Attr))
+			}
+			if blocked > 0 || !pass[t.Name.Local] {
+				blocked++
+			}
+		case xml.EndElement:
+			depth--
+			if blocked > 0 {
+				blocked--
+			}
+		}
+	}
+	return refs
+}
+
+// groupRefFromAttrs returns the XSDGroup for a group reference with attrs.
+func groupRefFromAttrs(attrs []xml.Attr) *XSDGroup {
+	g := new(XSDGroup)
+	for _, a := range attrs {
+		switch {
+		case a.Name == optionalGroupAttr:
+			g.InOptionalGroup = strings.TrimSpace(a.Value) == "true"
+		case a.Name == repeatedGroupAttr:
+			g.InRepeatedGroup = strings.TrimSpace(a.Value) == "true"
+		case a.Name == positionAttr:
+			g.Position, _ = strconv.Atoi(a.Value)
+		case a.Name.Space != "":
+		case a.Name.Local == "ref":
+			g.Ref = a.Value
+		case a.Name.Local == "name":
+			g.Name = a.Value
+		case a.Name.Local == "minOccurs":
+			g.MinOccurs = a.Value
+		case a.Name.Local == "maxOccurs":
+			g.MaxOccurs = a.Value
+		}
+	}
+	return g
 }
 
 // inOptionalGroup reports whether the open elements in stack, read from the
@@ -426,6 +565,76 @@ type XSDGroup struct {
 	Sequence []XSDElement `xml:"sequence>element"`
 	Choice   []XSDElement `xml:"choice>element"`
 	All      []XSDElement `xml:"all>element"`
+	// MinOccurs and MaxOccurs are those of a group reference.
+	MinOccurs string `xml:"minOccurs,attr"`
+	MaxOccurs string `xml:"maxOccurs,attr"`
+	// InOptionalGroup reports, for a group reference in a complex type or
+	// in a group definition, that a choice, or a sequence or all with
+	// minOccurs="0", between the reference and the type or definition lets
+	// the group's elements be absent whatever the reference's own minOccurs.
+	InOptionalGroup bool `xml:"urn:gowsdl:parser inOptionalGroup,attr"`
+	// InRepeatedGroup reports, for a group reference, that a sequence or
+	// choice between the reference and its type or definition may occur
+	// more than once, so that the group's elements may repeat whatever the
+	// reference's own maxOccurs.
+	InRepeatedGroup bool `xml:"urn:gowsdl:parser inRepeatedGroup,attr"`
+	// Position is a group reference's document order among the element
+	// declarations and group references of its complex type or group
+	// definition, comparable with their XSDElement.Position.
+	Position int `xml:"urn:gowsdl:parser position,attr"`
+	// Elements holds every element declaration of a group definition's
+	// model group, at any depth of its sequences and choices, in document
+	// order. Their InOptionalGroup and Position are relative to the
+	// definition. Elements of the groups it refers to are not included.
+	Elements []*XSDElement `xml:"-"`
+	// GroupRefs holds the group references in a group definition's model
+	// group, at any depth, in document order.
+	GroupRefs []*XSDGroup `xml:"-"`
+}
+
+// UnmarshalXML implements xml.Unmarshaler for XSDGroup. Besides the fields
+// read from attributes and from the top-level sequence, choice or all, it
+// fills Elements and GroupRefs for a group definition.
+func (g *XSDGroup) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	tokens, err := readElementTokens(d, start)
+	if err != nil {
+		return err
+	}
+	inner := tokens[1 : len(tokens)-1]
+	markOptionalGroupMembers(inner)
+	markPositions(inner)
+
+	type Base XSDGroup
+	if err := decodeTokens(tokens, (*Base)(g)); err != nil {
+		return err
+	}
+	var content struct {
+		Sequences []*xsdModelGroup `xml:"sequence"`
+		Choices   []*xsdModelGroup `xml:"choice"`
+		Alls      []*xsdModelGroup `xml:"all"`
+	}
+	if err := decodeTokens(tokens, &content); err != nil {
+		return err
+	}
+	for _, groups := range [][]*xsdModelGroup{content.Sequences, content.Choices, content.Alls} {
+		for _, mg := range groups {
+			mg.flattenAll(&g.Elements)
+		}
+	}
+	sort.SliceStable(g.Elements, func(i, j int) bool { return g.Elements[i].Position < g.Elements[j].Position })
+	g.GroupRefs = collectGroupRefs(tokens, "sequence", "choice", "all")
+	return nil
+}
+
+// decodeTokens decodes tokens, the tokens of one element, into v.
+func decodeTokens(tokens []xml.Token, v any) error {
+	replay := xml.NewTokenDecoder(&tokenReplay{tokens: append([]xml.Token(nil), tokens...)})
+	first, err := replay.Token()
+	if err != nil {
+		return err
+	}
+	start, _ := first.(xml.StartElement)
+	return replay.DecodeElement(v, &start)
 }
 
 // XSDComplexContent element defines extensions or restrictions on a complex
@@ -450,6 +659,10 @@ type XSDExtension struct {
 	Sequence       []*XSDElement   `xml:"sequence>element"`
 	Choice         []*XSDElement   `xml:"choice>element"`
 	SequenceChoice []*XSDElement   `xml:"sequence>choice>element"`
+	// GroupRefs holds the xs:group references in the extension's content
+	// model, at any depth of its sequences and choices, in document order.
+	// The elements of the groups they name are not in the lists above.
+	GroupRefs []*XSDGroup `xml:"-"`
 }
 
 // UnmarshalXML implements xml.Unmarshaler for XSDExtension. Elements of
@@ -462,10 +675,15 @@ func (e *XSDExtension) UnmarshalXML(d *xml.Decoder, start xml.StartElement) erro
 		*Base
 		xsdNestedGroups
 	}{Base: (*Base)(e)}
-	if err := d.DecodeElement(&aux, &start); err != nil {
+	tokens, err := readElementTokens(d, start)
+	if err != nil {
+		return err
+	}
+	if err := decodeTokens(tokens, &aux); err != nil {
 		return err
 	}
 	aux.flatten(&e.Sequence, &e.SequenceChoice, &e.Choice)
+	e.GroupRefs = collectGroupRefs(tokens, "sequence", "choice", "all")
 	return nil
 }
 
