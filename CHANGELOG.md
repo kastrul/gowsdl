@@ -107,10 +107,29 @@ not compile or did not work before.
   string field before calling. Required `xs:dateTime`, `xs:date` and `xs:time`
   fields get the same tag, but `soap.XSDDateTime`, `soap.XSDDate` and
   `soap.XSDTime` still write nothing for a zero value, so for them nothing
-  changes on the wire.
+  changes on the wire: a required date or time field left unset is still
+  omitted from the request. This is deliberate. A zero `time.Time` is Go's
+  "not set", and sending it would put the year-1 date `0001-01-01T00:00:00Z`
+  in the request, which a server may accept and store, where a missing
+  required element gets a validation fault from a server that checks. Set
+  every required date and time field before calling.
 
 ### Fixed
 
+- A `soap.XSDDateTime` or `soap.XSDDate` decoded from a response whose text
+  was the instant `0001-01-01T00:00:00Z` (such as `0001-01-01T00:00:00`,
+  `0001-01-01T02:00:00+02:00` or the date `0001-01-01`; .NET sends
+  `DateTime.MinValue` this way) is now written when sent back in a request,
+  in the timezone form it was received in. Before, it decoded without error
+  but was then marshalled as nothing, so echoing a received record dropped the
+  element or attribute, even a required one. Values built with
+  `CreateXsdDateTime` or `CreateXsdDate`, and unset ones, are marshalled
+  exactly as before, a zero `time.Time` still as nothing. No regeneration is
+  needed.
+- Decoding an empty `xsd:time` element or attribute into a `soap.XSDTime`
+  that already held a time now leaves the zero value, as decoding it into a
+  fresh one does. Before, the old timezone flag was kept, so `Location()`
+  returned UTC instead of nil. Nothing changes on the wire.
 - A global element with no type information at all (no `type`, no inline
   type) is now declared as `xsd:anyType`, exactly as if it were declared
   `type="xsd:anyType"`: a defined type over `soap.AnyType`. Before, it was
