@@ -128,10 +128,18 @@ func maxOccursRepeats(maxOccurs string) bool {
 // leave el out: its minOccurs is 0, or a choice or an optional sequence or all
 // encloses it.
 func elementOptional(el *parser.XSDElement) bool {
-	if el.InOptionalGroup {
+	return particleOptional(el.MinOccurs, el.InOptionalGroup)
+}
+
+// particleOptional reports whether a particle, an element or a group
+// reference, with the given minOccurs may be left out: its minOccurs is 0,
+// or inOptionalGroup reports that a choice or an optional sequence or all
+// encloses it.
+func particleOptional(minOccurs string, inOptionalGroup bool) bool {
+	if inOptionalGroup {
 		return true
 	}
-	if minOccurs := strings.TrimSpace(el.MinOccurs); minOccurs != "" {
+	if minOccurs = strings.TrimSpace(minOccurs); minOccurs != "" {
 		n, err := strconv.Atoi(minOccurs)
 		return err != nil || n < 1
 	}

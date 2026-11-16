@@ -10,7 +10,11 @@ but empty" can be told apart. An element may be left out when:
 - its own `minOccurs` is `0`,
 - it is a member of an `xs:choice`, or
 - an `xs:sequence` or `xs:all` with `minOccurs="0"` encloses it within its
-  type.
+  type, or
+- it comes from a named model group included with `xs:group ref`, and that
+  reference has `minOccurs="0"` or stands in an `xs:choice` or an optional
+  `xs:sequence` or `xs:all`. The group's own content counts too: a member of
+  a choice in the group is optional wherever the group is used.
 
 This holds for named complex types, complex types with `simpleContent`, `ref`s
 to global elements of complex type, and anonymous (inline) complex types.

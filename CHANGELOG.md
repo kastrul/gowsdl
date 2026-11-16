@@ -47,6 +47,12 @@ not compile or did not work before.
   declaration among those of the complex type declaring it, so that elements
   the parser files under different lists (`Sequence`, `Choice`,
   `SequenceChoice`, `All`) can be put back in schema order.
+- `parser.XSDSchema.Groups` holds a schema's named model group definitions
+  (`xs:group name`). `parser.XSDComplexType.GroupRefs` and
+  `parser.XSDExtension.GroupRefs` hold the `xs:group ref`s in a type's or an
+  extension's content model. `parser.XSDGroup` gains `MinOccurs`,
+  `MaxOccurs`, `InOptionalGroup` and `Position` for a reference, and
+  `Elements` and `GroupRefs` for a definition's content at any depth.
 
 ### Changed
 
@@ -228,6 +234,20 @@ not compile or did not work before.
   were dropped from responses. In the chromedata fixture, 14 request and
   response elements gain their fields, among them `VehicleDescription`,
   `VehicleDescriptionRequest`, `VersionInfo` and `Divisions`.
+- **Regenerate.** The elements of a named model group that a type includes
+  with `xs:group ref` now get struct fields, where the reference stands in
+  the schema, in a type's own content, a `complexContent` extension or
+  restriction, an inline type, or another group. Before, the reference was
+  ignored, so those elements could neither be sent nor decoded. Each field
+  follows the same rules as one declared in place, and an element is
+  optional, so a pointer if of complex type and `omitempty` if a scalar, when
+  its reference has `minOccurs="0"` or stands in a choice or optional group,
+  or when it is optional within the group. A repeated reference
+  (`maxOccurs` above 1) still gives single fields. This only adds fields: in
+  the fixtures, ten ec2 `Describe*AttributeType` and `Reset*AttributeType`
+  requests gain the choice of attribute to describe or reset (37 fields, all
+  optional pointers), and epcis's `Scope` gains `Type`, `InstanceIdentifier`
+  and `Identifier`.
 - **Regenerate.** The elements of an `xs:choice` in a `complexContent`
   extension, whether the choice is the extension's content or stands inside
   its sequence, now get struct fields, and an inline `complexType` among them
