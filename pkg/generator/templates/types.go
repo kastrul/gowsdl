@@ -43,6 +43,9 @@ xsd:anyType, as XML Schema defines.
 */}}
 {{define "ElementFields"}}
 	{{range .}}
+		{{if isRepeatedSequence .}}
+			{{template "RepeatedSequenceField" .}}
+		{{else}}
 		{{$memberName := .Name | replaceReservedWords | makeFieldPublic}}
 		{{if ne .Ref ""}}
 			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makeFieldPublic}}
@@ -69,7 +72,17 @@ xsd:anyType, as XML Schema defines.
 				{{$memberName}} {{elementFieldType . $memberType}} ` + "`" + `xml:"{{.Name}}{{elementOmitEmpty .}}" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
+		{{end}}
 	{{end}}
+{{end}}
+
+{{/*
+RepeatedSequenceField emits the field of a repeated sequence of several
+elements: a slice of the type holding one occurrence. Its xml tag names the
+sequence's first element.
+*/}}
+{{define "RepeatedSequenceField"}}
+	{{.Name | makeFieldPublic}} []{{inlineTypeName .}} ` + "`" + `xml:"{{repeatedSequenceXMLName .}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 {{end}}
 
 {{/*
@@ -258,6 +271,20 @@ anonymous type of a global element.
 {{/* Generate named types for inline complex types */}}
 {{range $key, $inline := .InlineTypes}}
 	{{$type := $inline.GeneratedName}}
+	{{if $inline.RepeatedSequence}}
+		// {{$type}} holds one occurrence of a repeated sequence. Its elements
+		// are written one after another, with no element around them.
+		type {{$type}} struct {
+			{{template "ElementFields" (contentElements $inline.ComplexType.Sequence)}}
+		}
+
+		// MarshalXML implements xml.Marshaler. It writes the elements of the
+		// occurrence with no element of its own.
+		func (o {{$type}}) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+			type plain {{$type}}
+			return soap.MarshalModelGroup(e, plain(o))
+		}
+	{{else}}
 	type {{$type}} struct {
 		{{if $inline.ComplexType.SimpleContent.Extension.Base}}
 			{{template "SimpleContentFields" $inline.ComplexType.SimpleContent}}
@@ -265,6 +292,7 @@ anonymous type of a global element.
 			{{template "ComplexTypeInlineNamed" $inline.ComplexType}}
 		{{end}}
 	}
+	{{end}}
 {{end}}
 
 {{range .Elements}}

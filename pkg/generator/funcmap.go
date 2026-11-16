@@ -49,6 +49,8 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"elementFieldType":         g.elementFieldType,
 		"contentElements":          contentElements,
 		"elementRepeated":          elementRepeated,
+		"isRepeatedSequence":       isRepeatedSequence,
+		"repeatedSequenceXMLName":  g.repeatedSequenceXMLName,
 	}
 }
 

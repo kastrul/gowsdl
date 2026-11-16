@@ -21,6 +21,10 @@ type InlineComplexType struct {
 	ComplexType *parser.XSDComplexType
 	MinOccurs   string
 	MaxOccurs   string
+	// RepeatedSequence reports that the type holds one occurrence of a
+	// repeated sequence, whose elements it writes with no element of its
+	// own.
+	RepeatedSequence bool
 }
 
 // CollectInlineComplexTypes finds all inline complex types in the schema and generates names for them.
@@ -79,13 +83,18 @@ func collectInlineTypes(schemas []*parser.XSDSchema) *inlineTypes {
 // add records the anonymous complex type of el under parentName.
 func (c *inlineTypes) add(parentName string, el *parser.XSDElement, generatedName, scope string) {
 	key := GetInlineTypeKey(parentName, el.Name)
+	if isRepeatedSequence(el) {
+		// No element name holds "#", so the key is never another's.
+		key = GetInlineTypeKey(parentName, "#"+generatedName)
+	}
 	c.byKey[key] = &InlineComplexType{
-		Name:          el.Name,
-		GeneratedName: generatedName,
-		Scope:         scope,
-		ComplexType:   el.ComplexType,
-		MinOccurs:     el.MinOccurs,
-		MaxOccurs:     el.MaxOccurs,
+		Name:             el.Name,
+		GeneratedName:    generatedName,
+		Scope:            scope,
+		ComplexType:      el.ComplexType,
+		MinOccurs:        el.MinOccurs,
+		MaxOccurs:        el.MaxOccurs,
+		RepeatedSequence: isRepeatedSequence(el),
 	}
 	c.keyOf[el.ComplexType] = key
 }
@@ -93,9 +102,19 @@ func (c *inlineTypes) add(parentName string, el *parser.XSDElement, generatedNam
 // collectNested recursively collects the inline complex types nested in ct,
 // whose own Go name or scope is parentTypeName.
 func (c *inlineTypes) collectNested(parentTypeName string, ct *parser.XSDComplexType) {
-	collect := func(elements []*parser.XSDElement) {
+	var collect func(elements []*parser.XSDElement)
+	collect = func(elements []*parser.XSDElement) {
 		for _, el := range elements {
 			if el.ComplexType == nil {
+				continue
+			}
+			if isRepeatedSequence(el) {
+				// The occurrence type is named after the field holding it,
+				// and the types of its elements as if the sequence did not
+				// enclose them.
+				typeName := uniqueTypeName(utils.MakePublic(parentTypeName)+utils.MakeExportedField(el.Name), c.used)
+				c.add(parentTypeName, el, typeName, parentTypeName)
+				collect(contentElements(el.ComplexType.Sequence))
 				continue
 			}
 			typeName := uniqueTypeName(utils.MakePublic(parentTypeName)+utils.MakePublic(el.Name)+"Type", c.used)
