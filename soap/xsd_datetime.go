@@ -20,10 +20,34 @@ const (
 // DateTime struct
 //
 
-// XSDDateTime is a type for representing xsd:datetime in Golang
+// receivedZero records that a value holding Go's zero instant
+// (0001-01-01T00:00:00Z, which is also .NET's DateTime.MinValue) was decoded
+// from a message rather than left unset, and whether its text had a timezone.
+// Such a value is marshalled again; values built with a constructor never set
+// it, so for them the zero instant still means "not set".
+type receivedZero uint8
+
+const (
+	notReceivedZero receivedZero = iota
+	receivedZeroWithTz
+	receivedZeroWithoutTz
+)
+
+// XSDDateTime is a type for representing xsd:datetime in Golang.
+//
+// A value whose time is Go's zero instant (time.Time.IsZero, which includes
+// the zero value of XSDDateTime and anything built by CreateXsdDateTime from a
+// zero time.Time, in any location) is marshalled as nothing at all: no element
+// and no attribute, whatever the field's xml tag says. This holds for required
+// elements too, so a required dateTime field left unset is omitted from the
+// request, and a server that validates will reject it, instead of being sent as
+// the year-1 date 0001-01-01T00:00:00Z. The exception is a value decoded from a
+// message whose text was that instant (such as .NET's DateTime.MinValue): it is
+// sent back as received.
 type XSDDateTime struct {
 	innerTime time.Time
 	hasTz     bool
+	received  receivedZero
 }
 
 // StripTz removes TZ information from the datetime
@@ -62,15 +86,16 @@ func (xdt XSDDateTime) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
 	return attr, nil
 }
 
-// returns string representation and skips "zero" time values. It also checks if nanoseconds and TZ exist.
+// returns string representation and skips "zero" time values that were not
+// received. It also checks if nanoseconds and TZ exist.
 func (xdt XSDDateTime) string() string {
-	if !xdt.innerTime.IsZero() {
+	if !xdt.innerTime.IsZero() || xdt.received != notReceivedZero {
 		dateTimeLayout := time.RFC3339Nano
 		if xdt.innerTime.Nanosecond() == 0 {
 			dateTimeLayout = time.RFC3339
 		}
 		dtString := xdt.innerTime.Format(dateTimeLayout)
-		if !xdt.hasTz {
+		if !xdt.hasTz || xdt.received == receivedZeroWithoutTz {
 			// split off time portion
 			dateAndTime := strings.SplitN(dtString, "T", 2)
 			toks := strings.SplitN(dateAndTime[1], "Z", 2)
@@ -90,14 +115,14 @@ func (xdt *XSDDateTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 	if err != nil {
 		return fmt.Errorf("decoding xsd:dateTime element: %w", err)
 	}
-	xdt.innerTime, xdt.hasTz, err = fromString(content, time.RFC3339Nano)
+	xdt.innerTime, xdt.hasTz, xdt.received, err = fromString(content, time.RFC3339Nano)
 	return wrapParse("xsd:dateTime", err)
 }
 
 // UnmarshalXMLAttr implements xml.UnmarshalerAttr on XSDDateTime to use time.RFC3339Nano
 func (xdt *XSDDateTime) UnmarshalXMLAttr(attr xml.Attr) error {
 	var err error
-	xdt.innerTime, xdt.hasTz, err = fromString(attr.Value, time.RFC3339Nano)
+	xdt.innerTime, xdt.hasTz, xdt.received, err = fromString(attr.Value, time.RFC3339Nano)
 	return wrapParse("xsd:dateTime", err)
 }
 
@@ -109,10 +134,13 @@ func wrapParse(xsdType string, err error) error {
 	return nil
 }
 
-func fromString(content string, format string) (time.Time, bool, error) {
+// fromString parses an xsd:dateTime or xsd:date. An empty string gives the
+// zero time with hasTz set, so that ToGoTime returns the zero time.Time. The
+// receivedZero result is set when non-empty text parses to the zero instant.
+func fromString(content string, format string) (time.Time, bool, receivedZero, error) {
 	var t time.Time
 	if content == "" {
-		return t, true, nil
+		return t, true, notReceivedZero, nil
 	}
 	hasTz := false
 	if strings.Contains(content, "T") { // check if we have a time portion
@@ -129,7 +157,9 @@ func fromString(content string, format string) (time.Time, bool, error) {
 			content += "Z"
 		}
 		if content == "0001-01-01T00:00:00Z" {
-			return t, true, nil
+			// hasTz is reported even without a timezone so that ToGoTime
+			// returns the zero time.Time in every local timezone.
+			return t, true, received(hasTz), nil
 		}
 	} else {
 		// we don't see to have a time portion, check timezone
@@ -142,7 +172,17 @@ func fromString(content string, format string) (time.Time, bool, error) {
 		}
 	}
 	t, err := time.Parse(format, content)
-	return t, hasTz, err
+	if err != nil || !t.IsZero() {
+		return t, hasTz, notReceivedZero, err
+	}
+	return t, hasTz, received(hasTz), nil
+}
+
+func received(hasTz bool) receivedZero {
+	if hasTz {
+		return receivedZeroWithTz
+	}
+	return receivedZeroWithoutTz
 }
 
 // CreateXsdDateTime creates an object representing an xsd:dateTime in Golang
@@ -153,10 +193,17 @@ func CreateXsdDateTime(dt time.Time, hasTz bool) XSDDateTime {
 	}
 }
 
-// XSDDate is a type for representing xsd:date in Golang
+// XSDDate is a type for representing xsd:date in Golang.
+//
+// As for XSDDateTime, a value whose time is Go's zero instant (the zero value,
+// or CreateXsdDate with a zero time.Time) is marshalled as nothing at all,
+// whatever the field's xml tag says, so a required date field left unset is
+// omitted from the request instead of being sent as 0001-01-01. A value
+// decoded from a message whose text was that date is sent back as received.
 type XSDDate struct {
 	innerDate time.Time
 	hasTz     bool
+	received  receivedZero
 }
 
 // StripTz removes the TZ information from the date
@@ -194,9 +241,10 @@ func (xd XSDDate) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
 	return attr, nil
 }
 
-// returns string representation and skips "zero" time values
+// returns string representation and skips "zero" time values that were not
+// received
 func (xd XSDDate) string() string {
-	if !xd.innerDate.IsZero() {
+	if !xd.innerDate.IsZero() || xd.received != notReceivedZero {
 		dateString := xd.innerDate.Format(dateLayout) // serialize with TZ
 		if !xd.hasTz {
 			if strings.Contains(dateString, "Z") {
@@ -220,14 +268,14 @@ func (xd *XSDDate) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	if err != nil {
 		return fmt.Errorf("decoding xsd:date element: %w", err)
 	}
-	xd.innerDate, xd.hasTz, err = fromString(content, dateLayout)
+	xd.innerDate, xd.hasTz, xd.received, err = fromString(content, dateLayout)
 	return wrapParse("xsd:date", err)
 }
 
 // UnmarshalXMLAttr implements xml.UnmarshalerAttr on XSDDate to use dateLayout
 func (xd *XSDDate) UnmarshalXMLAttr(attr xml.Attr) error {
 	var err error
-	xd.innerDate, xd.hasTz, err = fromString(attr.Value, dateLayout)
+	xd.innerDate, xd.hasTz, xd.received, err = fromString(attr.Value, dateLayout)
 	return wrapParse("xsd:date", err)
 }
 
@@ -239,7 +287,13 @@ func CreateXsdDate(date time.Time, hasTz bool) XSDDate {
 	}
 }
 
-// XSDTime is a type for representing xsd:time
+// XSDTime is a type for representing xsd:time.
+//
+// Only the zero value of XSDTime (and a value decoded from an empty element or
+// attribute) is marshalled as nothing at all, whatever the field's xml tag
+// says, so a required time field left unset is omitted from the request.
+// Every time of day built with CreateXsdTime or decoded from a message,
+// midnight (00:00:00) included, is marshalled.
 type XSDTime struct {
 	innerTime time.Time
 	hasTz     bool
@@ -303,10 +357,9 @@ func (xt *XSDTime) UnmarshalXMLAttr(attr xml.Attr) error {
 }
 
 func (xt *XSDTime) fromString(content string) error {
-	var t time.Time
 	var err error
 	if content == "" {
-		xt.innerTime = t
+		*xt = XSDTime{}
 		return nil
 	}
 	xt.hasTz = false
